@@ -1,0 +1,11 @@
+### Get mensagens (direto no backend)
+GET http://localhost:4000/messages
+Accept: application/json
+
+###
+
+# Post webhook Twilio (form-urlencoded)
+POST http://localhost:4000/webhook/twilio
+Content-Type: application/x-www-form-urlencoded
+
+From=whatsapp:+5511999999999&To=whatsapp:+14155238886&Body=Mensagem de teste do Twilio
