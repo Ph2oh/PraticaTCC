@@ -1,15 +1,28 @@
 import { useState } from "react";
-import { Search, Plus, Phone, Mail, FileText } from "lucide-react";
+import { Search, Plus, Phone, Mail, FileText, Users } from "lucide-react";
 import { clientes } from "@/data/mockData";
+import { EmptyState } from "@/components/EmptyState";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   const filtered = clientes.filter((c) =>
     c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.telefone.includes(searchTerm) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const toggleSelectItem = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedItems(newSelected);
+  };
 
   return (
     <div className="space-y-6">
@@ -36,10 +49,20 @@ const Clientes = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((cliente) => (
-          <div key={cliente.id} className="rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+          <div
+            key={cliente.id}
+            className={`relative rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${selectedItems.has(cliente.id) ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
+          >
+            <div className="absolute top-4 right-4">
+              <Checkbox
+                checked={selectedItems.has(cliente.id)}
+                onCheckedChange={(c) => toggleSelectItem(cliente.id, !!c)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-card-foreground">{cliente.nome}</h3>
+                <h3 className="font-semibold text-card-foreground pr-8">{cliente.nome}</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">{cliente.id}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
@@ -65,7 +88,22 @@ const Clientes = () => {
       </div>
 
       {filtered.length === 0 && (
-        <div className="py-12 text-center text-muted-foreground text-sm">Nenhum cliente encontrado.</div>
+        <EmptyState
+          icon={Users}
+          title="Nenhum Cliente Encontrado"
+          description={searchTerm ? "Não encontramos nenhum cliente correspondente à sua busca atual." : "Adicione seus primeiros clientes no sistema para vê-los aqui."}
+          action={
+            searchTerm ? (
+              <button onClick={() => setSearchTerm("")} className="text-primary text-sm font-medium hover:underline">
+                Limpar Busca
+              </button>
+            ) : (
+              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                <Plus className="w-4 h-4" /> Novo Cliente
+              </button>
+            )
+          }
+        />
       )}
     </div>
   );

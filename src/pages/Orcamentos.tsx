@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { Search, Filter, Download, Plus } from "lucide-react";
+import { Search, Filter, Download, Plus, LayoutGrid, List, Inbox } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
-import { orcamentos } from "@/data/mockData";
+import KanbanBoard from "@/components/KanbanBoard";
+import { DetalhesDrawer } from "@/components/DetalhesDrawer";
+import { EmptyState } from "@/components/EmptyState";
+import { Checkbox } from "@/components/ui/checkbox";
+import { orcamentos as initialOrcamentos } from "@/data/mockData";
 import type { Status } from "@/components/StatusBadge";
 
 const Orcamentos = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<Status | "todos">("todos");
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+  const [orcamentos, setOrcamentos] = useState(initialOrcamentos);
+  const [selectedOrcamentoId, setSelectedOrcamentoId] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   const filtered = orcamentos.filter((orc) => {
     const matchesSearch =
@@ -16,6 +24,34 @@ const Orcamentos = () => {
     const matchesStatus = filterStatus === "todos" || orc.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const handleStatusChange = (orcamentoId: string, newStatus: Status) => {
+    setOrcamentos((prev) =>
+      prev.map((orc) => (orc.id === orcamentoId ? { ...orc, status: newStatus, dataAtualizado: new Date().toISOString() } : orc))
+    );
+  };
+
+  const selectedOrcamento = orcamentos.find(o => o.id === selectedOrcamentoId) || null;
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(filtered.map(o => o.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const toggleSelectItem = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const isAllSelected = filtered.length > 0 && selectedItems.size === filtered.length;
 
   return (
     <div className="space-y-6">
@@ -29,8 +65,24 @@ const Orcamentos = () => {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* View Toggles & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
+          <button
+            onClick={() => setViewMode("table")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "table" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+          >
+            <List className="w-4 h-4" /> Tabela
+          </button>
+          <button
+            onClick={() => setViewMode("kanban")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "kanban" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+          >
+            <LayoutGrid className="w-4 h-4" /> Kanban
+          </button>
+        </div>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -59,42 +111,87 @@ const Orcamentos = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">ID</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Cliente</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Telefone</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Descrição</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((orc) => (
-                <tr key={orc.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <td className="py-3 px-5 font-mono text-xs text-muted-foreground">{orc.id}</td>
-                  <td className="py-3 px-5 font-medium text-card-foreground">{orc.cliente}</td>
-                  <td className="py-3 px-5 text-muted-foreground">{orc.telefone}</td>
-                  <td className="py-3 px-5 text-muted-foreground truncate max-w-[200px]">{orc.descricao}</td>
-                  <td className="py-3 px-5 font-medium text-card-foreground">
-                    {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </td>
-                  <td className="py-3 px-5"><StatusBadge status={orc.status} /></td>
-                  <td className="py-3 px-5 text-muted-foreground text-xs">{new Date(orc.dataRecebido).toLocaleDateString("pt-BR")}</td>
+      {/* Content Area */}
+      {viewMode === "kanban" ? (
+        <KanbanBoard
+          orcamentos={filtered}
+          onOrcamentoClick={(id) => setSelectedOrcamentoId(id)}
+          onStatusChange={handleStatusChange}
+        />
+      ) : (
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="py-3 px-4 w-[40px]">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={(c) => toggleSelectAll(!!c)}
+                    />
+                  </th>
+                  <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">ID</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Cliente</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Telefone</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Descrição</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left py-3 px-5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Data</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((orc) => (
+                  <tr
+                    key={orc.id}
+                    className={`border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${selectedItems.has(orc.id) ? 'bg-primary/5' : ''}`}
+                  >
+                    <td className="py-3 px-4">
+                      <Checkbox
+                        checked={selectedItems.has(orc.id)}
+                        onCheckedChange={(c) => toggleSelectItem(orc.id, !!c)}
+                      />
+                    </td>
+                    <td
+                      className="py-3 px-2 font-mono text-xs text-muted-foreground cursor-pointer"
+                      onClick={() => setSelectedOrcamentoId(orc.id)}
+                    >{orc.id}</td>
+                    <td
+                      className="py-3 px-5 font-medium text-card-foreground cursor-pointer"
+                      onClick={() => setSelectedOrcamentoId(orc.id)}
+                    >{orc.cliente}</td>
+                    <td className="py-3 px-5 text-muted-foreground">{orc.telefone}</td>
+                    <td className="py-3 px-5 text-muted-foreground truncate max-w-[200px]">{orc.descricao}</td>
+                    <td className="py-3 px-5 font-medium text-card-foreground">
+                      {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </td>
+                    <td className="py-3 px-5 cursor-pointer" onClick={() => setSelectedOrcamentoId(orc.id)}><StatusBadge status={orc.status} /></td>
+                    <td className="py-3 px-5 text-muted-foreground text-xs cursor-pointer" onClick={() => setSelectedOrcamentoId(orc.id)}>{new Date(orc.dataRecebido).toLocaleDateString("pt-BR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filtered.length === 0 && (
+            <EmptyState
+              icon={Inbox}
+              title="Nenhum Orçamento Encontrado"
+              description={searchTerm ? "Tente buscar usando termos ou IDs diferentes." : "Esse é o lugar onde você acompanhará todos os orçamentos solicitados."}
+              action={
+                <button onClick={() => { setSearchTerm(""); setFilterStatus("todos") }} className="text-primary text-sm font-medium hover:underline">
+                  Limpar Filtros
+                </button>
+              }
+            />
+          )}
         </div>
-        {filtered.length === 0 && (
-          <div className="py-12 text-center text-muted-foreground text-sm">Nenhum orçamento encontrado.</div>
-        )}
-      </div>
+      )}
+
+      {/* Slide-over Drawer para Detalhes */}
+      <DetalhesDrawer
+        orcamento={selectedOrcamento}
+        isOpen={selectedOrcamentoId !== null}
+        onClose={() => setSelectedOrcamentoId(null)}
+      />
     </div>
   );
 };
