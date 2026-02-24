@@ -55,7 +55,7 @@ const AppSidebar = () => {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-primary-foreground shadow-sm"
+                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm font-semibold"
                   : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               )}
             >

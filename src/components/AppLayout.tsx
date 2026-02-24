@@ -8,7 +8,7 @@ const AppLayout = () => {
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col">
         {/* Top Header Global */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-8 shrink-0 justify-between">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-card/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/60 lg:px-8 shrink-0 justify-between shadow-sm">
           <div className="flex-1" />
           <GlobalSearch />
         </header>

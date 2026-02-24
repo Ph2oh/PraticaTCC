@@ -3,12 +3,15 @@ import { Search, Plus, Phone, Mail, FileText, Users } from "lucide-react";
 import { clientes } from "@/data/mockData";
 import { EmptyState } from "@/components/EmptyState";
 import { Checkbox } from "@/components/ui/checkbox";
+import { NovoClienteDialog } from "@/components/NovoClienteDialog";
 
 const Clientes = () => {
+  const [clientesList, setClientesList] = useState(clientes);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isNovoClienteOpen, setIsNovoClienteOpen] = useState(false);
 
-  const filtered = clientes.filter((c) =>
+  const filtered = clientesList.filter((c) =>
     c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.telefone.includes(searchTerm) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -31,7 +34,10 @@ const Clientes = () => {
           <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
           <p className="text-sm text-muted-foreground mt-1">Base de clientes cadastrados</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+        <button
+          onClick={() => setIsNovoClienteOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+        >
           <Plus className="w-4 h-4" /> Novo Cliente
         </button>
       </div>
@@ -51,7 +57,7 @@ const Clientes = () => {
         {filtered.map((cliente) => (
           <div
             key={cliente.id}
-            className={`relative rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${selectedItems.has(cliente.id) ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
+            className={`relative rounded-2xl bg-card p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-transparent hover:-translate-y-1 ${selectedItems.has(cliente.id) ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
           >
             <div className="absolute top-4 right-4">
               <Checkbox
@@ -98,13 +104,24 @@ const Clientes = () => {
                 Limpar Busca
               </button>
             ) : (
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <button
+                onClick={() => setIsNovoClienteOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
                 <Plus className="w-4 h-4" /> Novo Cliente
               </button>
             )
           }
         />
       )}
+
+      <NovoClienteDialog
+        open={isNovoClienteOpen}
+        onOpenChange={setIsNovoClienteOpen}
+        onSave={(novoCliente) => {
+          setClientesList([novoCliente, ...clientesList]);
+        }}
+      />
     </div>
   );
 };

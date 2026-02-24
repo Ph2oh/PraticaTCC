@@ -102,9 +102,9 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             <DragDropContext onDragEnd={onDragEnd}>
                 {STATUS_COLUMNS.map((column) => (
                     <div key={column.id} className="min-w-[300px] w-full max-w-[350px] shrink-0 snap-start flex flex-col">
-                        <div className={`mb-3 p-3 rounded-lg border ${column.colorClass} flex items-center justify-between`}>
+                        <div className={`mb-4 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm bg-card`}>
                             <h3 className="font-semibold text-sm text-foreground">{column.label}</h3>
-                            <span className="bg-background px-2 py-0.5 rounded-full text-xs font-medium border text-muted-foreground shadow-sm">
+                            <span className="bg-muted px-2.5 py-0.5 rounded-full text-xs font-semibold text-muted-foreground">
                                 {columns[column.id].length}
                             </span>
                         </div>
@@ -114,7 +114,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                 <div
                                     ref={provided.innerRef}
                                     {...provided.droppableProps}
-                                    className={`flex-1 rounded-xl p-2 transition-colors duration-200 border-2 border-dashed ${snapshot.isDraggingOver ? "bg-muted border-primary/30" : "bg-muted/10 border-transparent"
+                                    className={`flex-1 rounded-2xl p-2 transition-all duration-300 ${snapshot.isDraggingOver ? "bg-muted/40 shadow-inner" : "bg-transparent"
                                         }`}
                                 >
                                     {columns[column.id].map((orc, index) => (
@@ -128,13 +128,13 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                     style={{
                                                         ...provided.draggableProps.style,
                                                     }}
-                                                    className={`group mb-3 cursor-pointer bg-card rounded-xl p-4 shadow-sm border border-border transition-all duration-200 ${snapshot.isDragging
-                                                            ? "shadow-lg scale-[1.02] border-primary/50 rotate-1 ring-1 ring-primary/20"
-                                                            : "hover:shadow-md hover:border-border/80 hover:-translate-y-0.5"
+                                                    className={`group mb-4 cursor-pointer bg-card rounded-2xl p-5 transition-all duration-300 ${snapshot.isDragging
+                                                        ? "shadow-xl scale-105 rotate-2 ring-1 ring-primary/20 z-50"
+                                                        : "shadow-sm hover:shadow-md hover:-translate-y-1 border border-transparent"
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start mb-3">
-                                                        <span className="text-xs font-mono text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+                                                        <span className="text-xs font-mono font-medium text-muted-foreground/80 bg-muted/30 px-2.5 py-1 rounded-lg">
                                                             {orc.id}
                                                         </span>
                                                     </div>
@@ -171,7 +171,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                     {provided.placeholder}
 
                                     {columns[column.id].length === 0 && !snapshot.isDraggingOver && (
-                                        <div className="h-24 flex items-center justify-center border-2 border-dashed border-border/60 rounded-xl text-xs text-muted-foreground/60 m-2">
+                                        <div className="h-24 flex items-center justify-center rounded-2xl bg-card border border-transparent shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] text-xs text-muted-foreground/60 m-2">
                                             Arraste para cá
                                         </div>
                                     )}

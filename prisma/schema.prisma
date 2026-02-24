@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Cliente {
+  id              String   @id @default(uuid())
+  nome            String
+  email           String
+  telefone        String
+  ultimoContato   DateTime @default(now())
+  totalOrcamentos Int      @default(0)
+  
+  // Relations
+  orcamentos      Orcamento[]
+}
+
+model Orcamento {
+  id             String   @id @default(uuid())
+  clienteNome    String
+  telefone       String
+  descricao      String
+  valor          Float
+  status         String   @default("pendente")
+  dataRecebido   DateTime @default(now())
+  dataAtualizado DateTime @updatedAt
+
+  // Foreign key relation
+  clienteId      String?
+  cliente        Cliente? @relation(fields: [clienteId], references: [id])
+}
