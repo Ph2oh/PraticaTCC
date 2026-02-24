@@ -1,7 +1,6 @@
-import { MessageSquare, Shield, Bell, User, Save, Monitor, Moon, Sun } from "lucide-react";
+import { MessageSquare, Shield, Bell, User, Save } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useTheme } from "@/components/theme-provider";
 
 const Configuracoes = () => {
   const { toast } = useToast();
@@ -9,7 +8,6 @@ const Configuracoes = () => {
   const [provider, setProvider] = useState("WhatsApp Cloud API");
   const [token, setToken] = useState("");
   const [webhook, setWebhook] = useState("");
-  const { theme, setTheme } = useTheme();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,50 +77,9 @@ const Configuracoes = () => {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-foreground/10">
-            <Monitor className="w-5 h-5 text-foreground" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-card-foreground">Aparência do Sistema</h3>
-            <p className="text-xs text-muted-foreground">Personalize o tema da interface</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => setTheme("light")}
-            className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "light" ? "border-primary bg-primary/5" : "border-transparent bg-muted hover:bg-muted/80"}`}
-          >
-            <Sun className="w-6 h-6 text-foreground" />
-            <span className="text-sm font-medium">Claro</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTheme("dark")}
-            className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "dark" ? "border-primary bg-primary/5" : "border-transparent bg-muted hover:bg-muted/80"}`}
-          >
-            <Moon className="w-6 h-6 text-foreground" />
-            <span className="text-sm font-medium">Escuro</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTheme("system")}
-            className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "system" ? "border-primary bg-primary/5" : "border-transparent bg-muted hover:bg-muted/80"}`}
-          >
-            <Monitor className="w-6 h-6 text-foreground" />
-            <span className="text-sm font-medium">Sistema</span>
-          </button>
-        </div>
-      </div>
-
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-          <Save className="w-4 h-4" /> {saving ? "Salvando..." : "Salvar Alterações"}
+        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium">
+          <Save className="w-4 h-4" /> {saving ? "Salvando..." : "Salvar"}
         </button>
       </div>
     </form>
