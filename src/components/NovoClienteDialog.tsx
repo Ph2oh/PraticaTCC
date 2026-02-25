@@ -1,40 +1,66 @@
-import { useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useCreateCliente } from "@/hooks/useClientes";
+
+const formSchema = z.object({
+    nome: z.string().min(3, "Informe o nome completo"),
+    email: z.string().email("Informe um e-mail válido").optional().or(z.literal("")),
+    telefone: z.string().min(10, "Informe um telefone válido"),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface NovoClienteDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSave?: (cliente: any) => void;
 }
 
-export function NovoClienteDialog({ open, onOpenChange, onSave }: NovoClienteDialogProps) {
-    const [formData, setFormData] = useState({
-        nome: "",
-        email: "",
-        telefone: "",
+export function NovoClienteDialog({ open, onOpenChange }: NovoClienteDialogProps) {
+    const createMutation = useCreateCliente();
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { errors },
+    } = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            nome: "",
+            email: "",
+            telefone: "",
+        },
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (onSave) {
-            onSave({
-                ...formData,
-                id: `CLI-${Math.floor(Math.random() * 10000)}`,
-                totalOrcamentos: 0,
-                ultimoContato: new Date().toISOString(),
-            });
+    useEffect(() => {
+        if (!open) {
+            reset();
         }
-        // Reset form after save
-        setFormData({ nome: "", email: "", telefone: "" });
-        onOpenChange(false);
+    }, [open, reset]);
+
+    const onSubmit = (values: FormValues) => {
+        createMutation.mutate(
+            {
+                nome: values.nome,
+                email: values.email || "",
+                telefone: values.telefone,
+            },
+            {
+                onSuccess: () => {
+                    reset();
+                    onOpenChange(false);
+                },
+            }
+        );
     };
+
+    const isSubmitting = createMutation.isPending;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,54 +68,62 @@ export function NovoClienteDialog({ open, onOpenChange, onSave }: NovoClienteDia
                 <DialogHeader>
                     <DialogTitle className="text-xl font-semibold">Novo Cliente</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
                     <div className="space-y-2">
-                        <label htmlFor="nome" className="text-sm font-medium text-foreground">
-                            Nome Completo
-                        </label>
+                        <Label htmlFor="nome">Nome Completo</Label>
                         <Input
                             id="nome"
                             placeholder="Ex: João da Silva"
-                            value={formData.nome}
-                            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                            required
+                            {...register("nome")}
                         />
+                        {errors.nome && <p className="text-xs text-destructive">{errors.nome.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <label htmlFor="email" className="text-sm font-medium text-foreground">
-                            E-mail
-                        </label>
+                        <Label htmlFor="email">E-mail</Label>
                         <Input
                             id="email"
                             type="email"
                             placeholder="joao@exemplo.com"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            {...register("email")}
                         />
+                        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <label htmlFor="telefone" className="text-sm font-medium text-foreground">
-                            Telefone
-                        </label>
+                        <Label htmlFor="telefone">Telefone</Label>
                         <Input
                             id="telefone"
                             placeholder="(00) 00000-0000"
-                            value={formData.telefone}
-                            onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                            required
+                            {...register("telefone")}
                         />
+                        {errors.telefone && <p className="text-xs text-destructive">{errors.telefone.message}</p>}
                     </div>
+
+                    {createMutation.error && (
+                        <p className="text-sm text-destructive">
+                            {createMutation.error instanceof Error
+                                ? createMutation.error.message
+                                : "Erro ao criar cliente"}
+                        </p>
+                    )}
+
                     <div className="pt-4 flex justify-end gap-3">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             className="border-transparent bg-muted/50 hover:bg-muted"
+                            disabled={isSubmitting}
                         >
                             Cancelar
                         </Button>
-                        <Button type="submit">
-                            Salvar Cliente
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <span className="inline-flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Salvando...
+                                </span>
+                            ) : (
+                                "Salvar Cliente"
+                            )}
                         </Button>
                     </div>
                 </form>

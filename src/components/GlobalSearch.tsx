@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, FileText, Users, Home, Settings, PieChart, Calculator } from "lucide-react"
+import { Search, FileText, Users, Home, Calculator } from "lucide-react"
 
 import {
     CommandDialog,
@@ -11,11 +11,14 @@ import {
     CommandList,
     CommandSeparator,
 } from "@/components/ui/command"
-import { orcamentos, clientes } from "@/data/mockData"
+import { useOrcamentos } from "@/hooks/useOrcamentos"
+import { useClientes } from "@/hooks/useClientes"
 
 export function GlobalSearch() {
     const [open, setOpen] = React.useState(false)
     const navigate = useNavigate()
+    const { data: orcamentos = [] } = useOrcamentos()
+    const { data: clientes = [] } = useClientes()
 
     React.useEffect(() => {
         const down = (e: KeyboardEvent) => {
@@ -82,7 +85,7 @@ export function GlobalSearch() {
                                 <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
                                 <div className="flex flex-col">
                                     <span>{orc.descricao}</span>
-                                    <span className="text-xs text-muted-foreground">{orc.cliente} • {orc.id}</span>
+                                    <span className="text-xs text-muted-foreground">{orc.cliente?.nome || "Cliente não informado"} • {orc.id}</span>
                                 </div>
                             </CommandItem>
                         ))}

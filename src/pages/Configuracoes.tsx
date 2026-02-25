@@ -1,9 +1,12 @@
-import { MessageSquare, Shield, Bell, User, Save } from "lucide-react";
+import { MessageSquare, User, Save, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
 
 const Configuracoes = () => {
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
   const [provider, setProvider] = useState("WhatsApp Cloud API");
   const [token, setToken] = useState("");
@@ -57,6 +60,37 @@ const Configuracoes = () => {
             <label className="text-sm font-medium text-card-foreground">Webhook URL</label>
             <input type="text" value={webhook} onChange={(e) => setWebhook(e.target.value)} placeholder="https://seu-dominio.com/webhook" className="mt-1 w-full px-4 py-2.5 rounded-lg border border-input bg-background text-sm" />
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            {theme === "dark" ? <Moon className="w-5 h-5 text-primary" /> : <Sun className="w-5 h-5 text-primary" />}
+          </div>
+          <div>
+            <h3 className="font-semibold text-card-foreground">Aparência</h3>
+            <p className="text-xs text-muted-foreground">Escolha o modo claro ou escuro</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant={theme === "light" ? "default" : "outline"}
+            onClick={() => setTheme("light")}
+            className="justify-start"
+          >
+            <Sun className="w-4 h-4" /> Modo claro
+          </Button>
+          <Button
+            type="button"
+            variant={theme === "dark" ? "default" : "outline"}
+            onClick={() => setTheme("dark")}
+            className="justify-start"
+          >
+            <Moon className="w-4 h-4" /> Modo escuro
+          </Button>
         </div>
       </div>
 

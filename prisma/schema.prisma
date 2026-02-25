@@ -24,8 +24,6 @@ model Cliente {
 
 model Orcamento {
   id             String   @id @default(uuid())
-  clienteNome    String
-  telefone       String
   descricao      String
   valor          Float
   status         String   @default("pendente")
@@ -33,6 +31,24 @@ model Orcamento {
   dataAtualizado DateTime @updatedAt
 
   // Foreign key relation
-  clienteId      String?
-  cliente        Cliente? @relation(fields: [clienteId], references: [id])
+  clienteId      String
+  cliente        Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  eventos        OrcamentoEvento[]
+}
+
+model OrcamentoEvento {
+  id             String   @id @default(uuid())
+  orcamentoId    String
+  orcamento      Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  
+  tipo           String   // "criado", "status_alterado", "atualizado"
+  descricao      String
+  statusAntigo   String?  // Anterior status para mudanças
+  statusNovo     String?  // Novo status para mudanças
+  
+  criadoEm       DateTime @default(now())
+  
+  @@index([orcamentoId])
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
     Sheet,
     SheetContent,
@@ -6,9 +7,13 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Orcamento } from "@/data/mockData";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import type { Orcamento } from "@/types";
 import StatusBadge from "./StatusBadge";
-import { Copy, MapPin, MessageSquare, Phone, User } from "lucide-react";
+import type { Status } from "./StatusBadge";
+import { Copy, MapPin, MessageSquare, Phone, User, MessageCircle } from "lucide-react";
+import { useUpdateOrcamento } from "@/hooks/useOrcamentos";
 
 interface DetalhesDrawerProps {
     orcamento: Orcamento | null;
@@ -17,7 +22,26 @@ interface DetalhesDrawerProps {
 }
 
 export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerProps) {
+    const [activeTab, setActiveTab] = useState("detalhes");
+    const updateMutation = useUpdateOrcamento();
+
     if (!orcamento) return null;
+
+    const handleStatusChange = (newStatus: Status) => {
+        updateMutation.mutate({
+            id: orcamento.id,
+            data: { status: newStatus },
+        });
+    };
+
+    const handleOpenWhatsApp = () => {
+        if (orcamento.cliente?.telefone) {
+            const phone = orcamento.cliente.telefone.replace(/\D/g, '');
+            const message = `Olá! Gostaria de falar sobre o orçamento ${orcamento.id}.`;
+            const encoded = encodeURIComponent(message);
+            window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`, '_blank');
+        }
+    };
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -49,7 +73,7 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                     </SheetHeader>
                 </div>
 
-                <Tabs defaultValue="detalhes" className="flex-1 flex flex-col px-6 pt-4">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col px-6 pt-4">
                     <TabsList className="grid w-full grid-cols-3 mb-6">
                         <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
                         <TabsTrigger value="historico">WhatsApp</TabsTrigger>
@@ -69,7 +93,7 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                                         <User className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium">{orcamento.cliente}</p>
+                                        <p className="text-sm font-medium">{orcamento.cliente?.nome || "Cliente não informado"}</p>
                                         <p className="text-xs text-muted-foreground">Cliente Registrado</p>
                                     </div>
                                 </div>
@@ -77,7 +101,7 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                                 <div className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                         <Phone className="w-4 h-4 ml-2" />
-                                        <span>{orcamento.telefone}</span>
+                                        <span>{orcamento.cliente?.telefone || "Telefone não informado"}</span>
                                     </div>
                                     <button className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-muted rounded-md transition-all text-muted-foreground">
                                         <Copy className="w-3.5 h-3.5" />
@@ -105,6 +129,24 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                                 {orcamento.descricao}
                             </p>
                         </div>
+
+                        {/* Status Alterar */}
+                        <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+                            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+                                Alterar Status
+                            </h3>
+                            <Select value={orcamento.status} onValueChange={(value) => handleStatusChange(value as Status)}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Mudar status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pendente">Pendente</SelectItem>
+                                    <SelectItem value="enviado">Enviado</SelectItem>
+                                    <SelectItem value="contratado">Contratado</SelectItem>
+                                    <SelectItem value="recusado">Recusado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="historico" className="flex-1 flex flex-col items-center justify-center min-h-[300px] text-center mt-0 animate-in fade-in-50 space-y-4">
@@ -120,43 +162,65 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                     </TabsContent>
 
                     <TabsContent value="timeline" className="flex-1 mt-0 animate-in fade-in-50 relative pt-4 pb-8 pl-4">
-                        {/* Simple Timeline mockup before implementing the real component */}
-                        <div className="absolute left-[19px] top-6 bottom-4 w-px bg-border"></div>
+                        {orcamento.eventos && orcamento.eventos.length > 0 ? (
+                            <>
+                                <div className="absolute left-[19px] top-6 bottom-4 w-px bg-gradient-to-b from-primary to-muted"></div>
 
-                        <div className="space-y-6">
-                            {/* Event 1 */}
-                            <div className="flex gap-4 relative">
-                                <div className="w-3 h-3 rounded-full bg-primary ring-4 ring-background border-2 border-primary mt-1 relative z-10"></div>
-                                <div className="flex-1 bg-muted/30 p-3 rounded-lg border border-border">
-                                    <p className="text-sm font-medium">Orçamento Criado</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {new Date(orcamento.dataRecebido).toLocaleString('pt-BR')}
-                                    </p>
+                                <div className="space-y-6">
+                                    {orcamento.eventos.map((evento, index) => {
+                                        const isFirst = index === 0;
+                                        const isStatusChange = evento.tipo === 'status_alterado';
+                                        
+                                        return (
+                                            <div key={evento.id} className="flex gap-4 relative">
+                                                <div className={`w-3 h-3 rounded-full ring-4 ring-background border-2 mt-1 relative z-10 ${
+                                                    isFirst ? 'bg-primary border-primary' : isStatusChange ? 'bg-blue-500 border-blue-500' : 'bg-muted border-muted-foreground'
+                                                }`}></div>
+                                                <div className={`flex-1 p-3 rounded-lg border ${
+                                                    isFirst ? 'bg-primary/5 border-primary/20' : isStatusChange ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' : 'bg-muted/30 border-border'
+                                                }`}>
+                                                    <p className="text-sm font-medium">{evento.descricao}</p>
+                                                    {isStatusChange && evento.statusAntigo && evento.statusNovo && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {evento.statusAntigo} → {evento.statusNovo}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        {new Date(evento.criadoEm).toLocaleString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-center py-8">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Nenhum evento registrado</p>
                                 </div>
                             </div>
-
-                            {/* Event 2 */}
-                            <div className="flex gap-4 relative">
-                                <div className="w-3 h-3 rounded-full bg-muted border-2 border-muted-foreground mt-1 relative z-10"></div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-foreground">Status atualizado para {orcamento.status}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {new Date(orcamento.dataAtualizado).toLocaleString('pt-BR')}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </TabsContent>
                 </Tabs>
 
                 {/* Footer actions */}
                 <div className="p-4 border-t bg-muted/20 flex gap-2">
-                    <button className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
-                        Abrir WhatsApp Web
-                    </button>
-                    <button className="px-4 py-2 rounded-lg border bg-background font-medium text-sm hover:bg-muted transition-colors">
-                        Editar
-                    </button>
+                    {activeTab === "historico" && (
+                        <Button 
+                            onClick={handleOpenWhatsApp}
+                            disabled={!orcamento.cliente?.telefone}
+                            className="flex-1 flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                        >
+                            <MessageCircle className="w-4 h-4" />
+                            Abrir WhatsApp Web
+                        </Button>
+                    )}
+                    {activeTab === "detalhes" && (
+                        <button className="px-4 py-2 rounded-lg border bg-background font-medium text-sm hover:bg-muted transition-colors">
+                            Editar
+                        </button>
+                    )}
                 </div>
             </SheetContent>
         </Sheet>
