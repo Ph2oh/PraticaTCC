@@ -1,6 +1,6 @@
 # SGO - Sistema de Gerenciamento de Orçamentos
 
-Uma aplicação full-stack moderna para gerenciar orçamentos com histórico de eventos, visualizações interativas e integração com WhatsApp.
+Uma aplicação full-stack para gerenciar orçamentos com histórico de eventos, visualizações interativas e integração com WhatsApp.
 
 ## Pré-Requisitos
 
@@ -338,12 +338,12 @@ app.post('/api/orcamentos', async (req, res) => {
 - Migrations automáticas
 - Queries type-safe
 
-### 🔄 State Management Inteligente
+### State Management Inteligente
 - React Query cacheando automaticamente
 - Sem Redux ou Zustand complexos
 - Sincronização automática com servidor
 
-### 📦 Componentes Reutilizáveis
+### Componentes Reutilizáveis
 - shadcn/ui (componentes Radix copiadoslocalmente)
 - Totalmente customizáveis via Tailwind
 - Acessibilidade nativa (WCAG)
@@ -353,7 +353,7 @@ app.post('/api/orcamentos', async (req, res) => {
 - Performance otimizada
 - Sem jQuery
 
-### 🕐 Timeline de Eventos
+### Timeline de Eventos
 - Histórico automático de todas operações
 - Rastreia criação, mudanças de status
 - Ordenação cronológica
