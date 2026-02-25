@@ -17,6 +17,7 @@ const navItems = [
   { to: "/orcamentos", icon: FileText, label: "Orçamentos" },
   { to: "/clientes", icon: Users, label: "Clientes" },
   { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
+  { to: "/mensagens", icon: MessageSquare, label: "Mensagens" },
   { to: "/configuracoes", icon: Settings, label: "Configurações" },
 ];
 
