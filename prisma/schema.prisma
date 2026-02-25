@@ -52,3 +52,16 @@ model OrcamentoEvento {
   
   @@index([orcamentoId])
 }
+
+model Configuracao {
+  id               String   @id @default("global") // Só teremos uma linha de config
+  corPrimaria      String   @default("224.3 76.3% 48%") // hsl string padrão
+  tema             String   @default("system")
+  
+  // Templates de WhatsApp
+  templateProposta       String @default("Olá {{cliente}}, tudo bem? ✨\n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
+  templateLembrete       String @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! 😊")
+  templateAgradecimento  String @default("Muito obrigado por fechar conosco, {{cliente}}! 🎉 Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
+  
+  atualizadoEm     DateTime @updatedAt
+}

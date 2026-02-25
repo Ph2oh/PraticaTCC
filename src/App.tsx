@@ -10,8 +10,8 @@ import Orcamentos from "@/pages/Orcamentos";
 import Clientes from "@/pages/Clientes";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
-import Mensagens from "@/pages/Mensagens";
 import NotFound from "./pages/NotFound";
+import { WhatsAppRequestsProvider } from "@/components/WhatsAppRequestsProvider";
 
 const queryClient = new QueryClient();
 
@@ -21,19 +21,20 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/orcamentos" element={<Orcamentos />} />
-              <Route path="/clientes" element={<Clientes />} />
-              <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/mensagens" element={<Mensagens />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <WhatsAppRequestsProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/orcamentos" element={<Orcamentos />} />
+                <Route path="/clientes" element={<Clientes />} />
+                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/configuracoes" element={<Configuracoes />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </WhatsAppRequestsProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>

@@ -17,7 +17,6 @@ const navItems = [
   { to: "/orcamentos", icon: FileText, label: "Orçamentos" },
   { to: "/clientes", icon: Users, label: "Clientes" },
   { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
-  { to: "/mensagens", icon: MessageSquare, label: "Mensagens" },
   { to: "/configuracoes", icon: Settings, label: "Configurações" },
 ];
 
@@ -56,7 +55,7 @@ const AppSidebar = () => {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm font-semibold"
+                  ? "bg-primary/15 text-primary shadow-sm font-semibold"
                   : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               )}
             >

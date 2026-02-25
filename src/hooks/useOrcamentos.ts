@@ -16,6 +16,7 @@ export function useCreateOrcamento() {
     mutationFn: createOrcamento,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
     },
   });
 }
@@ -27,6 +28,7 @@ export function useUpdateOrcamento() {
       updateOrcamento(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
     },
   });
 }
@@ -37,6 +39,7 @@ export function useDeleteOrcamento() {
     mutationFn: deleteOrcamento,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
     },
   });
 }

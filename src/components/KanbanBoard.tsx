@@ -3,7 +3,20 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import type { Orcamento } from "@/types";
 import type { Status } from "@/components/StatusBadge";
 import StatusBadge from "@/components/StatusBadge";
-import { Phone, Calendar, User, DollarSign } from "lucide-react";
+import { Phone, Calendar, User, DollarSign, Copy, Send, Trash2, Clock } from "lucide-react";
+import confetti from "canvas-confetti";
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+    ContextMenuSeparator,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
+} from "@/components/ui/context-menu";
+import { useToast } from "@/hooks/use-toast";
+import { useDeleteOrcamento } from "@/hooks/useOrcamentos";
 
 interface KanbanBoardProps {
     orcamentos: Orcamento[];
@@ -13,26 +26,29 @@ interface KanbanBoardProps {
 
 const STATUS_COLUMNS: { id: Status; label: string; colorClass: string; textColor: string }[] = [
     { id: "pendente", label: "Pendente", colorClass: "border-warning/50 bg-warning/5", textColor: "text-warning" },
-    { id: "enviado", label: "Em Negociação", colorClass: "border-primary/50 bg-primary/5", textColor: "text-primary" },
+    { id: "enviado", label: "Em Negociação", colorClass: "border-blue-500/50 bg-blue-500/5", textColor: "text-blue-500" },
     { id: "contratado", label: "Contratado", colorClass: "border-success/50 bg-success/5", textColor: "text-success" },
     { id: "recusado", label: "Recusado", colorClass: "border-destructive/50 bg-destructive/5", textColor: "text-destructive" },
 ];
 
 const STATUS_CARD_COLORS: Record<Status, string> = {
     pendente: "border-warning/20 bg-warning/5 hover:bg-warning/8",
-    enviado: "border-primary/20 bg-primary/5 hover:bg-primary/8",
+    enviado: "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/8",
     contratado: "border-success/20 bg-success/5 hover:bg-success/8",
     recusado: "border-destructive/20 bg-destructive/5 hover:bg-destructive/8",
 };
 
 const STATUS_AVATAR_COLORS: Record<Status, string> = {
     pendente: "bg-warning/10 text-warning",
-    enviado: "bg-primary/10 text-primary",
+    enviado: "bg-blue-500/10 text-blue-500",
     contratado: "bg-success/10 text-success",
     recusado: "bg-destructive/10 text-destructive",
 };
 
 export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: KanbanBoardProps) => {
+    const { toast } = useToast();
+    const deleteMutation = useDeleteOrcamento();
+
     const [columns, setColumns] = useState<Record<Status, Orcamento[]>>({
         pendente: [],
         enviado: [],
@@ -54,6 +70,16 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             if (newColumns[orc.status]) {
                 newColumns[orc.status].push(orc);
             }
+        });
+
+        // Ordenação cronológica: do mais antigo para o mais novo
+        // Isso ajuda a priorizar os cartões que estão parados na coluna há mais tempo.
+        (Object.keys(newColumns) as Status[]).forEach(status => {
+            newColumns[status].sort((a, b) => {
+                const dateA = new Date(a.dataAtualizado || a.dataRecebido).getTime();
+                const dateB = new Date(b.dataAtualizado || b.dataRecebido).getTime();
+                return dateA - dateB;
+            });
         });
 
         setColumns(newColumns);
@@ -109,6 +135,25 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
         if (onStatusChange) {
             onStatusChange(removido.id, destColumn);
         }
+
+        // Gamificação / Micro-interação: Confete ao Fechar Contrato 🎉
+        if (destColumn === "contratado" && sourceColumn !== "contratado") {
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+            const interval: any = setInterval(function () {
+                const particleCount = 50;
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+            }, 250);
+
+            setTimeout(() => clearInterval(interval), 1000); // Para o confete em 1 segundo
+
+            toast({
+                title: "Novo Contrato Fechado! 🎉",
+                description: `O orçamento de ${removido.cliente?.nome || "Cliente"} foi ganho! Excelente trabalho!`,
+            });
+        }
     };
 
     return (
@@ -135,51 +180,108 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                         {columns[column.id].map((orc, index) => (
                                             <Draggable key={orc.id} draggableId={orc.id} index={index}>
                                                 {(provided, snapshot) => (
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.draggableProps}
-                                                        {...provided.dragHandleProps}
-                                                        onClick={() => onOrcamentoClick(orc.id)}
-                                                        style={{
-                                                            ...provided.draggableProps.style,
-                                                        }}
-                                                        className={`group mb-3 cursor-pointer rounded-xl p-3 sm:p-4 transition-all duration-300 border ${snapshot.isDragging
-                                                            ? "shadow-xl scale-105 rotate-2 ring-1 ring-primary/20 z-50"
-                                                            : "shadow-sm hover:shadow-md hover:-translate-y-1"
-                                                            } ${STATUS_CARD_COLORS[orc.status]}`}
-                                                    >
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <span className="text-xs font-mono font-medium text-muted-foreground/80 bg-muted/30 px-2 py-0.5 rounded-lg flex-shrink-0">
-                                                                {orc.id}
-                                                            </span>
-                                                        </div>
-
-                                                        <p className="font-medium text-card-foreground text-xs sm:text-sm line-clamp-2 mb-2">
-                                                            {orc.descricao}
-                                                        </p>
-
-                                                        <div className="space-y-1.5 text-xs text-muted-foreground">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <User className="w-3 h-3 opacity-70 flex-shrink-0" />
-                                                                <span className="truncate text-xs">{orc.cliente?.nome || "Cliente não informado"}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <DollarSign className="w-3 h-3 opacity-80 flex-shrink-0" />
-                                                                <span className="font-medium text-foreground text-xs">
-                                                                    {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-border/50">
-                                                                <div className="flex items-center gap-1 opacity-60">
-                                                                    <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
-                                                                    <span className="text-xs">{new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' })}</span>
+                                                    <ContextMenu>
+                                                        <ContextMenuTrigger asChild>
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                onClick={() => onOrcamentoClick(orc.id)}
+                                                                style={{
+                                                                    ...provided.draggableProps.style,
+                                                                }}
+                                                                className={`group mb-3 cursor-pointer rounded-xl p-3 sm:p-4 transition-all duration-300 border-l-[4px] border-y border-r ${snapshot.isDragging
+                                                                    ? "shadow-xl scale-105 rotate-2 ring-1 ring-primary/20 z-50 opacity-90"
+                                                                    : "shadow-sm hover:shadow-md hover:-translate-y-1"
+                                                                    } ${STATUS_CARD_COLORS[orc.status]}`}
+                                                            >
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <span className="text-xs font-mono font-medium text-muted-foreground/80 bg-muted/30 px-2 py-0.5 rounded-lg flex-shrink-0">
+                                                                        {orc.id}
+                                                                    </span>
                                                                 </div>
-                                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${STATUS_AVATAR_COLORS[orc.status]}`}>
-                                                                    {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
+
+                                                                <p className="font-medium text-card-foreground text-xs sm:text-sm line-clamp-2 mb-2">
+                                                                    {orc.descricao}
+                                                                </p>
+
+                                                                <div className="space-y-1.5 text-xs text-muted-foreground">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <User className="w-3 h-3 opacity-70 flex-shrink-0" />
+                                                                        <span className="truncate text-xs">{orc.cliente?.nome || "Cliente não informado"}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <DollarSign className="w-3 h-3 opacity-80 flex-shrink-0" />
+                                                                        <span className="font-medium text-foreground text-xs">
+                                                                            {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
+                                                                        {/* Time alert indicator */}
+                                                                        <div className="flex items-center gap-1.5 opacity-70">
+                                                                            <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                                                            <span className="text-[11px] font-medium tracking-tight">
+                                                                                {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' })}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ${STATUS_AVATAR_COLORS[orc.status]}`}>
+                                                                            {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </div>
+                                                        </ContextMenuTrigger>
+                                                        <ContextMenuContent className="w-56">
+                                                            <ContextMenuItem onSelect={() => {
+                                                                navigator.clipboard.writeText(orc.id);
+                                                                toast({ title: "ID Copiado" });
+                                                            }}>
+                                                                <Copy className="w-4 h-4 mr-2" /> Copiar ID
+                                                            </ContextMenuItem>
+
+                                                            <ContextMenuItem
+                                                                disabled={!orc.cliente?.telefone}
+                                                                onSelect={() => {
+                                                                    if (orc.cliente?.telefone) {
+                                                                        const number = orc.cliente.telefone.replace(/\D/g, "");
+                                                                        window.open(`https://wa.me/55${number}`, "_blank");
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Send className="w-4 h-4 mr-2" /> Abrir no WhatsApp
+                                                            </ContextMenuItem>
+
+                                                            <ContextMenuSeparator />
+
+                                                            <ContextMenuSub>
+                                                                <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
+                                                                <ContextMenuSubContent className="w-48">
+                                                                    {STATUS_COLUMNS.map(col => (
+                                                                        <ContextMenuItem
+                                                                            key={col.id}
+                                                                            disabled={orc.status === col.id}
+                                                                            onSelect={() => onStatusChange && onStatusChange(orc.id, col.id)}
+                                                                        >
+                                                                            {col.label}
+                                                                        </ContextMenuItem>
+                                                                    ))}
+                                                                </ContextMenuSubContent>
+                                                            </ContextMenuSub>
+
+                                                            <ContextMenuSeparator />
+
+                                                            <ContextMenuItem
+                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                                onSelect={() => {
+                                                                    if (confirm("Tem certeza que deseja excluir este orçamento?")) {
+                                                                        deleteMutation.mutate(orc.id);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                                                            </ContextMenuItem>
+                                                        </ContextMenuContent>
+                                                    </ContextMenu>
                                                 )}
                                             </Draggable>
                                         ))}

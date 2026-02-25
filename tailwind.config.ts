@@ -14,7 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        heading: ["Outfit", "Inter", "system-ui", "sans-serif"],
       },
       boxShadow: {
         sm: "0 2px 8px rgba(0, 0, 0, 0.04)",

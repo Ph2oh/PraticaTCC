@@ -79,6 +79,7 @@ PraticaTCC/
 | **Formulários** | React Hook Form + Zod | Latest |
 | **Drag & Drop** | @hello-pangea/dnd | 18.x |
 | **Backend** | Express.js | 4.x |
+| **Integração WhatsApp**| whatsapp-web.js / puppeteer | Latest |
 | **Database** | SQLite + Prisma ORM | 5.x |
 | **HTTP Client** | Fetch API | Nativo |
 
@@ -112,6 +113,13 @@ PraticaTCC/
 - Rastreia: criação do orçamento, mudanças de status
 - Marcações cronológicas precisas
 - Visualização em linha do tempo
+
+### Integração com WhatsApp (Novo!)
+- **Comunicação por QR Code:** O sistema se conecta diretamente ao seu número via biblioteca `whatsapp-web.js`.
+- **Fila de Aprovação (Memória):** Quando um cliente envia a palavra "orçamento", o servidor retém a mensagem em memória e gera um **Popup Global Interativo** em qualquer tela do Front-end.
+- **Verificação de Duplicidade:** Ignora automaticamente contatos que já possuam orçamentos pendentes para evitar duplicações.
+- **Gaveta de Comunicação Rápida:** Tela de Detalhes possui atalhos (templates predefinidos) que abrem chamadas nativas do WhatsApp Web com mensagens personalizadas (Propsta, Lembrete, Agradecimento).
+- **Sem Auto-Replies:** Respeitando regras personalizadas, atua apenas de forma passiva através da captura de orçamentos e facilitação de links.
 
 ---
 

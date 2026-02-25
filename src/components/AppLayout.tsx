@@ -1,8 +1,19 @@
 import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import { GlobalSearch } from "./GlobalSearch";
+import { useConfig } from "@/hooks/useConfig";
+import { useEffect } from "react";
 
 const AppLayout = () => {
+  const { data: config } = useConfig();
+
+  useEffect(() => {
+    if (config?.corPrimaria) {
+      document.documentElement.style.setProperty('--primary', config.corPrimaria);
+      document.documentElement.style.setProperty('--ring', config.corPrimaria);
+    }
+  }, [config?.corPrimaria]);
+
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar />

@@ -1,3 +1,11 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/outfit/500.css';
+@import '@fontsource/outfit/600.css';
+@import '@fontsource/outfit/700.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -76,15 +84,15 @@
   }
 
   .dark {
-    --background: 0 0% 0%;
-    /* #000000 */
-    --foreground: 0 0% 100%;
-    /* #FFFFFF */
+    --background: 224 71% 4%;
+    /* #030712 slate-950 */
+    --foreground: 210 40% 98%;
+    /* #F8FAFC slate-50 */
 
-    --card: 240 4% 12%;
-    /* #1D1D1F */
-    --card-foreground: 0 0% 100%;
-    /* #FFFFFF */
+    --card: 222 47% 11%;
+    /* #0f172a slate-900 */
+    --card-foreground: 210 40% 98%;
+    /* slate-50 */
 
     --popover: 240 4% 12%;
     --popover-foreground: 0 0% 100%;
@@ -93,13 +101,13 @@
     /* #0071E3 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 4% 12%;
-    /* #1D1D1F */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 217.2 32.6% 17.5%;
+    /* slate-800 */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 240 4% 20%;
-    --muted-foreground: 240 2% 54%;
-    /* #86868B */
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    /* slate-400 */
 
     --accent: 210 100% 45%;
     --accent-foreground: 0 0% 100%;
@@ -108,20 +116,19 @@
     /* #FF3B30 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 4% 25%;
-    --input: 240 4% 25%;
-    --ring: 210 100% 45%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
 
-    --sidebar-background: 0 0% 0%;
-    /* #000000 */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 210 100% 45%;
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 12%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 4% 25%;
-    --sidebar-ring: 210 100% 45%;
-    --sidebar-muted: 240 2% 54%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 224.3 76.3% 48%;
+    --sidebar-muted: 215 20.2% 65.1%;
   }
 }
 
@@ -131,8 +138,11 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
   }
 }
 

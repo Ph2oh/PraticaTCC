@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -16,6 +17,7 @@ app.get('/api/clientes', async (req, res) => {
     try {
         const clientes = await prisma.cliente.findMany({
             orderBy: { nome: 'asc' },
+            include: { orcamentos: { orderBy: { dataAtualizado: 'desc' } } }
         });
         res.json(clientes);
     } catch (error) {
@@ -88,7 +90,7 @@ app.get('/api/test', async (req, res) => {
     try {
         const orcamentos = await prisma.orcamento.findMany({
             orderBy: { dataRecebido: 'desc' },
-            include: { 
+            include: {
                 cliente: true,
                 eventos: {
                     orderBy: { criadoEm: 'asc' }
@@ -112,7 +114,7 @@ app.get('/api/orcamentos', async (req, res) => {
     try {
         const orcamentos = await prisma.orcamento.findMany({
             orderBy: { dataRecebido: 'desc' },
-            include: { 
+            include: {
                 cliente: true,
                 eventos: {
                     orderBy: { criadoEm: 'asc' }
@@ -170,19 +172,18 @@ app.post('/api/orcamentos', async (req, res) => {
                 cliente: {
                     connect: { id: cliente.id },
                 },
+                eventos: {
+                    create: {
+                        tipo: 'criado',
+                        descricao: 'Orçamento criado',
+                    },
+                },
             },
             include: {
                 cliente: true,
-                eventos: true,
-            },
-        });
-
-        // Criar evento de criação
-        await prisma.orcamentoEvento.create({
-            data: {
-                orcamentoId: novoOrcamento.id,
-                tipo: 'criado',
-                descricao: 'Orçamento criado',
+                eventos: {
+                    orderBy: { criadoEm: 'asc' }
+                },
             },
         });
 
@@ -207,10 +208,32 @@ app.patch('/api/orcamentos/:id/status', async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+
+        const orcamentoAtigo = await prisma.orcamento.findUnique({
+            where: { id },
+        });
+
         const orcamentoAtualizado = await prisma.orcamento.update({
             where: { id },
-            data: { status },
-            include: { cliente: true },
+            data: {
+                status,
+                ...(orcamentoAtigo && orcamentoAtigo.status !== status ? {
+                    eventos: {
+                        create: {
+                            tipo: 'status_alterado',
+                            descricao: `Status alterado para ${status}`,
+                            statusAntigo: orcamentoAtigo.status,
+                            statusNovo: status,
+                        }
+                    }
+                } : {})
+            },
+            include: {
+                cliente: true,
+                eventos: {
+                    orderBy: { criadoEm: 'asc' }
+                }
+            },
         });
         res.json(orcamentoAtualizado);
     } catch (error) {
@@ -229,7 +252,7 @@ app.put('/api/orcamentos/:id', async (req, res) => {
             where: { id },
         });
 
-        const dataAtualizacao: Record<string, unknown> = {};
+        const dataAtualizacao: any = {};
         if (descricao) dataAtualizacao.descricao = descricao;
         if (typeof valor !== 'undefined') dataAtualizacao.valor = Number(valor);
         if (status) dataAtualizacao.status = status;
@@ -238,29 +261,43 @@ app.put('/api/orcamentos/:id', async (req, res) => {
             return res.status(400).json({ error: 'Nenhuma informação para atualizar' });
         }
 
+        const eventosParaCriar: any[] = [];
+
+        if (status && orcamentoAtigo && orcamentoAtigo.status !== status) {
+            eventosParaCriar.push({
+                tipo: 'status_alterado',
+                descricao: `Status alterado para ${status}`,
+                statusAntigo: orcamentoAtigo.status,
+                statusNovo: status,
+            });
+        }
+
+        if (
+            (descricao && orcamentoAtigo && orcamentoAtigo.descricao !== descricao) ||
+            (typeof valor !== 'undefined' && orcamentoAtigo && orcamentoAtigo.valor !== Number(valor))
+        ) {
+            eventosParaCriar.push({
+                tipo: 'atualizado',
+                descricao: 'Informações do orçamento atualizadas'
+            });
+        }
+
+        if (eventosParaCriar.length > 0) {
+            dataAtualizacao.eventos = {
+                create: eventosParaCriar
+            };
+        }
+
         const orcamentoAtualizado = await prisma.orcamento.update({
             where: { id },
             data: dataAtualizacao,
-            include: { 
+            include: {
                 cliente: true,
                 eventos: {
                     orderBy: { criadoEm: 'asc' }
                 }
             },
         });
-
-        // Criar evento se status foi alterado
-        if (status && orcamentoAtigo && orcamentoAtigo.status !== status) {
-            await prisma.orcamentoEvento.create({
-                data: {
-                    orcamentoId: id,
-                    tipo: 'status_alterado',
-                    descricao: `Status alterado para ${status}`,
-                    statusAntigo: orcamentoAtigo.status,
-                    statusNovo: status,
-                },
-            });
-        }
 
         res.json(orcamentoAtualizado);
     } catch (error) {
@@ -282,6 +319,98 @@ app.delete('/api/orcamentos/:id', async (req, res) => {
 });
 
 
+// --- CONFIGURACOES ROUTES ---
+
+// Get global config
+app.get('/api/config', async (req, res) => {
+    try {
+        let config = await prisma.configuracao.findUnique({
+            where: { id: 'global' }
+        });
+
+        // Se não existir, criar com os padrões
+        if (!config) {
+            config = await prisma.configuracao.create({
+                data: { id: 'global' }
+            });
+        }
+
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar configurações globais' });
+    }
+});
+
+// Update global config
+app.put('/api/config', async (req, res) => {
+    try {
+        const { corPrimaria, tema, templateProposta, templateLembrete, templateAgradecimento } = req.body;
+
+        const dataAtualizacao: any = {};
+        if (corPrimaria) dataAtualizacao.corPrimaria = corPrimaria;
+        if (tema) dataAtualizacao.tema = tema;
+        if (templateProposta) dataAtualizacao.templateProposta = templateProposta;
+        if (templateLembrete) dataAtualizacao.templateLembrete = templateLembrete;
+        if (templateAgradecimento) dataAtualizacao.templateAgradecimento = templateAgradecimento;
+
+        const config = await prisma.configuracao.upsert({
+            where: { id: 'global' },
+            update: dataAtualizacao,
+            create: {
+                id: 'global',
+                ...dataAtualizacao
+            }
+        });
+
+        res.json(config);
+    } catch (error) {
+        console.error('Erro na rota PUT /api/config:', error);
+        res.status(500).json({ error: 'Erro ao atualizar configurações globais' });
+    }
+});
+
+
+// --- WHATSAPP ROUTES ---
+app.get('/api/whatsapp/status', (req, res) => {
+    res.json(getWhatsAppStatus());
+});
+
+app.post('/api/whatsapp/requests/:id/accept', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const orcamento = await acceptWhatsAppRequest(id);
+        res.json({ success: true, orcamento });
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Erro ao aprovar solicitação' });
+    }
+});
+
+app.post('/api/whatsapp/requests/:id/reject', (req, res) => {
+    try {
+        const { id } = req.params;
+        const success = rejectWhatsAppRequest(id);
+        if (success) {
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Solicitação não encontrada' });
+        }
+    } catch (e: any) {
+        res.status(500).json({ error: 'Erro ao recusar solicitação' });
+    }
+});
+
+app.post('/api/whatsapp/disconnect', async (req, res) => {
+    try {
+        const success = await disconnectWhatsAppClient();
+        res.json({ success });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
+
+    // Start WhatsApp client when server starts
+    startWhatsAppClient();
 });

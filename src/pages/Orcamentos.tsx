@@ -1,11 +1,23 @@
 import { useState } from "react";
-import { Search, Download, Plus, LayoutGrid, List, Inbox, Loader } from "lucide-react";
+import { Search, Download, Plus, LayoutGrid, List, Inbox, Loader, Copy, Send, Trash2 } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from "@/components/ui/context-menu";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import StatusBadge from "@/components/StatusBadge";
 import KanbanBoard from "@/components/KanbanBoard";
 import { DetalhesDrawer } from "@/components/DetalhesDrawer";
 import { EmptyState } from "@/components/EmptyState";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useOrcamentos, useUpdateOrcamento } from "@/hooks/useOrcamentos";
+import { useOrcamentos, useUpdateOrcamento, useDeleteOrcamento } from "@/hooks/useOrcamentos";
 import { NovoOrcamentoDialog } from "@/components/NovoOrcamentoDialog";
 import type { Status } from "@/components/StatusBadge";
 
@@ -19,6 +31,8 @@ const Orcamentos = () => {
 
   const { data: orcamentos = [], isLoading, error } = useOrcamentos();
   const updateMutation = useUpdateOrcamento();
+  const deleteMutation = useDeleteOrcamento();
+  const { toast } = useToast();
 
   const filtered = orcamentos.filter((orc) => {
     const clienteNome = orc.cliente?.nome?.toLowerCase() ?? "";
@@ -75,10 +89,23 @@ const Orcamentos = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <Loader className="w-8 h-8 animate-spin" />
-            <p>Carregando orçamentos...</p>
+        <div className="space-y-4 animate-in fade-in duration-500">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Skeleton className="h-[42px] w-[84px] rounded-lg" />
+            <Skeleton className="h-[42px] flex-1 rounded-lg" />
+            <div className="flex gap-2">
+              <Skeleton className="h-[42px] w-[140px] rounded-lg" />
+              <Skeleton className="h-[42px] w-[110px] rounded-lg" />
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+            </div>
           </div>
         </div>
       ) : error ? (
@@ -93,18 +120,16 @@ const Orcamentos = () => {
               <button
                 onClick={() => setViewMode("table")}
                 title="Visualização em Tabela"
-                className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === "table" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
+                className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${viewMode === "table" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
               >
                 <List className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode("kanban")}
                 title="Visualização Kanban"
-                className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === "kanban" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
+                className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${viewMode === "kanban" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
@@ -167,45 +192,98 @@ const Orcamentos = () => {
                   </thead>
                   <tbody>
                     {filtered.map((orc) => (
-                      <tr
-                        key={orc.id}
-                        className={`border-b border-border/10 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group ${
-                          selectedItems.has(orc.id) ? "bg-primary/5" : ""
-                        }`}
-                      >
-                        <td className="py-4 px-6">
-                          <Checkbox
-                            checked={selectedItems.has(orc.id)}
-                            onCheckedChange={(c) => toggleSelectItem(orc.id, !!c)}
-                          />
-                        </td>
-                        <td
-                          className="py-4 px-4 font-mono text-xs text-muted-foreground cursor-pointer group-hover:text-primary transition-colors"
-                          onClick={() => setSelectedOrcamentoId(orc.id)}
-                        >
-                          {orc.id}
-                        </td>
-                        <td
-                          className="py-4 px-6 font-medium text-card-foreground cursor-pointer"
-                          onClick={() => setSelectedOrcamentoId(orc.id)}
-                        >
-                          {orc.cliente?.nome || "Cliente não informado"}
-                        </td>
-                        <td className="py-4 px-6 text-muted-foreground">{orc.cliente?.telefone || "-"}</td>
-                        <td className="py-4 px-6 text-muted-foreground truncate max-w-[200px]">{orc.descricao}</td>
-                        <td className="py-4 px-6 font-medium text-card-foreground">
-                          {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </td>
-                        <td className="py-4 px-6">
-                          <StatusBadge status={orc.status} />
-                        </td>
-                        <td
-                          className="py-4 px-6 text-muted-foreground text-xs cursor-pointer"
-                          onClick={() => setSelectedOrcamentoId(orc.id)}
-                        >
-                          {new Date(orc.dataRecebido).toLocaleDateString("pt-BR")}
-                        </td>
-                      </tr>
+                      <ContextMenu key={orc.id}>
+                        <ContextMenuTrigger asChild>
+                          <tr
+                            className={`border-b border-border/10 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group ${selectedItems.has(orc.id) ? "bg-primary/5" : ""
+                              }`}
+                          >
+                            <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedItems.has(orc.id)}
+                                onCheckedChange={(c) => toggleSelectItem(orc.id, !!c)}
+                              />
+                            </td>
+                            <td
+                              className="py-4 px-4 font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors"
+                              onClick={() => setSelectedOrcamentoId(orc.id)}
+                            >
+                              {orc.id}
+                            </td>
+                            <td
+                              className="py-4 px-6 font-medium text-card-foreground"
+                              onClick={() => setSelectedOrcamentoId(orc.id)}
+                            >
+                              {orc.cliente?.nome || "Cliente não informado"}
+                            </td>
+                            <td className="py-4 px-6 text-muted-foreground" onClick={() => setSelectedOrcamentoId(orc.id)}>{orc.cliente?.telefone || "-"}</td>
+                            <td className="py-4 px-6 text-muted-foreground truncate max-w-[200px]" onClick={() => setSelectedOrcamentoId(orc.id)}>{orc.descricao}</td>
+                            <td className="py-4 px-6 font-medium text-card-foreground" onClick={() => setSelectedOrcamentoId(orc.id)}>
+                              {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </td>
+                            <td className="py-4 px-6" onClick={() => setSelectedOrcamentoId(orc.id)}>
+                              <StatusBadge status={orc.status} />
+                            </td>
+                            <td
+                              className="py-4 px-6 text-muted-foreground text-xs"
+                              onClick={() => setSelectedOrcamentoId(orc.id)}
+                            >
+                              {new Date(orc.dataRecebido).toLocaleDateString("pt-BR")}
+                            </td>
+                          </tr>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-56">
+                          <ContextMenuItem onSelect={() => {
+                            navigator.clipboard.writeText(orc.id);
+                            toast({ title: "ID Copiado" });
+                          }}>
+                            <Copy className="w-4 h-4 mr-2" /> Copiar ID
+                          </ContextMenuItem>
+
+                          <ContextMenuItem
+                            disabled={!orc.cliente?.telefone}
+                            onSelect={() => {
+                              if (orc.cliente?.telefone) {
+                                const number = orc.cliente.telefone.replace(/\D/g, "");
+                                window.open(`https://wa.me/55${number}`, "_blank");
+                              }
+                            }}
+                          >
+                            <Send className="w-4 h-4 mr-2" /> Abrir no WhatsApp
+                          </ContextMenuItem>
+
+                          <ContextMenuSeparator />
+
+                          <ContextMenuSub>
+                            <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
+                            <ContextMenuSubContent className="w-48">
+                              {["pendente", "enviado", "contratado", "recusado"].map((st) => (
+                                <ContextMenuItem
+                                  key={st}
+                                  disabled={orc.status === st}
+                                  className="capitalize"
+                                  onSelect={() => handleStatusChange(orc.id, st as Status)}
+                                >
+                                  {st}
+                                </ContextMenuItem>
+                              ))}
+                            </ContextMenuSubContent>
+                          </ContextMenuSub>
+
+                          <ContextMenuSeparator />
+
+                          <ContextMenuItem
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            onSelect={() => {
+                              if (confirm("Tem certeza que deseja excluir este orçamento?")) {
+                                deleteMutation.mutate(orc.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     ))}
                   </tbody>
                 </table>
@@ -220,12 +298,16 @@ const Orcamentos = () => {
                   action={
                     <button
                       onClick={() => {
-                        setSearchTerm("");
-                        setFilterStatus("todos");
+                        if (searchTerm || filterStatus !== "todos") {
+                          setSearchTerm("");
+                          setFilterStatus("todos");
+                        } else {
+                          setIsNovoOrcamentoOpen(true);
+                        }
                       }}
                       className="text-primary text-sm font-medium hover:underline"
                     >
-                      Limpar Filtros
+                      {searchTerm || filterStatus !== "todos" ? "Limpar Filtros" : "Criar Orçamento"}
                     </button>
                   }
                 />
