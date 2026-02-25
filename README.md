@@ -1,73 +1,454 @@
-# Welcome to your Lovable project
+# SGO - Sistema de Gerenciamento de Orçamentos
 
-## Project info
+Uma aplicação full-stack moderna para gerenciar orçamentos com histórico de eventos, visualizações interativas e integração com WhatsApp.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Pré-Requisitos
 
-## How can I edit this code?
+- **Node.js** v18+ (com npm)
+- **Git**
+- **SQLite** (incluído automaticamente via Prisma)
 
-There are several ways of editing your application.
+## Instalação Rápida
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# 1. Clone o repositório
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 2. Instale as dependências
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# 3. Configure o banco de dados
+npx prisma generate
+npm run seed
+
+# 4. Inicie o desenvolvimento
+npm run dev:all
 ```
 
-**Edit a file directly in GitHub**
+A aplicação abrirá em:
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:3001
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 📦 Estrutura do Projeto
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+PraticaTCC/
+├── server/                   ← Backend Express.js
+│   └── index.ts              ← API REST (localhost:3001)
+├── src/                      ← Frontend React
+│   ├── components/           ← Componentes reutilizáveis UI
+│   │   ├── KanbanBoard.tsx   ← Visualização drag & drop
+│   │   ├── DetalhesDrawer.tsx ← Drawer com abas e timeline
+│   │   └── ...outros
+│   ├── pages/                ← Páginas da aplicação
+│   │   ├── Dashboard.tsx
+│   │   ├── Orcamentos.tsx
+│   │   └── Clientes.tsx
+│   ├── hooks/                ← Custom hooks
+│   │   ├── useOrcamentos.ts
+│   │   └── useClientes.ts
+│   ├── api/                  ← Chamadas HTTP
+│   │   ├── orcamentos.ts
+│   │   └── clientes.ts
+│   ├── types.ts              ← Tipos TypeScript
+│   └── index.css             ← Estilos globais
+├── prisma/                   ← ORM e Banco de Dados
+│   ├── schema.prisma         ← Modelo de dados
+│   ├── migrations/           ← Histórico de mudanças
+│   ├── seed.ts               ← Dados iniciais de teste
+│   └── dev.db                ← Banco SQLite
+└── package.json              ← Dependências
+```
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Stack Tecnológico
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| **Camada** | **Tecnologia** | **Versão** |
+|-----------|--------------|----------|
+| **Frontend** | React | 18.x |
+| **Linguagem** | TypeScript | 5.x |
+| **Build** | Vite | 5.x |
+| **Styling** | Tailwind CSS | 3.x |
+| **Componentes** | shadcn/ui (Radix UI) | Latest |
+| **Roteamento** | React Router | 6.x |
+| **Estado** | React Query (TanStack) | 5.x |
+| **Formulários** | React Hook Form + Zod | Latest |
+| **Drag & Drop** | @hello-pangea/dnd | 18.x |
+| **Backend** | Express.js | 4.x |
+| **Database** | SQLite + Prisma ORM | 5.x |
+| **HTTP Client** | Fetch API | Nativo |
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Funcionalidades Principais
 
-## Can I connect a custom domain to my Lovable project?
+### Dashboard
+- Cards com KPI (Total clientes, orçamentos por status, faturamento)
+- Visualização de métricas em tempo real
+- Gráficos de distribuição
 
-Yes, you can!
+### Gestão de Orçamentos
+#### Visualização Dupla:
+- **Tabela**: CRUD completo, filtros e busca global
+- **Kanban**: Drag & drop entre status, grid responsivo (1-4 colunas)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+#### Abas no Drawer de Detalhes:
+1. **Detalhes** - Informações completas, edição de status
+2. **WhatsApp** - Link para enviar mensagem via WhatsApp Web
+3. **Timeline** - Histórico completo com eventos ordenados cronologicamente
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Gestão de Clientes
+- Lista de clientes registrados
+- Criar novo cliente
+- Visualizar orçamentos associados
+- Atualizar informações
+
+### Timeline de Eventos (Novo!)
+- Histórico automático desde criação
+- Rastreia: criação do orçamento, mudanças de status
+- Marcações cronológicas precisas
+- Visualização em linha do tempo
+
+---
+
+## Scripts Disponíveis
+
+### Desenvolvimento
+```bash
+npm run dev           # Frontend (Vite) - porta 5173
+npm run dev:server    # Backend (Express) - porta 3001
+npm run dev:all       # Ambos simultâneos (usa concurrently)
+```
+
+### Build & Deploy
+```bash
+npm run build         # Compila para produção (./dist)
+npm run build:dev     # Build em modo desenvolvimento
+npm run preview       # Visualiza build produção
+```
+
+### Qualidade de Código
+```bash
+npm run lint          # ESLint - verifica código
+npm run test          # Vitest - testes unitários
+npm run test:watch    # Testes em modo watch
+```
+
+### Database
+```bash
+npm run seed          # Popula banco com dados de teste
+```
+
+---
+
+## Fluxo de Dados
+
+```
+┌─────────────────────────────────────┐
+│      FRONTEND (React)               │
+│   Componentes (TypeScript)          │
+│  ↓                                  │
+│  React Query + Hooks Customizados   │
+│  ↓                                  │
+│  Fetch API HTTP                     │
+└─────────────────────────────────────┘
+          ║ (JSON)
+          ↓
+┌─────────────────────────────────────┐
+│    BACKEND (Express.js)             │
+│    localhost:3001                   │
+├─────────────────────────────────────┤
+│  GET/POST/PUT/DELETE                │
+│  /api/orcamentos                    │
+│  /api/clientes                      │
+│  ↓                                  │
+│  Prisma ORM                         │
+└─────────────────────────────────────┘
+          ║
+          ↓
+┌─────────────────────────────────────┐
+│    SQLite Database                  │
+│    ./prisma/dev.db                  │
+├─────────────────────────────────────┤
+│  Tabelas:                           │
+│  • Cliente                          │
+│  • Orcamento                        │
+│  • OrcamentoEvento (Histórico)      │
+└─────────────────────────────────────┘
+```
+
+---
+
+## Modelo de Dados
+
+### Cliente
+```sql
+id (UUID)
+nome (String)
+email (String)
+telefone (String)
+ultimoContato (DateTime)
+totalOrcamentos (Int)
+createdAt (DateTime)
+updatedAt (DateTime)
+```
+
+### Orcamento
+```sql
+id (UUID)
+descricao (String)
+valor (Float)
+status (String: pendente|enviado|contratado|recusado)
+dataRecebido (DateTime)
+dataAtualizado (DateTime)
+clienteId (UUID - Foreign Key)
+```
+
+### OrcamentoEvento (Histórico)
+```sql
+id (UUID)
+orcamentoId (UUID - Foreign Key)
+tipo (String: criado|status_alterado|atualizado)
+descricao (String)
+statusAntigo (String - nullable)
+statusNovo (String - nullable)
+criadoEm (DateTime)
+```
+
+---
+
+## API REST Endpoints
+
+### Orçamentos
+```
+GET    /api/orcamentos              # Lista todos
+GET    /api/orcamentos/:id          # Busca um
+POST   /api/orcamentos              # Cria novo
+PUT    /api/orcamentos/:id          # Atualiza
+DELETE /api/orcamentos/:id          # Deleta
+PATCH  /api/orcamentos/:id/status   # Muda status
+```
+
+### Clientes
+```
+GET    /api/clientes                # Lista todos
+GET    /api/clientes/:id            # Busca um
+POST   /api/clientes                # Cria novo
+PUT    /api/clientes/:id            # Atualiza
+DELETE /api/clientes/:id            # Deleta
+```
+
+---
+
+## Exemplo: Criar um Orçamento
+
+### Frontend (React)
+```typescript
+import { useCreateOrcamento } from '@/hooks/useOrcamentos';
+
+export function NovoOrcamentoDialog() {
+  const { mutate: createOrcamento } = useCreateOrcamento();
+
+  const handleSubmit = (data) => {
+    createOrcamento({
+      clienteId: "123",
+      descricao: "Pintura residencial",
+      valor: 5000
+    });
+  };
+
+  return (
+    <Dialog>
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          {/* Campos do formulário */}
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+### Backend (Express + Prisma)
+```typescript
+app.post('/api/orcamentos', async (req, res) => {
+  const { clienteId, descricao, valor } = req.body;
+
+  // Criar orçamento
+  const novoOrcamento = await prisma.orcamento.create({
+    data: {
+      descricao,
+      valor: Number(valor),
+      status: 'pendente',
+      cliente: { connect: { id: clienteId } },
+    },
+    include: { cliente: true, eventos: true },
+  });
+
+  // Registrar evento automaticamente
+  await prisma.orcamentoEvento.create({
+    data: {
+      orcamentoId: novoOrcamento.id,
+      tipo: 'criado',
+      descricao: 'Orçamento criado',
+    },
+  });
+
+  res.status(201).json(novoOrcamento);
+});
+```
+
+### Fluxo Completo
+1. Usuário preenche formulário no Frontend
+2. React Hook Form valida com Zod
+3. useCreateOrcamento envia POST para `/api/orcamentos`
+4. Express recebe, Prisma insere no banco
+5. Evento criado automaticamente na tabela OrcamentoEvento
+6. React Query intercepta resposta e atualiza cache
+7. UI renderiza novo orçamento sem precisar recarregar
+
+---
+
+## Características Diferenciais
+
+### Stack Moderno
+- **Vite** em vez de Create React App (5x mais rápido)
+- **TypeScript** obrigatório em todo código
+- **Tailwind + shadcn** (componentes profissionais prontos)
+
+### Full-Stack JavaScript
+- Mesma linguagem (TypeScript) frontend e backend
+- Compartilhamento de tipos
+- Sem necessidade de GraphQL
+
+### Database Flexível
+- Prisma permite trocar SQLite → PostgreSQL facilmente
+- Migrations automáticas
+- Queries type-safe
+
+### 🔄 State Management Inteligente
+- React Query cacheando automaticamente
+- Sem Redux ou Zustand complexos
+- Sincronização automática com servidor
+
+### 📦 Componentes Reutilizáveis
+- shadcn/ui (componentes Radix copiadoslocalmente)
+- Totalmente customizáveis via Tailwind
+- Acessibilidade nativa (WCAG)
+
+### Drag & Drop Nativo
+- TanStack usando @hello-pangea/dnd
+- Performance otimizada
+- Sem jQuery
+
+### 🕐 Timeline de Eventos
+- Histórico automático de todas operações
+- Rastreia criação, mudanças de status
+- Ordenação cronológica
+
+---
+
+## Deploy
+
+### Opção 1: Vercel (Recomendado)
+```bash
+npm i -g vercel
+vercel
+
+# Frontend vai para Vercel
+# Backend vai para servidor separado (Render, Railway, etc)
+```
+
+### Opção 2: Self-Hosted
+```bash
+npm run build
+npm start  # Serve ./dist
+```
+
+### Opção 3: Docker
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN npm run build
+CMD ["npm", "run", "dev:all"]
+```
+
+---
+
+## Próximas Melhorias
+
+- [ ] Autenticação com JWT
+- [ ] Upload de arquivos (fotos/PDFs)
+- [ ] Relatórios em PDF (PDFKit)
+- [ ] Notificações em tempo real (WebSocket)
+- [ ] Integração WhatsApp Business API
+- [ ] Sistema de múltiplos usuários
+- [ ] Analytics avançado
+- [ ] Backup automático
+- [ ] Validação de CPF/CNPJ
+- [ ] Integração com Payment APIs
+
+---
+
+## Troubleshooting
+
+### Porta 5173 em uso
+```bash
+npm run dev -- --port 5174
+```
+
+### Porta 3001 em uso
+```bash
+lsof -i :3001
+kill -9 <PID>
+# ou
+npm run dev:server -- --port 3002
+```
+
+### Erro no Prisma
+```bash
+rm -rf node_modules/.prisma
+npm install
+npx prisma generate
+```
+
+### Limpar banco de dados
+```bash
+rm prisma/dev.db
+npm run seed
+```
+
+---
+
+## Referências Úteis
+
+- [Vite Docs](https://vitejs.dev)
+- [React Docs](https://react.dev)
+- [TypeScript Docs](https://www.typescriptlang.org)
+- [Tailwind CSS](https://tailwindcss.com)
+- [shadcn/ui](https://ui.shadcn.com)
+- [Prisma Docs](https://www.prisma.io/docs)
+- [React Query Docs](https://tanstack.com/query)
+- [Express Docs](https://expressjs.com)
+
+---
+
+## Licença
+
+Este projeto é privado. Todos os direitos reservados.
+
+---
+
+## Suporte
+
+Para dúvidas ou reportar bugs, abra uma issue no repositório.
+
+---
+
+**Desenvolvido usando TypeScript, React e Express.js**

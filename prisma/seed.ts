@@ -101,7 +101,7 @@ async function main() {
     })
   );
 
-  console.log("✅ Seed completed successfully!");
+  console.log("Seed completed successfully!");
 }
 
 main()
