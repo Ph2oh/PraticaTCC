@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient, Prisma } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { authenticateToken } from './middleware/auth';
 import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
 
 const app = express();
@@ -13,12 +16,148 @@ const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED !== 'false';
 app.use(cors());
 app.use(express.json());
 
+// --- AUTH ROUTES ---
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, senha } = req.body;
+        const usuario = await prisma.usuario.findUnique({ where: { email } });
+
+        if (!usuario) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        const validPassword = await bcrypt.compare(senha, usuario.senha);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        const token = jwt.sign(
+            { id: usuario.id },
+            process.env.JWT_SECRET || 'secret-sgo-dev-2026',
+            { expiresIn: '24h' }
+        );
+        res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, empresa: usuario.empresa } });
+    } catch (error) {
+        console.error('Erro no login:', error);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { nome, email, senha, empresa, telefone } = req.body;
+
+        // Valida duplicidade
+        const existingUser = await prisma.usuario.findUnique({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ error: 'Este e-mail já está em uso' });
+        }
+
+        // Hash senha
+        const hashedPassword = await bcrypt.hash(senha, 10);
+
+        // Cria o Usuário já com sua Configuração (Isolamento de Tenant)
+        const novoUsuario = await prisma.usuario.create({
+            data: {
+                nome,
+                email,
+                senha: hashedPassword,
+                empresa,
+                telefone,
+                configuracao: {
+                    create: {
+                        corPrimaria: "224.3 76.3% 48%",
+                        tema: "light"
+                    }
+                }
+            },
+            select: { id: true, nome: true, email: true, empresa: true }
+        });
+
+        // Autentica-o automaticamente
+        const token = jwt.sign(
+            { id: novoUsuario.id },
+            process.env.JWT_SECRET || 'secret-sgo-dev-2026',
+            { expiresIn: '24h' }
+        );
+        res.status(201).json({ token, usuario: novoUsuario });
+
+    } catch (error) {
+        console.error('Erro no registro:', error);
+        res.status(500).json({ error: 'Erro interno no servidor ao criar conta' });
+    }
+});
+
+// Define AuthRequest type for better type safety, assuming it's similar to express.Request with an added usuarioId
+interface AuthRequest extends express.Request {
+    usuarioId?: string;
+}
+
+app.put('/api/auth/password', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { senhaAtual, novaSenha } = req.body;
+
+        if (!senhaAtual || !novaSenha || novaSenha.length < 6) {
+            return res.status(400).json({ message: 'A nova senha deve ter no mínimo 6 caracteres.' });
+        }
+
+        const usuario = await prisma.usuario.findUnique({
+            where: { id: req.usuarioId }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        const validPassword = await bcrypt.compare(senhaAtual, usuario.senha);
+        if (!validPassword) {
+            return res.status(401).json({ message: 'A senha atual está incorreta.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(novaSenha, 10);
+
+        await prisma.usuario.update({
+            where: { id: req.usuarioId },
+            data: { senha: hashedPassword }
+        });
+
+        res.json({ message: 'Senha atualizada com sucesso.' });
+    } catch (error) {
+        console.error("Erro ao alterar senha:", error);
+        res.status(500).json({ message: 'Erro interno ao alterar senha.' });
+    }
+});
+
+// Get current user metadata
+app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
+    try {
+        const usuario = await prisma.usuario.findUnique({
+            where: { id: req.usuarioId },
+            select: { id: true, nome: true, email: true, empresa: true }
+        });
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        res.json(usuario);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar dados do usuário' });
+    }
+});
+
+// --- GLOBAL API PROTECTION ---
+// Todas as rotas de API registradas ABAIXO dessa linha exigirão o Token JWT válido (Logado)
+app.use('/api', authenticateToken);
+
 // --- CLIENTES ROUTES ---
 
 // Get all clients
-app.get('/api/clientes', async (req, res) => {
+app.get('/api/clientes', async (req: any, res) => {
     try {
         const clientes = await prisma.cliente.findMany({
+            where: { usuarioId: req.usuarioId },
             orderBy: { nome: 'asc' },
             include: { orcamentos: { orderBy: { dataAtualizado: 'desc' } } }
         });
@@ -29,7 +168,7 @@ app.get('/api/clientes', async (req, res) => {
 });
 
 // Create new client
-app.post('/api/clientes', async (req, res) => {
+app.post('/api/clientes', async (req: any, res) => {
     try {
         const { nome, email, telefone } = req.body;
         const novoCliente = await prisma.cliente.create({
@@ -37,6 +176,7 @@ app.post('/api/clientes', async (req, res) => {
                 nome,
                 email: email || "",
                 telefone,
+                usuarioId: req.usuarioId
             },
         });
         res.status(201).json(novoCliente);
@@ -46,10 +186,15 @@ app.post('/api/clientes', async (req, res) => {
 });
 
 // Update client
-app.put('/api/clientes/:id', async (req, res) => {
+app.put('/api/clientes/:id', async (req: any, res) => {
     try {
         const { id } = req.params;
         const { nome, email, telefone } = req.body;
+
+        // Verifica dono do registro
+        const pertence = await prisma.cliente.findFirst({ where: { id, usuarioId: req.usuarioId } });
+        if (!pertence) return res.status(404).json({ error: 'Cliente não encontrado.' });
+
         const clienteAtualizado = await prisma.cliente.update({
             where: { id },
             data: {
@@ -65,9 +210,12 @@ app.put('/api/clientes/:id', async (req, res) => {
 });
 
 // Delete client
-app.delete('/api/clientes/:id', async (req, res) => {
+app.delete('/api/clientes/:id', async (req: any, res) => {
     try {
         const { id } = req.params;
+
+        const pertence = await prisma.cliente.findFirst({ where: { id, usuarioId: req.usuarioId } });
+        if (!pertence) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
         // Deleta os orçamentos associados primeiro
         await prisma.orcamento.deleteMany({
@@ -89,9 +237,10 @@ app.delete('/api/clientes/:id', async (req, res) => {
 // --- ORCAMENTOS ROUTES ---
 
 // Test endpoint
-app.get('/api/test', async (req, res) => {
+app.get('/api/test', async (req: any, res) => {
     try {
         const orcamentos = await prisma.orcamento.findMany({
+            where: { usuarioId: req.usuarioId },
             orderBy: { dataRecebido: 'desc' },
             include: {
                 cliente: true,
@@ -113,9 +262,10 @@ app.get('/api/test', async (req, res) => {
 });
 
 // Get all orcamentos
-app.get('/api/orcamentos', async (req, res) => {
+app.get('/api/orcamentos', async (req: any, res) => {
     try {
         const orcamentos = await prisma.orcamento.findMany({
+            where: { usuarioId: req.usuarioId },
             orderBy: { dataRecebido: 'desc' },
             include: {
                 cliente: true,
@@ -124,9 +274,6 @@ app.get('/api/orcamentos', async (req, res) => {
                 }
             }
         });
-        const logMsg = `[API GET /orcamentos] Total: ${orcamentos.length}, Primeiro tem eventos: ${orcamentos[0]?.eventos?.length || 0}`;
-        console.log(logMsg);
-        console.error(logMsg);  // Força stderr
         res.json(orcamentos);
     } catch (error) {
         console.error('Erro GET /api/orcamentos:', error);
@@ -135,7 +282,7 @@ app.get('/api/orcamentos', async (req, res) => {
 });
 
 // Create new orcamento
-app.post('/api/orcamentos', async (req, res) => {
+app.post('/api/orcamentos', async (req: any, res) => {
     try {
         const { clienteId, clienteNome, telefone, descricao, valor } = req.body;
 
@@ -146,7 +293,7 @@ app.post('/api/orcamentos', async (req, res) => {
         let cliente;
 
         if (clienteId) {
-            cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+            cliente = await prisma.cliente.findUnique({ where: { id: clienteId, usuarioId: req.usuarioId } });
             if (!cliente) {
                 return res.status(404).json({ error: 'Cliente não encontrado' });
             }
@@ -163,6 +310,7 @@ app.post('/api/orcamentos', async (req, res) => {
                     nome: clienteNome,
                     email: '',
                     telefone: telefone || '',
+                    usuarioId: req.usuarioId
                 },
             });
         }
@@ -172,6 +320,9 @@ app.post('/api/orcamentos', async (req, res) => {
                 descricao,
                 valor: Number(valor),
                 status: 'pendente',
+                usuario: {
+                    connect: { id: req.usuarioId }
+                },
                 cliente: {
                     connect: { id: cliente.id },
                 },
@@ -207,14 +358,15 @@ app.post('/api/orcamentos', async (req, res) => {
 });
 
 // Update orcamento status
-app.patch('/api/orcamentos/:id/status', async (req, res) => {
+app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
 
         const orcamentoAtigo = await prisma.orcamento.findUnique({
-            where: { id },
+            where: { id, usuarioId: req.usuarioId },
         });
+        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orçamento não encontrado.' });
 
         const orcamentoAtualizado = await prisma.orcamento.update({
             where: { id },
@@ -245,15 +397,16 @@ app.patch('/api/orcamentos/:id/status', async (req, res) => {
 });
 
 // Update orcamento (completo)
-app.put('/api/orcamentos/:id', async (req, res) => {
+app.put('/api/orcamentos/:id', async (req: any, res) => {
     try {
         const { id } = req.params;
         const { descricao, valor, status } = req.body;
 
         // Buscar status anterior
         const orcamentoAtigo = await prisma.orcamento.findUnique({
-            where: { id },
+            where: { id, usuarioId: req.usuarioId },
         });
+        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orçamento não encontrado.' });
 
         const dataAtualizacao: Prisma.OrcamentoUpdateInput = {};
         if (descricao) dataAtualizacao.descricao = descricao;
@@ -309,9 +462,12 @@ app.put('/api/orcamentos/:id', async (req, res) => {
 });
 
 // Delete orcamento
-app.delete('/api/orcamentos/:id', async (req, res) => {
+app.delete('/api/orcamentos/:id', async (req: any, res) => {
     try {
         const { id } = req.params;
+        const pertence = await prisma.orcamento.findUnique({ where: { id, usuarioId: req.usuarioId } });
+        if (!pertence) return res.status(404).json({ error: 'Orçamento não encontrado.' });
+
         await prisma.orcamento.delete({
             where: { id },
         });
@@ -324,28 +480,25 @@ app.delete('/api/orcamentos/:id', async (req, res) => {
 
 // --- CONFIGURACOES ROUTES ---
 
-// Get global config
-app.get('/api/config', async (req, res) => {
+// Get user config
+app.get('/api/config', async (req: any, res) => {
     try {
-        let config = await prisma.configuracao.findUnique({
-            where: { id: 'global' }
+        const config = await prisma.configuracao.findUnique({
+            where: { usuarioId: req.usuarioId }
         });
 
-        // Se não existir, criar com os padrões
         if (!config) {
-            config = await prisma.configuracao.create({
-                data: { id: 'global' }
-            });
+            return res.status(404).json({ error: 'Configuração não encontrada' });
         }
 
         res.json(config);
     } catch (error) {
-        res.status(500).json({ error: 'Erro ao buscar configurações globais' });
+        res.status(500).json({ error: 'Erro ao buscar configurações' });
     }
 });
 
-// Update global config
-app.put('/api/config', async (req, res) => {
+// Update user config
+app.put('/api/config', async (req: any, res) => {
     try {
         const { corPrimaria, tema, templateProposta, templateLembrete, templateAgradecimento } = req.body;
 
@@ -356,23 +509,14 @@ app.put('/api/config', async (req, res) => {
         if (templateLembrete) dataAtualizacao.templateLembrete = templateLembrete;
         if (templateAgradecimento) dataAtualizacao.templateAgradecimento = templateAgradecimento;
 
-        const config = await prisma.configuracao.upsert({
-            where: { id: 'global' },
-            update: dataAtualizacao,
-            create: {
-                id: 'global',
-                corPrimaria: corPrimaria || '#0f172a',
-                tema: tema || 'light',
-                templateProposta: templateProposta || 'Olá, segue a proposta de orçamento.',
-                templateLembrete: templateLembrete || 'Olá, estou passando para lembrar do orçamento.',
-                templateAgradecimento: templateAgradecimento || 'Muito obrigado!',
-            }
+        const config = await prisma.configuracao.update({
+            where: { usuarioId: req.usuarioId },
+            data: dataAtualizacao
         });
 
         res.json(config);
     } catch (error) {
-        console.error('Erro na rota PUT /api/config:', error);
-        res.status(500).json({ error: 'Erro ao atualizar configurações globais' });
+        res.status(500).json({ error: 'Erro ao atualizar configurações' });
     }
 });
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -6,6 +7,30 @@ async function main() {
   // Limpar dados existentes
   await prisma.orcamento.deleteMany();
   await prisma.cliente.deleteMany();
+
+  const adminEmail = "admin@sgo.com";
+  const adminPassword = "password123";
+  let admin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
+
+  if (!admin) {
+    const hashedSenha = await bcrypt.hash(adminPassword, 10);
+    admin = await prisma.usuario.create({
+      data: {
+        nome: "Administrador SGO",
+        email: adminEmail,
+        senha: hashedSenha,
+        empresa: "Agência Padrão",
+        telefone: "(11) 90000-0000",
+        configuracao: {
+          create: {
+            corPrimaria: "224.3 76.3% 48%",
+            tema: "light"
+          }
+        }
+      }
+    });
+    console.log(`Admin user created: ${adminEmail} / ${adminPassword}`);
+  }
 
   const clientesSeed = [
     { nome: "Maria Silva", telefone: "(11) 99999-1234", email: "maria@email.com", ultimoContato: new Date("2026-02-22") },
@@ -24,6 +49,7 @@ async function main() {
         data: {
           ...data,
           totalOrcamentos: 0,
+          usuarioId: admin.id,
         },
       })
     )
@@ -54,6 +80,9 @@ async function main() {
           status: orc.status,
           dataRecebido: new Date(orc.dataRecebido),
           dataAtualizado: new Date(orc.dataAtualizado),
+          usuario: {
+            connect: { id: admin.id }
+          },
           cliente: {
             connect: { id: clientePorNome[orc.cliente] },
           },

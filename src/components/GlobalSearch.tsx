@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, FileText, Users, Home, Calculator } from "lucide-react"
+import { Search, FileText, Users, Home, Calculator, BarChart2, Settings } from "lucide-react"
 
 import {
     CommandDialog,
@@ -40,13 +40,13 @@ export function GlobalSearch() {
         <>
             <button
                 onClick={() => setOpen(true)}
-                className="hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 hover:bg-muted border border-border px-3 py-1.5 rounded-md transition-colors w-64 justify-between"
+                className="hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 hover:bg-accent hover:text-accent-foreground border border-border px-3 py-1.5 rounded-md transition-colors w-64 justify-between"
             >
                 <span className="flex items-center gap-2">
-                    <Search className="w-4 h-4" />
+                    <Search className="w-4 h-4 text-primary" />
                     Busca Rápida...
                 </span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
                     <span className="text-xs">⌘</span>K
                 </kbd>
             </button>
@@ -57,17 +57,25 @@ export function GlobalSearch() {
                     <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
 
                     <CommandGroup heading="Acesso Rápido">
-                        <CommandItem onSelect={() => runCommand(() => navigate("/"))}>
-                            <Home className="mr-2 h-4 w-4" />
+                        <CommandItem onSelect={() => runCommand(() => navigate("/"))} className="cursor-pointer">
+                            <Home className="mr-2 h-4 w-4 text-primary" />
                             <span>Dashboard</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/orcamentos"))}>
-                            <Calculator className="mr-2 h-4 w-4" />
+                        <CommandItem onSelect={() => runCommand(() => navigate("/orcamentos"))} className="cursor-pointer">
+                            <Calculator className="mr-2 h-4 w-4 text-primary" />
                             <span>Orçamentos</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/clientes"))}>
-                            <Users className="mr-2 h-4 w-4" />
+                        <CommandItem onSelect={() => runCommand(() => navigate("/clientes"))} className="cursor-pointer">
+                            <Users className="mr-2 h-4 w-4 text-primary" />
                             <span>Clientes</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => navigate("/relatorios"))} className="cursor-pointer">
+                            <BarChart2 className="mr-2 h-4 w-4 text-primary" />
+                            <span>Relatórios</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => navigate("/configuracoes"))} className="cursor-pointer">
+                            <Settings className="mr-2 h-4 w-4 text-primary" />
+                            <span>Configurações</span>
                         </CommandItem>
                     </CommandGroup>
 
@@ -81,8 +89,9 @@ export function GlobalSearch() {
                                     navigate("/orcamentos");
                                     // No futuro, isso poderia abrir o drawer diretamente pelo hash da URL
                                 })}
+                                className="cursor-pointer"
                             >
-                                <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <FileText className="mr-2 h-4 w-4 text-primary" />
                                 <div className="flex flex-col">
                                     <span>{orc.descricao}</span>
                                     <span className="text-xs text-muted-foreground">{orc.cliente?.nome || "Cliente não informado"} • {orc.id}</span>
@@ -98,8 +107,9 @@ export function GlobalSearch() {
                             <CommandItem
                                 key={cli.id}
                                 onSelect={() => runCommand(() => navigate("/clientes"))}
+                                className="cursor-pointer"
                             >
-                                <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <User className="mr-2 h-4 w-4 text-primary" />
                                 <span>{cli.nome}</span>
                             </CommandItem>
                         ))}

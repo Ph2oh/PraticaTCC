@@ -25,17 +25,17 @@ interface KanbanBoardProps {
 }
 
 const STATUS_COLUMNS: { id: Status; label: string; colorClass: string; textColor: string }[] = [
-    { id: "pendente", label: "Pendente", colorClass: "border-warning/50 bg-warning/5", textColor: "text-warning" },
-    { id: "enviado", label: "Em Negociação", colorClass: "border-blue-500/50 bg-blue-500/5", textColor: "text-blue-500" },
-    { id: "contratado", label: "Contratado", colorClass: "border-success/50 bg-success/5", textColor: "text-success" },
-    { id: "recusado", label: "Recusado", colorClass: "border-destructive/50 bg-destructive/5", textColor: "text-destructive" },
+    { id: "pendente", label: "Pendente", colorClass: "border-warning/30 bg-warning/5", textColor: "text-warning" },
+    { id: "enviado", label: "Em Negociação", colorClass: "border-blue-500/30 bg-blue-500/5", textColor: "text-blue-500" },
+    { id: "contratado", label: "Contratado", colorClass: "border-success/30 bg-success/5", textColor: "text-success" },
+    { id: "recusado", label: "Recusado", colorClass: "border-destructive/30 bg-destructive/5", textColor: "text-destructive" },
 ];
 
 const STATUS_CARD_COLORS: Record<Status, string> = {
-    pendente: "border-warning/20 bg-warning/5 hover:bg-warning/8",
-    enviado: "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/8",
-    contratado: "border-success/20 bg-success/5 hover:bg-success/8",
-    recusado: "border-destructive/20 bg-destructive/5 hover:bg-destructive/8",
+    pendente: "border-border/40 hover:border-warning/60 hover:shadow-warning/10",
+    enviado: "border-border/40 hover:border-blue-500/60 hover:shadow-blue-500/10",
+    contratado: "border-border/40 hover:border-success/60 hover:shadow-success/10",
+    recusado: "border-border/40 hover:border-destructive/60 hover:shadow-destructive/10",
 };
 
 const STATUS_AVATAR_COLORS: Record<Status, string> = {
@@ -162,9 +162,9 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                 <DragDropContext onDragEnd={onDragEnd}>
                     {STATUS_COLUMNS.map((column) => (
                         <div key={column.id} className="flex flex-col">
-                            <div className={`mb-4 px-3 py-2 rounded-2xl flex items-center justify-between shadow-sm border ${column.colorClass}`}>
-                                <h3 className={`font-semibold text-xs sm:text-sm ${column.textColor} truncate`}>{column.label}</h3>
-                                <span className="bg-muted px-2 py-0.5 rounded-full text-xs font-semibold text-muted-foreground ml-2 flex-shrink-0">
+                            <div className={`mb-4 px-4 py-2.5 rounded-[18px] flex items-center justify-between shadow-sm border ${column.colorClass} backdrop-blur-sm bg-opacity-40`}>
+                                <h3 className={`font-semibold text-sm tracking-tight ${column.textColor} truncate`}>{column.label}</h3>
+                                <span className="bg-background/80 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-sm text-foreground ml-2 flex-shrink-0 ring-1 ring-border/50">
                                     {columns[column.id].length}
                                 </span>
                             </div>
@@ -190,42 +190,41 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                                 style={{
                                                                     ...provided.draggableProps.style,
                                                                 }}
-                                                                className={`group mb-3 cursor-pointer rounded-xl p-3 sm:p-4 transition-all duration-300 border-l-[4px] border-y border-r ${snapshot.isDragging
-                                                                    ? "shadow-xl scale-105 rotate-2 ring-1 ring-primary/20 z-50 opacity-90"
-                                                                    : "shadow-sm hover:shadow-md hover:-translate-y-1"
-                                                                    } ${STATUS_CARD_COLORS[orc.status]}`}
+                                                                className={`group mb-4 cursor-pointer rounded-[20px] p-4 sm:p-5 transition-all duration-400 ease-out border bg-card/60 backdrop-blur-md ${snapshot.isDragging
+                                                                    ? "shadow-[0_20px_40px_rgba(0,0,0,0.12)] scale-[1.03] rotate-1 ring-2 ring-primary/20 z-50 opacity-95 bg-card/90"
+                                                                    : `shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${STATUS_CARD_COLORS[orc.status]}`
+                                                                    }`}
                                                             >
-                                                                <div className="flex justify-between items-start mb-2">
-                                                                    <span className="text-xs font-mono font-medium text-muted-foreground/80 bg-muted/30 px-2 py-0.5 rounded-lg flex-shrink-0">
-                                                                        {orc.id}
+                                                                <div className="flex justify-between items-center mb-3">
+                                                                    <div className={`w-2 h-2 rounded-full ring-2 ring-background ${orc.status === 'pendente' ? 'bg-warning' : orc.status === 'enviado' ? 'bg-blue-500' : orc.status === 'contratado' ? 'bg-success' : 'bg-destructive'}`} />
+                                                                    <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase opacity-70">
+                                                                        #{orc.id.split('-')[0]}
                                                                     </span>
                                                                 </div>
 
-                                                                <p className="font-medium text-card-foreground text-xs sm:text-sm line-clamp-2 mb-2">
+                                                                <p className="font-medium text-foreground text-sm sm:text-base leading-snug mb-4 line-clamp-2">
                                                                     {orc.descricao}
                                                                 </p>
 
-                                                                <div className="space-y-1.5 text-xs text-muted-foreground">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <User className="w-3 h-3 opacity-70 flex-shrink-0" />
-                                                                        <span className="truncate text-xs">{orc.cliente?.nome || "Cliente não informado"}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <DollarSign className="w-3 h-3 opacity-80 flex-shrink-0" />
-                                                                        <span className="font-medium text-foreground text-xs">
-                                                                            {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
-                                                                        {/* Time alert indicator */}
-                                                                        <div className="flex items-center gap-1.5 opacity-70">
-                                                                            <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                                                            <span className="text-[11px] font-medium tracking-tight">
-                                                                                {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' })}
-                                                                            </span>
+                                                                <div className="space-y-3 mt-auto">
+                                                                    <div className="flex flex-col gap-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm ${STATUS_AVATAR_COLORS[orc.status]}`}>
+                                                                                {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
+                                                                            </div>
+                                                                            <span className="truncate text-[13px] font-medium text-foreground/80">{orc.cliente?.nome || "Cliente não informado"}</span>
                                                                         </div>
-                                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm ${STATUS_AVATAR_COLORS[orc.status]}`}>
-                                                                            {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
+
+                                                                        <div className="flex items-center justify-between pt-3 border-t border-border/40">
+                                                                            <span className="font-semibold text-foreground text-[16px] tracking-tight">
+                                                                                {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                                                            </span>
+                                                                            <div className="flex items-center gap-1.5 opacity-60">
+                                                                                <Clock className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                                                                                <span className="text-[11px] font-medium tracking-tight text-muted-foreground group-hover:text-foreground transition-colors">
+                                                                                    {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                                </span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>

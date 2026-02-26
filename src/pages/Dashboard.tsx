@@ -13,6 +13,7 @@ import {
   AreaChart, Area
 } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const STATUS_META: Record<Status, { label: string; fill: string }> = {
   pendente: { label: "Pendente", fill: "#f59e0b" }, // amber-500
@@ -28,9 +29,17 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 const Dashboard = () => {
+  const { usuario } = useAuth();
   const { data: orcamentos = [], isLoading: loadingOrcamentos } = useOrcamentos();
   const { data: clientes = [], isLoading: loadingClientes } = useClientes();
   const isLoading = loadingOrcamentos || loadingClientes;
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Bom dia";
+    if (hour < 18) return "Boa tarde";
+    return "Boa noite";
+  };
 
   const contratosFechados = useMemo(
     () => orcamentos.filter((orc) => orc.status === "contratado"),
@@ -141,8 +150,10 @@ const Dashboard = () => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral dos seus orçamentos</p>
+        <h1 className="text-2xl font-bold text-foreground">
+          {getGreeting()}, {usuario?.nome?.split(' ')[0] || 'Usuário'}!
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Visão geral dos seus orçamentos e conversões desta conta</p>
       </div>
 
       {/* KPI Cards */}
@@ -165,7 +176,7 @@ const Dashboard = () => {
           icon={Users}
           title="Clientes na Base"
           value={clientes.length.toString()}
-          change="Dados do CRM"
+          //change="Dados do CRM"
           changeType="neutral"
         />
         <KpiCard

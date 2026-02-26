@@ -8,6 +8,7 @@ import StatusBadge, { type Status } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { startOfMonth, subMonths, endOfDay, isAfter, isBefore } from "date-fns";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -38,9 +39,15 @@ const Relatorios = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
 
-  // Data Customizada (Se 'custom' for selecionado no dropdown geral, ou se usado na aba 1)
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [searchLtv, setSearchLtv] = useState("");
+
+  // Sort State para a Tabela LTV
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof ClientPerformanceEntry;
+    direction: "asc" | "desc";
+  }>({ key: "receitaGanha", direction: "desc" }); // Padrão: Maior receita real ganha primeiro
 
   const orcamentosFiltradosGlobalmente = useMemo(() => {
     return orcamentos.filter((orc) => {
@@ -49,11 +56,11 @@ const Relatorios = () => {
       const hoje = new Date();
 
       if (periodoGlobal === "mes_atual") {
-        isValidTime = isAfter(dataOrc, startOfMonth(hoje));
+        isValidTime = dataOrc >= startOfMonth(hoje);
       } else if (periodoGlobal === "ultimos_3_meses") {
-        isValidTime = isAfter(dataOrc, subMonths(hoje, 3));
+        isValidTime = dataOrc >= subMonths(hoje, 3);
       } else if (periodoGlobal === "ultimos_6_meses") {
-        isValidTime = isAfter(dataOrc, subMonths(hoje, 6));
+        isValidTime = dataOrc >= subMonths(hoje, 6);
       } else if (periodoGlobal === "custom") {
         const matchesDateFrom = dateFrom ? dataOrc >= new Date(dateFrom) : true;
         let matchesDateTo = true;
@@ -137,20 +144,51 @@ const Relatorios = () => {
 
       if (orc.status === "contratado") {
         entry.pedidosGanhos += 1;
+        entry.receitaGanha += orc.valor;
       }
       perfMap.set(orc.clienteId, entry);
     });
 
-    // Calcula métricas derivadas e transforma em array
     return Array.from(perfMap.values())
       .filter(c => c.totalPedidos > 0) // Só mostra quem já pediu algo no período
+      .filter(c => c.nome.toLowerCase().includes(searchLtv.toLowerCase())) // Filtro da busca
       .map(c => ({
         ...c,
-        ticketMedio: c.pedidosGanhos > 0 ? c.receitaGerada / c.pedidosGanhos : 0,
+        ticketMedio: c.pedidosGanhos > 0 ? c.receitaGanha / c.pedidosGanhos : 0, // Corrigido para calcular ticket só sob o ganho real
         conversao: c.totalPedidos > 0 ? (c.pedidosGanhos / c.totalPedidos) * 100 : 0
       }))
-      .sort((a, b) => b.receitaGerada - a.receitaGerada); // Ordena pelos melhores pagadores (LTV)
-  }, [orcamentosFiltradosGlobalmente, clientes]);
+      .sort((a, b) => {
+        // Lógica de Ordenação Dinâmica
+        const valA = a[sortConfig.key];
+        const valB = b[sortConfig.key];
+
+        if (typeof valA === "string" && typeof valB === "string") {
+          return sortConfig.direction === "asc"
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        }
+
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      }); // Ordena dependendo do Header Clicado
+  }, [orcamentosFiltradosGlobalmente, clientes, searchLtv, sortConfig]);
+
+  // Handler para cliques no Cabeçalho da Tabela
+  const requestSort = (key: keyof ClientPerformanceEntry) => {
+    let direction: "asc" | "desc" = "desc"; // Default para desc ao clicar a primeira vez numa nova coluna
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "desc") {
+      direction = "asc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: keyof ClientPerformanceEntry) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3.5 h-3.5 ml-1.5 opacity-40 group-hover:opacity-100 transition-opacity" />;
+    return sortConfig.direction === "asc"
+      ? <ArrowUp className="w-3.5 h-3.5 ml-1.5 text-primary" />
+      : <ArrowDown className="w-3.5 h-3.5 ml-1.5 text-primary" />;
+  };
 
 
   // --- Pipeline Forecast (Aba Funil) ---
@@ -363,22 +401,58 @@ const Relatorios = () => {
 
         {/* ======================= ABA 2: CLTV ======================= */}
         <TabsContent value="ltv" className="space-y-6 animate-in fade-in-50">
-          <div className="bg-muted/30 p-6 rounded-xl border border-border/50 mb-6">
-            <h3 className="text-lg font-semibold text-foreground mb-1">Melhores Clientes</h3>
-            <p className="text-sm text-muted-foreground">O <i>Customer Lifetime Value</i> mostra quais clientes investiram na sua empresa ao longo do tempo.</p>
+          <div className="bg-card p-6 rounded-xl border border-border/50 mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-sm">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Melhores Clientes</h3>
+              <p className="text-sm text-muted-foreground">O <i>Customer Lifetime Value</i> mostra quais clientes investiram na sua empresa ao longo do tempo.</p>
+            </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar cliente na lista..."
+                className="pl-9 bg-background"
+                value={searchLtv}
+                onChange={(e) => setSearchLtv(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto min-h-[400px]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-muted/50 border-b border-border text-left">
+                  <tr className="bg-muted/50 border-b border-border text-left select-none">
                     <th className="py-3 px-4 font-medium text-muted-foreground w-12 text-center">#</th>
-                    <th className="py-3 px-4 font-medium text-muted-foreground">Cliente</th>
-                    <th className="py-3 px-4 font-medium text-muted-foreground text-center">Total de Pedidos</th>
-                    <th className="py-3 px-4 font-medium text-muted-foreground text-center">Contratos Fechados</th>
-                    <th className="py-3 px-4 font-medium text-muted-foreground text-center">Taxa de Conversão do Cliente</th>
-                    <th className="py-3 px-4 font-medium text-muted-foreground text-right ring-1 ring-border/50 bg-muted/10">Volume de Negócios (R$)</th>
+                    <th
+                      className="py-3 px-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/80 transition-colors group"
+                      onClick={() => requestSort("nome")}
+                    >
+                      <div className="flex items-center">Cliente {getSortIcon("nome")}</div>
+                    </th>
+                    <th
+                      className="py-3 px-4 font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/80 transition-colors group"
+                      onClick={() => requestSort("totalPedidos")}
+                    >
+                      <div className="flex items-center justify-center">Total de Pedidos {getSortIcon("totalPedidos")}</div>
+                    </th>
+                    <th
+                      className="py-3 px-4 font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/80 transition-colors group"
+                      onClick={() => requestSort("pedidosGanhos")}
+                    >
+                      <div className="flex items-center justify-center">Contratos Fechados {getSortIcon("pedidosGanhos")}</div>
+                    </th>
+                    <th
+                      className="py-3 px-4 font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/80 transition-colors group"
+                      onClick={() => requestSort("conversao")}
+                    >
+                      <div className="flex items-center justify-center">Taxa de Conversão {getSortIcon("conversao")}</div>
+                    </th>
+                    <th
+                      className="py-3 px-4 font-medium text-muted-foreground text-right ring-1 ring-border/50 bg-muted/10 cursor-pointer hover:bg-muted/30 transition-colors group"
+                      onClick={() => requestSort("receitaGanha")}
+                    >
+                      <div className="flex items-center justify-end">Volume de Negócios (R$) {getSortIcon("receitaGanha")}</div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,17 +488,11 @@ const Relatorios = () => {
                         <td className={`py-2 px-4 text-right ring-1 ring-border/50 ${cliente.pedidosGanhos === 0 ? 'bg-transparent' : 'bg-muted/10'}`}>
                           <div className="flex flex-col items-end justify-center">
                             <span className={cliente.pedidosGanhos === 0 ? "text-muted-foreground font-medium text-sm opacity-80" : "font-bold text-foreground text-base"}>
-                              {currencyFormatter.format(cliente.receitaGerada)}
+                              {currencyFormatter.format(cliente.receitaGanha)}
                             </span>
-                            {cliente.pedidosGanhos > 0 ? (
-                              <span className="text-xs text-success font-semibold mt-0.5 flex items-center gap-1">
-                                ✓ {currencyFormatter.format(cliente.receitaGanha)} ganho
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-destructive/80 font-bold uppercase mt-1 tracking-wider bg-destructive/10 px-1.5 py-0.5 rounded border border-destructive/20">
-                                0 Fechamentos
-                              </span>
-                            )}
+                            <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[120px] leading-tight flex items-center gap-1">
+                              {currencyFormatter.format(cliente.receitaGerada)} em orçamentos passados
+                            </span>
                           </div>
                         </td>
                       </tr>

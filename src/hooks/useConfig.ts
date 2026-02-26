@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { getAuthHeaders } from "@/utils/auth";
 
 
 export interface ConfigAPI {
@@ -11,7 +13,9 @@ export interface ConfigAPI {
 }
 
 export const fetchConfig = async (): Promise<ConfigAPI> => {
-    const response = await fetch("/api/config");
+    const response = await fetch("/api/config", {
+        headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error("Falha ao buscar configurações");
     return response.json();
 };
@@ -19,9 +23,9 @@ export const fetchConfig = async (): Promise<ConfigAPI> => {
 export const updateConfig = async (data: Partial<ConfigAPI>): Promise<ConfigAPI> => {
     const response = await fetch("/api/config", {
         method: "PUT",
-        headers: {
+        headers: getAuthHeaders({
             "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error("Falha ao atualizar configurações");

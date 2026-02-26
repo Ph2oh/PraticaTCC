@@ -12,29 +12,39 @@ import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import { WhatsAppRequestsProvider } from "@/components/WhatsAppRequestsProvider";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+  <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <WhatsAppRequestsProvider>
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/orcamentos" element={<Orcamentos />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/relatorios" element={<Relatorios />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </WhatsAppRequestsProvider>
+        <AuthProvider>
+          <WhatsAppRequestsProvider>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+
+                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/orcamentos" element={<Orcamentos />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/relatorios" element={<Relatorios />} />
+                  <Route path="/configuracoes" element={<Configuracoes />} />
+                </Route>
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </WhatsAppRequestsProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>

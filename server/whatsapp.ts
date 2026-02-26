@@ -117,18 +117,30 @@ whatsappClient.on('message_create', async (message) => {
             // We want to extract just the number
             const phoneNumber = message.from.replace('@c.us', '');
 
-            // FIND OR CREATE CLIENT
+            // FIND OR CREATE CLIENT (E ATRELA AO USUÁRIO/TENANT PRINCIPAL DO SISTEMA)
+            // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura, 
+            // a captura de mensagens ocorrerá no contexto do PRIMEIRO usuário registrado (Admin).
+            const adminUser = await prisma.usuario.findFirst({
+                orderBy: { id: 'asc' }
+            });
+
+            if (!adminUser) {
+                console.error("ERRO CRÍTICO WhatsApp Bot: Não há nenhum Usuário/Tenant cadastrado no sistema para ser o dono deste cliente.");
+                return;
+            }
+
             let cliente = await prisma.cliente.findFirst({
-                where: { telefone: phoneNumber }
+                where: { telefone: phoneNumber, usuarioId: adminUser.id }
             });
 
             if (!cliente) {
-                console.log(` Criando novo cliente para ${phoneNumber}`);
+                console.log(` Criando novo cliente para ${phoneNumber} no Tenant ${adminUser.id}`);
                 cliente = await prisma.cliente.create({
                     data: {
                         nome: contactName,
                         email: '',
                         telefone: phoneNumber,
+                        usuarioId: adminUser.id
                     }
                 });
             }
@@ -137,6 +149,7 @@ whatsappClient.on('message_create', async (message) => {
             const hasPending = await prisma.orcamento.findFirst({
                 where: {
                     clienteId: cliente.id,
+                    usuarioId: adminUser.id,
                     status: 'pendente'
                 }
             });
@@ -208,9 +221,18 @@ export const acceptWhatsAppRequest = async (id: string) => {
 
     try {
         console.log(` Criando novo orçamento (APROVADO) para ${request.clienteNome}`);
+
+        // Busca o Admin para atrelar a propriedade do Orçamento (mesma lógica do Cliente)
+        const adminUser = await prisma.usuario.findFirst({
+            orderBy: { id: 'asc' }
+        });
+
+        if (!adminUser) throw new Error("Usuário administrador não encontrado no sistema.");
+
         const novoOrcamento = await prisma.orcamento.create({
             data: {
                 clienteId: request.clienteId,
+                usuarioId: adminUser.id,
                 descricao: `Criado via WhatsApp (Aprovado).\n\nMensagem original:\n"${request.mensagemOriginal}"`,
                 valor: 0,
                 status: 'pendente',

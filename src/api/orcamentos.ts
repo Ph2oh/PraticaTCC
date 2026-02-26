@@ -1,12 +1,15 @@
 import type { Status } from "@/components/StatusBadge";
 import type { Orcamento } from "@/types";
+import { getAuthHeaders } from "@/utils/auth";
 
 export type OrcamentoAPI = Orcamento;
 
 const API_BASE = "/api";
 
 export async function fetchOrcamentos(): Promise<OrcamentoAPI[]> {
-  const response = await fetch(`${API_BASE}/orcamentos`);
+  const response = await fetch(`${API_BASE}/orcamentos`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Erro ao buscar orçamentos");
@@ -23,7 +26,7 @@ export async function createOrcamento(data: {
 }): Promise<OrcamentoAPI> {
   const response = await fetch(`${API_BASE}/orcamentos`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -44,7 +47,7 @@ export async function updateOrcamento(
   // A atualização de cliente/telefone não é mais feita por aqui
   const response = await fetch(`${API_BASE}/orcamentos/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -57,6 +60,7 @@ export async function updateOrcamento(
 export async function deleteOrcamento(id: string): Promise<void> {
   const response = await fetch(`${API_BASE}/orcamentos/${id}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     const error = await response.json();

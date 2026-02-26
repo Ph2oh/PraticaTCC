@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAuthHeaders } from '@/utils/auth';
 
 const API_BASE = '/api/whatsapp';
 
@@ -42,31 +43,45 @@ export function useWhatsApp() {
     const { data: status = DEFAULT_STATUS, isLoading: loading } = useQuery<WhatsAppStatus>({
         queryKey: ['whatsapp-status'],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/status`);
-            if (!response.ok) {
+            try {
+                const response = await fetch(`${API_BASE}/status`, {
+                    headers: getAuthHeaders(),
+                });
+
+                if (!response.ok) {
+                    // Se retornar 401 ou 403, pode estar deslogado
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error("Não autorizado");
+                    }
+                    return {
+                        ...DEFAULT_STATUS,
+                        message: 'Servidor de WhatsApp indisponível no momento.'
+                    };
+                }
+
+                const data = await parseJsonSafe<WhatsAppStatus>(response);
+                if (!data) {
+                    return {
+                        ...DEFAULT_STATUS,
+                        message: 'Resposta inválida ao consultar status do WhatsApp.'
+                    };
+                }
+
+                // Para evitar piscar a tela, tentamos manter o QRcode anterior se o servidor estiver carregando um novo
+                const prevStatus = queryClient.getQueryData<WhatsAppStatus>(['whatsapp-status']);
+                const shouldKeepPreviousQr = !data.ready && !data.disabled && !data.qrCode && prevStatus?.qrCode;
+
+                return {
+                    ...data,
+                    pendingRequests: data.pendingRequests || [],
+                    qrCode: shouldKeepPreviousQr ? prevStatus.qrCode : (data.qrCode || ''),
+                };
+            } catch (error) {
                 return {
                     ...DEFAULT_STATUS,
-                    message: 'Servidor de WhatsApp indisponível no momento.'
+                    message: error instanceof Error ? error.message : 'Erro desconhecido ao buscar status do WhatsApp.'
                 };
             }
-
-            const data = await parseJsonSafe<WhatsAppStatus>(response);
-            if (!data) {
-                return {
-                    ...DEFAULT_STATUS,
-                    message: 'Resposta inválida ao consultar status do WhatsApp.'
-                };
-            }
-
-            // Para evitar piscar a tela, tentamos manter o QRcode anterior se o servidor estiver carregando um novo
-            const prevStatus = queryClient.getQueryData<WhatsAppStatus>(['whatsapp-status']);
-            const shouldKeepPreviousQr = !data.ready && !data.disabled && !data.qrCode && prevStatus?.qrCode;
-
-            return {
-                ...data,
-                pendingRequests: data.pendingRequests || [],
-                qrCode: shouldKeepPreviousQr ? prevStatus.qrCode : (data.qrCode || ''),
-            };
         },
         refetchInterval: 5000,
         refetchOnWindowFocus: false, // Prevents reset on tab switching
@@ -75,7 +90,10 @@ export function useWhatsApp() {
 
     const disconnectMutation = useMutation({
         mutationFn: async () => {
-            await fetch(`${API_BASE}/disconnect`, { method: 'POST' });
+            await fetch(`${API_BASE}/disconnect`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
@@ -84,7 +102,10 @@ export function useWhatsApp() {
 
     const acceptMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`${API_BASE}/requests/${id}/accept`, { method: 'POST' });
+            const res = await fetch(`${API_BASE}/requests/${id}/accept`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
             const payload = await parseJsonSafe<{ success?: boolean; error?: string; orcamento?: unknown }>(res);
 
             if (!res.ok) {
@@ -100,7 +121,10 @@ export function useWhatsApp() {
 
     const rejectMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`${API_BASE}/requests/${id}/reject`, { method: 'POST' });
+            const res = await fetch(`${API_BASE}/requests/${id}/reject`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
             const payload = await parseJsonSafe<{ success?: boolean; error?: string }>(res);
 
             if (!res.ok) {
@@ -114,12 +138,12 @@ export function useWhatsApp() {
         }
     });
 
-    return { 
-        status, 
-        loading: loading || disconnectMutation.isPending, 
-        disconnect: () => disconnectMutation.mutateAsync(), 
-        acceptRequest: (id: string) => acceptMutation.mutateAsync(id), 
-        rejectRequest: (id: string) => rejectMutation.mutateAsync(id) 
+    return {
+        status,
+        loading: loading || disconnectMutation.isPending,
+        disconnect: () => disconnectMutation.mutateAsync(),
+        acceptRequest: (id: string) => acceptMutation.mutateAsync(id),
+        rejectRequest: (id: string) => rejectMutation.mutateAsync(id)
     };
 }
 

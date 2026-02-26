@@ -1,9 +1,12 @@
 import type { Cliente } from "@/types";
+import { getAuthHeaders } from "@/utils/auth";
 
 const API_BASE = "/api";
 
 export async function fetchClientes(): Promise<Cliente[]> {
-  const response = await fetch(`${API_BASE}/clientes`);
+  const response = await fetch(`${API_BASE}/clientes`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Erro ao buscar clientes");
@@ -18,7 +21,7 @@ export async function createCliente(data: {
 }): Promise<Cliente> {
   const response = await fetch(`${API_BASE}/clientes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -38,7 +41,7 @@ export async function updateCliente(
 ): Promise<Cliente> {
   const response = await fetch(`${API_BASE}/clientes/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -51,6 +54,7 @@ export async function updateCliente(
 export async function deleteCliente(id: string): Promise<void> {
   const response = await fetch(`${API_BASE}/clientes/${id}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     const error = await response.json();

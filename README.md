@@ -6,9 +6,9 @@ Uma aplicação full-stack para gerenciar orçamentos com histórico de eventos,
 
 - **Node.js** v18+ (com npm)
 - **Git**
-- **SQLite** (incluído automaticamente via Prisma)
-
-## Instalação Rápida
+- **Node.js** v18+ (com npm)
+- **Git**
+- **PostgreSQL** (configurado via variável de ambiente do banco em Nuvem como Neon.tech)
 
 ```bash
 # 1. Clone o repositório
@@ -18,11 +18,17 @@ cd <YOUR_PROJECT_NAME>
 # 2. Instale as dependências
 npm install
 
-# 3. Configure o banco de dados
-npx prisma generate
-npm run seed
+# 3. Defina a Chave do JWT e URL do Banco
+# Crie um arquivo .env na base e cole a sua URL do Banco de Dados PostgreSQL 
+# DATABASE_URL="postgresql://user:pass@host/db"
+# JWT_SECRET="chave-super-secreta"
 
-# 4. Inicie o desenvolvimento
+# 4. Configure o banco de dados
+npx prisma generate
+## Importante: Use 'npx prisma db push' em bancos em nuvem sem suporte a migrations pesadas no setup rápido
+npx prisma db push
+
+# 5. Inicie o desenvolvimento
 npm run dev:all
 ```
 
@@ -91,9 +97,10 @@ PraticaTCC/
 | **Formulários** | React Hook Form + Zod | Latest |
 | **Drag & Drop** | @hello-pangea/dnd | 18.x |
 | **Backend** | Express.js | 4.x |
+| **Autenticação** | JWT (JSON Web Tokens) + Bcrypt | Latest |
 | **Integração WhatsApp**| whatsapp-web.js / puppeteer | Latest |
-| **Database** | SQLite + Prisma ORM | 5.x |
-| **HTTP Client** | Fetch API | Nativo |
+| **Database** | PostgreSQL (Neon) + Prisma ORM | 5.x |
+| **HTTP Client** | Fetch API + Interceptadores de Sessão | Nativo |
 
 ---
 
@@ -126,11 +133,17 @@ PraticaTCC/
 - Marcações cronológicas precisas
 - Visualização em linha do tempo
 
-### Integração com WhatsApp (Novo!)
+### Segurança e Isolamento SaaS (Novo!)
+- **Autenticação JWT:** Proteção de rotas do backend com Tokens assinados expiráveis.
+- **Multilocação (Multi-Tenant):** O mesmo sistema pode suportar várias contas/empresas ("SaaS"). 
+- **Isolamento Lógico de Dados:** O sistema anexa e confere o ID do dono da conta (`usuarioId`) em toda e qualquer consulta (Prisma/Express), impedindo vazamento de Orçamentos de um cliente para a tela de outro.
+- **Gerenciamento de Sessão Dinâmico:** Event-listener global em React que sincroniza logins entre abas concorrentes, bloqueando a interferência e "envenenamento de cache" entre administradores distintos dividindo o mesmo navegador.
+
+### Integração com WhatsApp
 - **Comunicação por QR Code:** O sistema se conecta diretamente ao seu número via biblioteca `whatsapp-web.js`.
 - **Fila de Aprovação (Memória):** Quando um cliente envia a palavra "orçamento", o servidor retém a mensagem em memória e gera um **Popup Global Interativo** em qualquer tela do Front-end.
 - **Verificação de Duplicidade:** Ignora automaticamente contatos que já possuam orçamentos pendentes para evitar duplicações.
-- **Gaveta de Comunicação Rápida:** Tela de Detalhes possui atalhos (templates predefinidos) que abrem chamadas nativas do WhatsApp Web com mensagens personalizadas (Propsta, Lembrete, Agradecimento).
+- **Gaveta de Comunicação Rápida:** Tela de Detalhes possui atalhos (templates predefinidos) que abrem chamadas nativas do WhatsApp Web com mensagens personalizadas (Proposta, Lembrete, Agradecimento).
 - **Sem Auto-Replies:** Respeitando regras personalizadas, atua apenas de forma passiva através da captura de orçamentos e facilitação de links.
 
 ---
@@ -191,12 +204,14 @@ npm run seed          # Popula banco com dados de teste
           ║
           ↓
 ┌─────────────────────────────────────┐
-│    SQLite Database                  │
-│    ./prisma/dev.db                  │
+│    PostgreSQL Database (Neon)       │
+│    Acesso Via Internet              │
 ├─────────────────────────────────────┤
 │  Tabelas:                           │
+│  • Usuario (O dono da conta SaaS)   │
 │  • Cliente                          │
 │  • Orcamento                        │
+│  • Configuracao                     │
 │  • OrcamentoEvento (Histórico)      │
 └─────────────────────────────────────┘
 ```

@@ -10,6 +10,8 @@ import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 
 const COLORS = [
   { name: "Blue (Default)", value: "224.3 76.3% 48%", class: "bg-blue-600" },
@@ -22,6 +24,7 @@ const COLORS = [
 const Configuracoes = () => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+  const { usuario } = useAuth();
 
   // Queries
   const { status, loading: waLoading, disconnect } = useWhatsApp();
@@ -39,6 +42,11 @@ const Configuracoes = () => {
   const [templateProposta, setTemplateProposta] = useState("");
   const [templateLembrete, setTemplateLembrete] = useState("");
   const [templateAgradecimento, setTemplateAgradecimento] = useState("");
+
+  // Passwords
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Populate local state when config is loaded
   useEffect(() => {
@@ -80,6 +88,41 @@ const Configuracoes = () => {
       toast({ title: "Erro ao salvar", description: "Não foi possível aplicar as alterações.", variant: "destructive" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (novaSenha.length < 6) {
+      toast({ title: "Senha muito curta", description: "A nova senha deve ter pelo menos 6 caracteres.", variant: "destructive" });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const token = localStorage.getItem('@sgotoken');
+      const response = await fetch('/api/auth/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ senhaAtual, novaSenha })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao alterar senha.');
+      }
+
+      toast({ title: "Sucesso", description: "Sua senha foi alterada com sucesso." });
+      setSenhaAtual("");
+      setNovaSenha("");
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -127,6 +170,9 @@ const Configuracoes = () => {
               <TabsTrigger value="templates" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Type className="w-4 h-4 mr-3" /> Mensagens
               </TabsTrigger>
+              <TabsTrigger value="seguranca" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
+                <Shield className="w-4 h-4 mr-3" /> Segurança
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -134,6 +180,7 @@ const Configuracoes = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:hidden mb-4">
             <TabsList className="grid grid-cols-2 h-auto w-full">
               <TabsTrigger value="geral">Geral</TabsTrigger>
+              <TabsTrigger value="seguranca">Segurança</TabsTrigger>
               <TabsTrigger value="aparencia">Aparência</TabsTrigger>
               <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
@@ -148,20 +195,88 @@ const Configuracoes = () => {
           {activeTab === "geral" && (
             <div className="space-y-6 animate-in fade-in-50">
               <div>
-                <h3 className="text-lg font-medium">Perfil do Administrador</h3>
-                <p className="text-sm text-muted-foreground">Informações sobre o titular da conta que fica registrado no sistema.</p>
+                <h3 className="text-lg font-medium">Perfil do Proprietário</h3>
+                <p className="text-sm text-muted-foreground">Informações sobre a conta responsável por este Workspace protegido.</p>
               </div>
               <Separator />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                 <div className="space-y-2">
-                  <Label>Nome de Exibição</Label>
-                  <Input placeholder="Nome do administrador" defaultValue="Admin Geral" disabled />
-                  <p className="text-[11px] text-muted-foreground"></p>
+                  <Label>Nome Registrado</Label>
+                  <Input placeholder="Nome" value={usuario?.nome || "Carregando..."} disabled className="bg-muted/50" />
+                  <p className="text-[11px] text-muted-foreground">O nome da conta não pode ser modificado nesta versão.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email de Contato</Label>
-                  <Input placeholder="admin@exemplo.com" defaultValue="admin@praticatcc.com.br" disabled />
+                  <Label>Email de Autenticação</Label>
+                  <Input placeholder="email@exemplo.com" value={usuario?.email || "Carregando..."} disabled className="bg-muted/50" />
                 </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* Aba: Segurança */}
+          {activeTab === "seguranca" && (
+            <div className="space-y-6 animate-in fade-in-50">
+              <div>
+                <h3 className="text-lg font-medium">Segurança da Conta</h3>
+                <p className="text-sm text-muted-foreground">Gerencie suas credenciais de acesso e informações sensíveis.</p>
+              </div>
+              <Separator />
+
+              <div className="pt-2">
+                <Card className="max-w-2xl shadow-sm border-destructive/20">
+                  <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Shield className="w-5 h-5" />
+                      Alterar Senha
+                    </CardTitle>
+                    <CardDescription>
+                      Atualize sua senha de acesso periodicamente para manter seu workspace protegido.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form id="password-form" onSubmit={handlePasswordChange} className="space-y-5">
+                      <div className="grid gap-2">
+                        <Label htmlFor="senhaAtual">Senha Atual</Label>
+                        <Input
+                          id="senhaAtual"
+                          type="password"
+                          value={senhaAtual}
+                          onChange={(e) => setSenhaAtual(e.target.value)}
+                          placeholder="Digite sua senha atual"
+                          className="max-w-md"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="novaSenha">Nova Senha</Label>
+                        <Input
+                          id="novaSenha"
+                          type="password"
+                          value={novaSenha}
+                          onChange={(e) => setNovaSenha(e.target.value)}
+                          placeholder="Digite a nova senha"
+                          className="max-w-md"
+                          required
+                        />
+                        <p className="text-[12px] text-muted-foreground mt-1">
+                          A senha deve conter no mínimo 6 caracteres.
+                        </p>
+                      </div>
+                    </form>
+                  </CardContent>
+                  <CardFooter className="border-t bg-muted/20 px-6 py-4">
+                    <Button
+                      type="submit"
+                      form="password-form"
+                      disabled={isChangingPassword || !senhaAtual || novaSenha.length < 6}
+                      className="min-w-[140px]"
+                    >
+                      {isChangingPassword ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Atualizando...</> : "Atualizar Senha"}
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
             </div>
           )}

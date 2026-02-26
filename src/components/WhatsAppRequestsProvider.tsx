@@ -13,11 +13,13 @@ import {
 import { MessageSquare, Check, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function WhatsAppRequestsProvider({ children }: { children: React.ReactNode }) {
     const { status, acceptRequest, rejectRequest } = useWhatsApp();
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { token } = useAuth();
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     // Get the first pending request if any
@@ -32,10 +34,11 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
             await acceptRequest(pendingRequest.id);
             toast({
                 title: "Orçamento Criado!",
-                description: `O orçamento para ${pendingRequest.clienteNome} foi criado e movido para o Kanban.`,
+                description: `O orçamento para ${pendingRequest.clienteNome} foi criado e adicionado a lista de orçamentos.`,
             });
             // Invalidate queries to refresh the kanban board if we are on that page
-            queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+            queryClient.invalidateQueries({ queryKey: ['orcamentos', token] });
+            queryClient.invalidateQueries({ queryKey: ['clientes', token] });
         } catch (error) {
             toast({
                 title: "Erro",

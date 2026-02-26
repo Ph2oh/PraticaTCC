@@ -8,9 +8,11 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -23,6 +25,7 @@ const navItems = [
 const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { logout } = useAuth();
 
   return (
     <aside
@@ -66,15 +69,26 @@ const AppSidebar = () => {
         })}
       </nav>
 
-      {/* Collapse button */}
-      <div className="px-3 py-4 border-t border-sidebar-border">
+      {/* Logout & Collapse buttons */}
+      <div className="px-3 py-4 flex flex-col gap-2 border-t border-sidebar-border">
+
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full"
         >
-          {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          {collapsed ? <ChevronRight className="w-5 h-5 shrink-0" /> : <ChevronLeft className="w-5 h-5 shrink-0" />}
           {!collapsed && <span>Recolher</span>}
         </button>
+
+        <button
+          onClick={logout}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors w-full"
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Sair do Sistema</span>}
+        </button>
+
+
       </div>
     </aside>
   );

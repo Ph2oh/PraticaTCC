@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Cliente {
@@ -19,6 +19,8 @@ model Cliente {
   totalOrcamentos Int      @default(0)
   
   // Relations
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   orcamentos      Orcamento[]
 }
 
@@ -33,6 +35,8 @@ model Orcamento {
   // Foreign key relation
   clienteId      String
   cliente        Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuarioId      String
+  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   
   // Relations
   eventos        OrcamentoEvento[]
@@ -54,14 +58,32 @@ model OrcamentoEvento {
 }
 
 model Configuracao {
-  id               String   @id @default("global") // Só teremos uma linha de config
+  id               String   @id @default(uuid())
+  usuarioId        String   @unique
+  usuario          Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  
   corPrimaria      String   @default("224.3 76.3% 48%") // hsl string padrão
   tema             String   @default("system")
   
   // Templates de WhatsApp
-  templateProposta       String @default("Olá {{cliente}}, tudo bem? ✨\n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
+  templateProposta       String @default("Olá {{cliente}}, tudo bem? \n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
   templateLembrete       String @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! 😊")
-  templateAgradecimento  String @default("Muito obrigado por fechar conosco, {{cliente}}! 🎉 Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
+  templateAgradecimento  String @default("Muito obrigado por fechar conosco, {{cliente}}! Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
   
   atualizadoEm     DateTime @updatedAt
+}
+
+model Usuario {
+  id               String   @id @default(uuid())
+  nome             String
+  email            String   @unique
+  senha            String   // Senha hasheada com bcrypt
+  empresa          String?  // Nome da Empresa/Agência
+  telefone         String?  // Telefone da Empresa
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  clientes         Cliente[]
+  orcamentos       Orcamento[]
+  configuracao     Configuracao?
 }
