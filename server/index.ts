@@ -1,11 +1,14 @@
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
+// Mudança estrutural: esta flag permite executar a API sem inicializar a sessão do WhatsApp.
+// Útil em ambiente de desenvolvimento quando o Chromium/Puppeteer estiver indisponível.
+const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED !== 'false';
 
 app.use(cors());
 app.use(express.json());
@@ -252,7 +255,7 @@ app.put('/api/orcamentos/:id', async (req, res) => {
             where: { id },
         });
 
-        const dataAtualizacao: any = {};
+        const dataAtualizacao: Prisma.OrcamentoUpdateInput = {};
         if (descricao) dataAtualizacao.descricao = descricao;
         if (typeof valor !== 'undefined') dataAtualizacao.valor = Number(valor);
         if (status) dataAtualizacao.status = status;
@@ -261,7 +264,7 @@ app.put('/api/orcamentos/:id', async (req, res) => {
             return res.status(400).json({ error: 'Nenhuma informação para atualizar' });
         }
 
-        const eventosParaCriar: any[] = [];
+        const eventosParaCriar: Prisma.OrcamentoEventoCreateWithoutOrcamentoInput[] = [];
 
         if (status && orcamentoAtigo && orcamentoAtigo.status !== status) {
             eventosParaCriar.push({
@@ -346,7 +349,7 @@ app.put('/api/config', async (req, res) => {
     try {
         const { corPrimaria, tema, templateProposta, templateLembrete, templateAgradecimento } = req.body;
 
-        const dataAtualizacao: any = {};
+        const dataAtualizacao: Prisma.ConfiguracaoUpdateInput = {};
         if (corPrimaria) dataAtualizacao.corPrimaria = corPrimaria;
         if (tema) dataAtualizacao.tema = tema;
         if (templateProposta) dataAtualizacao.templateProposta = templateProposta;
@@ -358,7 +361,11 @@ app.put('/api/config', async (req, res) => {
             update: dataAtualizacao,
             create: {
                 id: 'global',
-                ...dataAtualizacao
+                corPrimaria: corPrimaria || '#0f172a',
+                tema: tema || 'light',
+                templateProposta: templateProposta || 'Olá, segue a proposta de orçamento.',
+                templateLembrete: templateLembrete || 'Olá, estou passando para lembrar do orçamento.',
+                templateAgradecimento: templateAgradecimento || 'Muito obrigado!',
             }
         });
 
@@ -372,20 +379,33 @@ app.put('/api/config', async (req, res) => {
 
 // --- WHATSAPP ROUTES ---
 app.get('/api/whatsapp/status', (req, res) => {
+    if (!WHATSAPP_ENABLED) {
+        return res.json({ ready: false, qrCode: '', pendingRequests: [], disabled: true });
+    }
+
     res.json(getWhatsAppStatus());
 });
 
 app.post('/api/whatsapp/requests/:id/accept', async (req, res) => {
+    if (!WHATSAPP_ENABLED) {
+        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
+    }
+
     try {
         const { id } = req.params;
         const orcamento = await acceptWhatsAppRequest(id);
         res.json({ success: true, orcamento });
-    } catch (e: any) {
-        res.status(400).json({ error: e.message || 'Erro ao aprovar solicitação' });
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Erro ao aprovar solicitação';
+        res.status(400).json({ error: message });
     }
 });
 
 app.post('/api/whatsapp/requests/:id/reject', (req, res) => {
+    if (!WHATSAPP_ENABLED) {
+        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
+    }
+
     try {
         const { id } = req.params;
         const success = rejectWhatsAppRequest(id);
@@ -394,12 +414,16 @@ app.post('/api/whatsapp/requests/:id/reject', (req, res) => {
         } else {
             res.status(404).json({ error: 'Solicitação não encontrada' });
         }
-    } catch (e: any) {
+    } catch (e: unknown) {
         res.status(500).json({ error: 'Erro ao recusar solicitação' });
     }
 });
 
 app.post('/api/whatsapp/disconnect', async (req, res) => {
+    if (!WHATSAPP_ENABLED) {
+        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
+    }
+
     try {
         const success = await disconnectWhatsAppClient();
         res.json({ success });
@@ -408,9 +432,13 @@ app.post('/api/whatsapp/disconnect', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
+app.listen(Number(PORT), '127.0.0.1', () => {
+    console.log(`Servidor rodando na porta ${PORT} (IPv4 Explicitado)`);
 
-    // Start WhatsApp client when server starts
-    startWhatsAppClient();
+    if (WHATSAPP_ENABLED) {
+        // Start WhatsApp client when server starts
+        startWhatsAppClient();
+    } else {
+        console.log(' Integração com WhatsApp desabilitada (WHATSAPP_ENABLED=false).');
+    }
 });

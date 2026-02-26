@@ -95,7 +95,7 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
     const handleOpenWhatsApp = (customText?: string) => {
         if (orcamento.cliente?.telefone) {
             const phone = orcamento.cliente.telefone.replace(/\D/g, '');
-            let message = customText || `Olá ${orcamento.cliente.nome}, tudo bem? Gostaria de falar sobre o seu orçamento.`;
+            const message = customText || `Olá ${orcamento.cliente.nome}, tudo bem? Gostaria de falar sobre o seu orçamento.`;
             const encoded = encodeURIComponent(message);
             window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`, '_blank');
         }

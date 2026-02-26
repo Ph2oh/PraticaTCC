@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
@@ -24,3 +25,9 @@ dist-ssr
 *.sw?
 
 /generated/prisma
+
+.wwebjs_auth/
+.wwebjs_cache/
+prisma/dev.db
+node_modules/
+.env

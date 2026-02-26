@@ -30,6 +30,18 @@ A aplicação abrirá em:
 - **Frontend**: http://localhost:5173
 - **Backend**: http://localhost:3001
 
+### Variável de Ambiente (Opcional)
+
+Se quiser rodar a API sem inicializar o WhatsApp (útil para evitar bloqueios de sessão do navegador em desenvolvimento), use:
+
+```bash
+# PowerShell (Windows)
+$env:WHATSAPP_ENABLED="false"
+npm run dev:server
+```
+
+Com essa flag ativa, as rotas principais de clientes/orçamentos continuam funcionando normalmente e apenas a integração de WhatsApp fica desabilitada.
+
 ---
 
 ## 📦 Estrutura do Projeto
@@ -344,7 +356,7 @@ app.post('/api/orcamentos', async (req, res) => {
 - Sincronização automática com servidor
 
 ### Componentes Reutilizáveis
-- shadcn/ui (componentes Radix copiadoslocalmente)
+- shadcn/ui (componentes Radix copiados localmente)
 - Totalmente customizáveis via Tailwind
 - Acessibilidade nativa (WCAG)
 
@@ -357,6 +369,12 @@ app.post('/api/orcamentos', async (req, res) => {
 - Histórico automático de todas operações
 - Rastreia criação, mudanças de status
 - Ordenação cronológica
+
+### Otimizações Recentes (Performance e Build)
+- **Vite Proxy Local:** Alterado alvo do proxy para `127.0.0.1` para eliminar latência de resolução IPv6 em chamadas ao backend.
+- **Gerenciamento de Estado WhatsApp:** Migração do polling antigo para `useQuery` global na captura do QR Code, evitando recarregamentos múltiplos e perda de conexão ao alternar abas (`refetchOnWindowFocus: false`).
+- **Build Otimizado:** Divisão de pacotes (`manualChunks` com Rollup) para fragmentar bibliotecas pesadas como React, Radix, Lucide e TanStack, evitando limite de 500kB.
+- **Pre-bundling (Dev):** `optimizeDeps` forçado no Vite para acelerar abertura da tela de Configurações sem travamentos.
 
 ---
 

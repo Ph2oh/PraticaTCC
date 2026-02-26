@@ -15,6 +15,17 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 2,
 });
 
+type ClientPerformanceEntry = {
+  id: string;
+  nome: string;
+  totalPedidos: number;
+  pedidosGanhos: number;
+  receitaGerada: number;
+  receitaGanha: number;
+  ticketMedio: number;
+  conversao: number;
+};
+
 const Relatorios = () => {
   const { data: orcamentos = [], isLoading: loadingOrcamentos } = useOrcamentos();
   const { data: clientes = [], isLoading: loadingClientes } = useClientes();
@@ -91,7 +102,7 @@ const Relatorios = () => {
 
   // --- LTV Calculations (Aba Clientes) ---
   const clientPerformance = useMemo(() => {
-    const perfMap = new Map<string, any>();
+    const perfMap = new Map<string, ClientPerformanceEntry>();
 
     // Inicializa com todos os clientes
     clientes.forEach(c => {
@@ -111,8 +122,14 @@ const Relatorios = () => {
     orcamentosFiltradosGlobalmente.forEach(orc => {
       if (!orc.clienteId) return;
       const entry = perfMap.get(orc.clienteId) || {
+        id: orc.clienteId,
         nome: orc.cliente?.nome || "Desconhecido",
-        totalPedidos: 0, pedidosGanhos: 0, receitaGerada: 0
+        totalPedidos: 0,
+        pedidosGanhos: 0,
+        receitaGerada: 0,
+        receitaGanha: 0,
+        ticketMedio: 0,
+        conversao: 0,
       };
 
       entry.totalPedidos += 1;

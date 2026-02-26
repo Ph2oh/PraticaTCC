@@ -141,7 +141,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
             const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
-            const interval: any = setInterval(function () {
+            const interval: ReturnType<typeof setInterval> = setInterval(function () {
                 const particleCount = 50;
                 confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
                 confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });

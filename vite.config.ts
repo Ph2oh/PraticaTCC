@@ -13,11 +13,14 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: "http://127.0.0.1:3001",
         changeOrigin: true,
         rewrite: (path) => path,
       },
     },
+  },
+  optimizeDeps: {
+    include: ["lucide-react", "react-hook-form", "@tanstack/react-query"],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
@@ -25,4 +28,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+          ui: ["@radix-ui/react-accordion", "@radix-ui/react-dialog", "@radix-ui/react-popover", "lucide-react"],
+          form: ["react-hook-form", "@hookform/resolvers", "zod"],
+          query: ["@tanstack/react-query"],
+          charts: ["recharts"]
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  }
 }));

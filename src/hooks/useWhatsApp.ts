@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const API_BASE = '/api/whatsapp';
 
 export interface PendingWhatsAppRequest {
     id: string;
@@ -12,76 +14,112 @@ export interface PendingWhatsAppRequest {
 export interface WhatsAppStatus {
     ready: boolean;
     qrCode: string;
+    disabled?: boolean;
+    message?: string;
     pendingRequests?: PendingWhatsAppRequest[];
 }
 
-export function useWhatsApp() {
-    const [status, setStatus] = useState<WhatsAppStatus>({ ready: false, qrCode: '' });
-    const [loading, setLoading] = useState(true);
+const DEFAULT_STATUS: WhatsAppStatus = {
+    ready: false,
+    qrCode: '',
+    pendingRequests: [],
+};
 
-    useEffect(() => {
-        const checkStatus = async () => {
-            try {
-                const response = await fetch('http://localhost:3001/api/whatsapp/status');
-                const data = await response.json();
-                setStatus(data);
-            } catch (error) {
-                console.error("Erro ao checar status do WhatsApp:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+async function parseJsonSafe<T>(response: Response): Promise<T | null> {
+    const raw = await response.text();
+    if (!raw) return null;
 
-        checkStatus();
-
-        // Polling every 5 seconds
-        const interval = setInterval(checkStatus, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const disconnect = async () => {
-        try {
-            setLoading(true);
-            await fetch('http://localhost:3001/api/whatsapp/disconnect', { method: 'POST' });
-            setStatus({ ready: false, qrCode: '', pendingRequests: [] });
-        } catch (error) {
-            console.error("Erro ao desconectar WhatsApp:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const acceptRequest = async (id: string) => {
-        try {
-            const res = await fetch(`http://localhost:3001/api/whatsapp/requests/${id}/accept`, { method: 'POST' });
-            if (res.ok) {
-                setStatus(prev => ({
-                    ...prev,
-                    pendingRequests: prev.pendingRequests?.filter(r => r.id !== id)
-                }));
-            }
-            return await res.json();
-        } catch (error) {
-            console.error(error);
-            throw error;
-        }
-    };
-
-    const rejectRequest = async (id: string) => {
-        try {
-            const res = await fetch(`http://localhost:3001/api/whatsapp/requests/${id}/reject`, { method: 'POST' });
-            if (res.ok) {
-                setStatus(prev => ({
-                    ...prev,
-                    pendingRequests: prev.pendingRequests?.filter(r => r.id !== id)
-                }));
-            }
-            return await res.json();
-        } catch (error) {
-            console.error(error);
-            throw error;
-        }
-    };
-
-    return { status, loading, disconnect, acceptRequest, rejectRequest };
+    try {
+        return JSON.parse(raw) as T;
+    } catch {
+        return null;
+    }
 }
+
+export function useWhatsApp() {
+    const queryClient = useQueryClient();
+
+    const { data: status = DEFAULT_STATUS, isLoading: loading } = useQuery<WhatsAppStatus>({
+        queryKey: ['whatsapp-status'],
+        queryFn: async () => {
+            const response = await fetch(`${API_BASE}/status`);
+            if (!response.ok) {
+                return {
+                    ...DEFAULT_STATUS,
+                    message: 'Servidor de WhatsApp indisponível no momento.'
+                };
+            }
+
+            const data = await parseJsonSafe<WhatsAppStatus>(response);
+            if (!data) {
+                return {
+                    ...DEFAULT_STATUS,
+                    message: 'Resposta inválida ao consultar status do WhatsApp.'
+                };
+            }
+
+            // Para evitar piscar a tela, tentamos manter o QRcode anterior se o servidor estiver carregando um novo
+            const prevStatus = queryClient.getQueryData<WhatsAppStatus>(['whatsapp-status']);
+            const shouldKeepPreviousQr = !data.ready && !data.disabled && !data.qrCode && prevStatus?.qrCode;
+
+            return {
+                ...data,
+                pendingRequests: data.pendingRequests || [],
+                qrCode: shouldKeepPreviousQr ? prevStatus.qrCode : (data.qrCode || ''),
+            };
+        },
+        refetchInterval: 5000,
+        refetchOnWindowFocus: false, // Prevents reset on tab switching
+        staleTime: 4000,
+    });
+
+    const disconnectMutation = useMutation({
+        mutationFn: async () => {
+            await fetch(`${API_BASE}/disconnect`, { method: 'POST' });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+        }
+    });
+
+    const acceptMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch(`${API_BASE}/requests/${id}/accept`, { method: 'POST' });
+            const payload = await parseJsonSafe<{ success?: boolean; error?: string; orcamento?: unknown }>(res);
+
+            if (!res.ok) {
+                throw new Error(payload?.error || 'Erro ao aprovar solicitação');
+            }
+
+            return payload ?? { success: true };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+        }
+    });
+
+    const rejectMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch(`${API_BASE}/requests/${id}/reject`, { method: 'POST' });
+            const payload = await parseJsonSafe<{ success?: boolean; error?: string }>(res);
+
+            if (!res.ok) {
+                throw new Error(payload?.error || 'Erro ao recusar solicitação');
+            }
+
+            return payload ?? { success: true };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+        }
+    });
+
+    return { 
+        status, 
+        loading: loading || disconnectMutation.isPending, 
+        disconnect: () => disconnectMutation.mutateAsync(), 
+        acceptRequest: (id: string) => acceptMutation.mutateAsync(id), 
+        rejectRequest: (id: string) => rejectMutation.mutateAsync(id) 
+    };
+}
+

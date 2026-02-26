@@ -279,7 +279,29 @@ const Configuracoes = () => {
                   </div>
                 )}
 
-                {!waLoading && !status.ready && !status.qrCode && (
+                {!waLoading && status.disabled && (
+                  <div className="mt-8 flex flex-col items-center justify-center p-10 border border-dashed border-border rounded-xl bg-muted/10">
+                    <p className="text-sm text-muted-foreground font-medium text-center">
+                      Integração com WhatsApp está desabilitada neste ambiente.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-2 text-center">
+                      Defina WHATSAPP_ENABLED=true para habilitar novamente.
+                    </p>
+                  </div>
+                )}
+
+                {!waLoading && !status.ready && !status.qrCode && !status.disabled && status.message && (
+                  <div className="mt-8 flex flex-col items-center justify-center p-10 border border-dashed border-border rounded-xl bg-muted/10">
+                    <p className="text-sm text-muted-foreground font-medium text-center">
+                      {status.message}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-2 text-center">
+                      O sistema seguirá tentando reconectar automaticamente.
+                    </p>
+                  </div>
+                )}
+
+                {!waLoading && !status.ready && !status.qrCode && !status.disabled && !status.message && (
                   <div className="mt-8 flex flex-col items-center justify-center p-12 border border-dashed border-border rounded-xl bg-muted/10">
                     <Loader2 className="w-8 h-8 text-muted-foreground animate-spin mb-4" />
                     <p className="text-sm text-muted-foreground">Gerando QR Code Criptografado...</p>

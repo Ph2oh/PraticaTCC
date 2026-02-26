@@ -14,7 +14,7 @@ import { Copy, Mail, MapPin, Phone, User, Save, X, Edit2, MessageCircle } from "
 import { useUpdateCliente } from "@/hooks/useClientes";
 import { useConfig } from "@/hooks/useConfig";
 import { useToast } from "@/hooks/use-toast";
-import type { Cliente } from "@/types";
+import type { Cliente, Orcamento } from "@/types";
 
 interface ClienteDetalhesDrawerProps {
     cliente: Cliente | null;
@@ -79,7 +79,7 @@ export function ClienteDetalhesDrawer({ cliente, isOpen, onClose }: ClienteDetal
     const openWhatsApp = () => {
         if (cliente.telefone) {
             const phone = cliente.telefone.replace(/\D/g, '');
-            let message = config?.templateProposta
+            const message = config?.templateProposta
                 ? config.templateProposta.replace(/{{cliente}}/g, cliente.nome).replace(/{{valor}}/g, "R$ 0,00").replace(/{{descricao}}/g, "o serviço em aberto")
                 : `Olá ${cliente.nome}, tudo bem? Aqui é do nosso CRM.`;
 
@@ -234,7 +234,7 @@ export function ClienteDetalhesDrawer({ cliente, isOpen, onClose }: ClienteDetal
                     <TabsContent value="historico" className="flex-1 overflow-y-auto mt-0 animate-in fade-in-50 space-y-4 pt-4 pb-8">
                         {cliente.orcamentos && cliente.orcamentos.length > 0 ? (
                             <div className="space-y-3">
-                                {cliente.orcamentos.map((orc: any) => (
+                                {cliente.orcamentos.map((orc: Orcamento) => (
                                     <div key={orc.id} className="border rounded-xl p-4 space-y-2 hover:border-primary/40 transition-colors bg-card shadow-sm cursor-default">
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="text-xs font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
