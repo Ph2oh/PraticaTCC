@@ -1,64 +1,21 @@
 # SGO - Sistema de Gerenciamento de Orçamentos
 
-Uma aplicação full-stack para gerenciar orçamentos com histórico de eventos, visualizações interativas e integração com WhatsApp.
-
-## Pré-Requisitos
-
-- **Node.js** v18+ (com npm)
-- **Git**
-- **Node.js** v18+ (com npm)
-- **Git**
-- **PostgreSQL** (configurado via variável de ambiente do banco em Nuvem como Neon.tech)
-
-```bash
-# 1. Clone o repositório
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
-
-# 2. Instale as dependências
-npm install
-
-# 3. Defina a Chave do JWT e URL do Banco
-# Crie um arquivo .env na base e cole a sua URL do Banco de Dados PostgreSQL 
-# DATABASE_URL="postgresql://user:pass@host/db"
-# JWT_SECRET="chave-super-secreta"
-
-# 4. Configure o banco de dados
-npx prisma generate
-## Importante: Use 'npx prisma db push' em bancos em nuvem sem suporte a migrations pesadas no setup rápido
-npx prisma db push
-
-# 5. Inicie o desenvolvimento
-npm run dev:all
-```
-
-A aplicação abrirá em:
-- **Frontend**: http://localhost:5173
-- **Backend**: http://localhost:3001
-
-### Variável de Ambiente (Opcional)
-
-Se quiser rodar a API sem inicializar o WhatsApp (útil para evitar bloqueios de sessão do navegador em desenvolvimento), use:
-
-```bash
-# PowerShell (Windows)
-$env:WHATSAPP_ENABLED="false"
-npm run dev:server
-```
-Com essa flag ativa, as rotas principais de clientes/orçamentos continuam funcionando normalmente e apenas a integração de WhatsApp fica desabilitada.
+Sistema cliente-servidor para gerenciamento de clientes, orçamentos, registro de histórico de eventos e integração com o WhatsApp via emulação do cliente web. Desenvolvido em TypeScript.
 
 ---
 
-## 📦 Estrutura do Projeto
+## Estrutura do Projeto
 
-```
+A aplicação é dividida em um frontend Single Page Application (SPA) e uma API RESTful no backend.
+
+```text
 PraticaTCC/
 ├── server/                   ← Backend Express.js
 │   └── index.ts              ← API REST (localhost:3001)
 ├── src/                      ← Frontend React
 │   ├── components/           ← Componentes reutilizáveis UI
-│   │   ├── KanbanBoard.tsx   ← Visualização drag & drop
-│   │   ├── DetalhesDrawer.tsx ← Drawer com abas e timeline
+│   │   ├── KanbanBoard.tsx   ← Visualização de estágios
+│   │   ├── DetalhesDrawer.tsx ← Painel lateral com informações
 │   │   └── ...outros
 │   ├── pages/                ← Páginas da aplicação
 │   │   ├── Dashboard.tsx
@@ -70,117 +27,76 @@ PraticaTCC/
 │   ├── api/                  ← Chamadas HTTP
 │   │   ├── orcamentos.ts
 │   │   └── clientes.ts
-│   ├── types.ts              ← Tipos TypeScript
+│   ├── types.ts              ← Declarações de tipos TypeScript
 │   └── index.css             ← Estilos globais
-├── prisma/                   ← ORM e Banco de Dados
-│   ├── schema.prisma         ← Modelo de dados
-│   ├── migrations/           ← Histórico de mudanças
-│   ├── seed.ts               ← Dados iniciais de teste
-│   └── dev.db                ← Banco SQLite
-└── package.json              ← Dependências
+├── prisma/                   ← Arquivos do ORM e Banco de Dados
+│   ├── schema.prisma         ← Declaração do modelo de dados
+│   ├── migrations/           ← Arquivos de migração SQL
+│   └── seed.ts               ← Script para dados iniciais
+└── package.json              ← Gerenciamento de dependências
 ```
 
 ---
 
-## Stack Tecnológico
+## Tecnologias Utilizadas
 
-| **Camada** | **Tecnologia** | **Versão** |
-|-----------|--------------|----------|
-| **Frontend** | React | 18.x |
-| **Linguagem** | TypeScript | 5.x |
-| **Build** | Vite | 5.x |
-| **Styling** | Tailwind CSS | 3.x |
-| **Componentes** | shadcn/ui (Radix UI) | Latest |
-| **Roteamento** | React Router | 6.x |
-| **Estado** | React Query (TanStack) | 5.x |
-| **Formulários** | React Hook Form + Zod | Latest |
-| **Drag & Drop** | @hello-pangea/dnd | 18.x |
-| **Backend** | Express.js | 4.x |
-| **Autenticação** | JWT (JSON Web Tokens) + Bcrypt | Latest |
-| **Integração WhatsApp**| whatsapp-web.js / puppeteer | Latest |
-| **Database** | PostgreSQL (Neon) + Prisma ORM | 5.x |
-| **HTTP Client** | Fetch API + Interceptadores de Sessão | Nativo |
+| Camada | Tecnologia | Versão | Função Principal |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | `React` | 18.x | Biblioteca para construção da interface de usuário. |
+| **Linguagem** | `TypeScript` | 5.x | Tipagem estática para frontend e backend. |
+| **Build** | `Vite` | 5.x | Ferramenta de build e servidor local. |
+| **Styling** | `Tailwind CSS` | 3.x | Framework CSS utilitário para estilização da interface. |
+| **Componentes** | `shadcn/ui` | Latest | Coleção de componentes injetados diretamente no código-fonte do projeto. |
+| **Estado Remoto** | `React Query` | 5.x | Gerenciamento de estado de dados assíncronos e controle de cache de rede. |
+| **Backend** | `Express.js` | 4.x | Framework para a estruturação da API REST. |
+| **Autenticação** | `JWT + Bcrypt` | Latest | Emissão de tokens de acesso para requisições e armazenamento de senhas com hash. |
+| **Integração** | `whatsapp-web.js`| Latest | Biblioteca baseada em Puppeteer para interagir com a interface web do WhatsApp. |
+| **Database** | `PostgreSQL` | 15.x | Sistema gerenciador de banco de dados relacional. |
+| **ORM** | `Prisma ORM` | 5.x | Ferramenta de mapeamento objeto-relacional para consultas e gerenciamento do schema. |
 
 ---
 
-## Funcionalidades Principais
+## Componentes do Sistema
 
 ### Dashboard
-- Cards com KPI (Total clientes, orçamentos por status, faturamento)
-- Visualização de métricas em tempo real
-- Gráficos de distribuição
+*   Exibição de métricas gerais: Total de clientes, orçamentos por status e faturamento calculado a partir dos orçamentos aprovados.
+*   Gráficos para análise de distribuição de dados e funil de conversão.
 
 ### Gestão de Orçamentos
-#### Visualização Dupla:
-- **Tabela**: CRUD completo, filtros e busca global
-- **Kanban**: Drag & drop entre status, grid responsivo (1-4 colunas)
+*   **Interface de Listagem:** Exibição em tabela com capacidade de busca e filtros, juntamente com visualização em Kanban para alteração de status via drag-and-drop.
+*   **Painel de Detalhes:** Componente de sobreposição acionado ao selecionar um orçamento, dividindo a visualização em abas: Detalhes Financeiros, Controles do WhatsApp e Histórico de Eventos.
 
-#### Abas no Drawer de Detalhes:
-1. **Detalhes** - Informações completas, edição de status
-2. **WhatsApp** - Link para enviar mensagem via WhatsApp Web
-3. **Timeline** - Histórico completo com eventos ordenados cronologicamente
-
-### Gestão de Clientes
-- Lista de clientes registrados
-- Criar novo cliente
-- Visualizar orçamentos associados
-- Atualizar informações
-
-### Timeline de Eventos (Novo!)
-- Histórico automático desde criação
-- Rastreia: criação do orçamento, mudanças de status
-- Marcações cronológicas precisas
-- Visualização em linha do tempo
-
-### Segurança e Isolamento SaaS (Novo!)
-- **Autenticação JWT:** Proteção de rotas do backend com Tokens assinados expiráveis.
-- **Multilocação (Multi-Tenant):** O mesmo sistema pode suportar várias contas/empresas ("SaaS"). 
-- **Isolamento Lógico de Dados:** O sistema anexa e confere o ID do dono da conta (`usuarioId`) em toda e qualquer consulta (Prisma/Express), impedindo vazamento de Orçamentos de um cliente para a tela de outro.
-- **Gerenciamento de Sessão Dinâmico:** Event-listener global em React que sincroniza logins entre abas concorrentes, bloqueando a interferência e "envenenamento de cache" entre administradores distintos dividindo o mesmo navegador.
-- **Controle de Acesso ao WhatsApp:** A aba e as funcionalidades de pareamento do WhatsApp estão restritas exclusivamente ao usuário verificando o nome `Administrador SGO`, garantindo segurança contra conexões indevidas.
-
-### Integração com WhatsApp
-- **Comunicação por QR Code:** O sistema se conecta diretamente ao seu número via biblioteca `whatsapp-web.js`.
-- **Fila de Aprovação (Memória):** Quando um cliente envia a palavra "orçamento", o servidor retém a mensagem em memória e gera um **Popup Global Interativo** em qualquer tela do Front-end.
-- **Verificação de Duplicidade:** Ignora automaticamente contatos que já possuam orçamentos pendentes para evitar duplicações.
-- **Gaveta de Comunicação Rápida:** Tela de Detalhes possui atalhos (templates predefinidos) que abrem chamadas nativas do WhatsApp Web com mensagens personalizadas (Proposta, Lembrete, Agradecimento).
-- **Sem Auto-Replies:** Respeitando regras personalizadas, atua apenas de forma passiva através da captura de orçamentos e facilitação de links.
+### Gestão de Clientes e Histórico
+*   Listagem de clientes com paginação e associação aos respectivos orçamentos.
+*   **Registro de Eventos:** Persistência no formato append-only para o fluxo de eventos de cada orçamento, onde operações de criação, modificação de dados e alteração de status são registradas com data e hora.
 
 ---
 
-## Scripts Disponíveis
+## Segurança e Isolamento Lógico
 
-### Desenvolvimento
-```bash
-npm run dev           # Frontend (Vite) - porta 5173
-npm run dev:server    # Backend (Express) - porta 3001
-npm run dev:all       # Ambos simultâneos (usa concurrently)
-```
+A aplicação adota o modelo Multi-Tenant na arquitetura e na persistência de dados:
 
-### Build & Deploy
-```bash
-npm run build         # Compila para produção (./dist)
-npm run build:dev     # Build em modo desenvolvimento
-npm run preview       # Visualiza build produção
-```
-
-### Qualidade de Código
-```bash
-npm run lint          # ESLint - verifica código
-npm run test          # Vitest - testes unitários
-npm run test:watch    # Testes em modo watch
-```
-
-### Database
-```bash
-npm run seed          # Popula banco com dados de teste
-```
+*   **Configuração de Ambiente:** Chaves criptográficas (como `JWT_SECRET`) são providas estritamente através de variáveis de ambiente (`.env`).
+*   **Isolamento de Dados (Tenant-level):** Os registros contêm um atributo relacionando ao proprietário do dado (`usuarioId`). As consultas executadas via Prisma implementam um filtro obrigatório nesse atributo para prevenir acesso não autorizado entre contas distintas.
+*   **Validação de Sessão:** A camada de middleware na API (`/api`) intercepta requisições baseando a validação em tokens JWT com tempo configurado de expiração.
+*   **Controle de Integração:** Interações automatizadas com conexões WhatsApp são designadas exclusivamente a instâncias de usuário nível Administrador na base de dados.
 
 ---
 
-## Fluxo de Dados
+## Integração com WhatsApp
 
-```
+A comunicação não adota a API oficial provida pela provedora, mas sim a emulação do cliente Web gerenciada pelo processo Node.js:
+
+*   **Motor de Execução:** O worker aloca uma instância isolada do navegador Chromium usando Puppeteer, armazenando as sessões validadas para manter o estado persistente entre inicializações.
+*   **Gerenciamento de Processos e Sinalização:** O sistema reage a eventos de interrupção (`SIGINT`, `SIGTERM`) para encerrar de maneira limpa as dependências do Puppeteer, mitigando o acúmulo de processos vazados (`zombie processes`) e potenciais perdas de memória em hospedagem.
+*   **Processamento Seletivo:** O listener de eventos descarta mensagens passivas no nível inicial e efetua a indexação de requisições baseando-se em mapeamentos definidos na memória antes de registrar a solicitação no PostgreSQL.
+*   **Comunicação em Tempo Real:** Requisições e confirmações pendentes obtidas pelo worker são emitidas para o frontend mediante conexões WebSocket ou Polling de API REST.
+
+---
+
+## Fluxo de Interação de Dados
+
+```text
 ┌─────────────────────────────────────┐
 │      FRONTEND (React)               │
 │   Componentes (TypeScript)          │
@@ -189,25 +105,24 @@ npm run seed          # Popula banco com dados de teste
 │  ↓                                  │
 │  Fetch API HTTP                     │
 └─────────────────────────────────────┘
-          ║ (JSON)
+          ║ (Payload JSON)
           ↓
 ┌─────────────────────────────────────┐
 │    BACKEND (Express.js)             │
-│    localhost:3001                   │
+│    Escuta TCP na porta 3001         │
 ├─────────────────────────────────────┤
 │  GET/POST/PUT/DELETE                │
 │  /api/orcamentos                    │
 │  /api/clientes                      │
 │  ↓                                  │
-│  Prisma ORM                         │
+│  Validação de Schemas e Prisma ORM  │
 └─────────────────────────────────────┘
           ║
           ↓
 ┌─────────────────────────────────────┐
-│    PostgreSQL Database (Neon)       │
-│    Acesso Via Internet              │
+│    PostgreSQL Database              │
 ├─────────────────────────────────────┤
-│  Tabelas:                           │
+│  Tabelas Mapeadas:                  │
 │  • Usuario (O dono da conta SaaS)   │
 │  • Cliente                          │
 │  • Orcamento                        │
@@ -216,9 +131,32 @@ npm run seed          # Popula banco com dados de teste
 └─────────────────────────────────────┘
 ```
 
+### Fluxo de Mensagens do WhatsApp
+
+```text
+┌──────────────────┐       ┌─────────────────────────┐       ┌───────────────────────┐
+│ Cliente WhatsApp │ ────> │ API Web do WhatsApp     │ ────> │ Worker Node.js        │
+│ (Usuário Final)  │ <──── │ (Infraestrutura Oficial)│ <──── │ (Puppeteer/Chromium)  │
+└──────────────────┘       └─────────────────────────┘       └───────────────────────┘
+                                                                       │
+                                 ┌─────────────────────────────────────┴─┐
+                                 │                                       │
+                         ┌───────▼───────┐                       ┌───────▼───────┐
+                         │ Ignora Grupos │                       │   Filtra      │
+                         └───────────────┘                       │ "Orçamento"   │
+                                                                 └───────┬───────┘
+                                                                         │
+┌────────────────────────┐       ┌─────────────────────────┐     ┌───────▼───────┐
+│ Frontend React         │ <──── │ Backend Express.js      │ <── │ Validação e   │
+│ (Aprovação em painel)  │ ────> │ (Persiste no banco)     │ ──> │ Anti-Spam     │
+└────────────────────────┘       └─────────────────────────┘     └───────────────┘
+```
+
 ---
 
-## Modelo de Dados
+## Modelo de Dados (Schema)
+
+Os metadados das entidades principais da modelagem relacional:
 
 ### Cliente
 ```sql
@@ -228,8 +166,6 @@ email (String)
 telefone (String)
 ultimoContato (DateTime)
 totalOrcamentos (Int)
-createdAt (DateTime)
-updatedAt (DateTime)
 ```
 
 ### Orcamento
@@ -237,20 +173,19 @@ updatedAt (DateTime)
 id (UUID)
 descricao (String)
 valor (Float)
-status (String: pendente|enviado|contratado|recusado)
+status (String: pendente | enviado | contratado | recusado)
 dataRecebido (DateTime)
-dataAtualizado (DateTime)
-clienteId (UUID - Foreign Key)
+clienteId (UUID - Relacional)
 ```
 
-### OrcamentoEvento (Histórico)
+### OrcamentoEvento (Trilha de Histórico)
 ```sql
 id (UUID)
-orcamentoId (UUID - Foreign Key)
-tipo (String: criado|status_alterado|atualizado)
+orcamentoId (UUID - Relacional)
+tipo (String: criado | status_alterado | atualizado)
 descricao (String)
-statusAntigo (String - nullable)
-statusNovo (String - nullable)
+statusAntigo (String - Opcional)
+statusNovo (String - Opcional)
 criadoEm (DateTime)
 ```
 
@@ -258,238 +193,49 @@ criadoEm (DateTime)
 
 ## API REST Endpoints
 
-### Orçamentos
-```
-GET    /api/orcamentos              # Lista todos
-GET    /api/orcamentos/:id          # Busca um
-POST   /api/orcamentos              # Cria novo
-PUT    /api/orcamentos/:id          # Atualiza
-DELETE /api/orcamentos/:id          # Deleta
-PATCH  /api/orcamentos/:id/status   # Muda status
-```
+A interface base para acesso local recebe tráfego na URI `http://localhost:3001/api`.
 
-### Clientes
-```
-GET    /api/clientes                # Lista todos
-GET    /api/clientes/:id            # Busca um
-POST   /api/clientes                # Cria novo
-PUT    /api/clientes/:id            # Atualiza
-DELETE /api/clientes/:id            # Deleta
-```
+### Autenticação
+*   `POST /auth/login` - Verifica credenciais (hash Bcrypt) e emite acesso no cabeçalho JWT Bearer.
+*   `POST /auth/register` - Endpoint base para registro de provedor.
+*   `GET /auth/me` - Retorna a carga nominal do usuário empregando validação do Token na requisição.
+
+### Gerenciamento de Dados
+*   `GET /orcamentos` e `GET /clientes` - Retorna a lista dos consolidados parametrizados pelos filtros de tenant e paginação.
+*   `POST /orcamentos` - Execução do comando INSERT da entidade do orçamento, associado ao primeiro evento auditado na tabela `OrcamentoEvento` para evitar perda transacional.
+*   `PATCH /orcamentos/:id/status` - Muta o estado de um registro no banco de dados.
+
+### WhatsApp Client
+*   `GET /whatsapp/status` - Solicitação do payload Base64 para QR Code da sessão do Chromium subjacente.
+*   `POST /whatsapp/requests/:id/accept` - Sinaliza a autorização a um evento interceptado via listener da automação.
 
 ---
 
-## Exemplo: Criar um Orçamento
+## Execução Local (Desenvolvimento)
 
-### Frontend (React)
-```typescript
-import { useCreateOrcamento } from '@/hooks/useOrcamentos';
+### Pré-requisitos
+*   Node.js v18 ou superior.
+*   Servidor em execução do banco PostgreSQL local ou provisionado remotamente.
 
-export function NovoOrcamentoDialog() {
-  const { mutate: createOrcamento } = useCreateOrcamento();
-
-  const handleSubmit = (data) => {
-    createOrcamento({
-      clienteId: "123",
-      descricao: "Pintura residencial",
-      valor: 5000
-    });
-  };
-
-  return (
-    <Dialog>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          {/* Campos do formulário */}
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-### Backend (Express + Prisma)
-```typescript
-app.post('/api/orcamentos', async (req, res) => {
-  const { clienteId, descricao, valor } = req.body;
-
-  // Criar orçamento
-  const novoOrcamento = await prisma.orcamento.create({
-    data: {
-      descricao,
-      valor: Number(valor),
-      status: 'pendente',
-      cliente: { connect: { id: clienteId } },
-    },
-    include: { cliente: true, eventos: true },
-  });
-
-  // Registrar evento automaticamente
-  await prisma.orcamentoEvento.create({
-    data: {
-      orcamentoId: novoOrcamento.id,
-      tipo: 'criado',
-      descricao: 'Orçamento criado',
-    },
-  });
-
-  res.status(201).json(novoOrcamento);
-});
-```
-
-### Fluxo Completo
-1. Usuário preenche formulário no Frontend
-2. React Hook Form valida com Zod
-3. useCreateOrcamento envia POST para `/api/orcamentos`
-4. Express recebe, Prisma insere no banco
-5. Evento criado automaticamente na tabela OrcamentoEvento
-6. React Query intercepta resposta e atualiza cache
-7. UI renderiza novo orçamento sem precisar recarregar
-
----
-
-## Características Diferenciais
-
-### Stack Moderno
-- **Vite** em vez de Create React App (5x mais rápido)
-- **TypeScript** obrigatório em todo código
-- **Tailwind + shadcn** (componentes profissionais prontos)
-
-### Full-Stack JavaScript
-- Mesma linguagem (TypeScript) frontend e backend
-- Compartilhamento de tipos
-- Sem necessidade de GraphQL
-
-### Database Flexível
-- Prisma permite trocar SQLite → PostgreSQL facilmente
-- Migrations automáticas
-- Queries type-safe
-
-### State Management Inteligente
-- React Query cacheando automaticamente
-- Sem Redux ou Zustand complexos
-- Sincronização automática com servidor
-
-### Componentes Reutilizáveis
-- shadcn/ui (componentes Radix copiados localmente)
-- Totalmente customizáveis via Tailwind
-- Acessibilidade nativa (WCAG)
-
-### Drag & Drop Nativo
-- TanStack usando @hello-pangea/dnd
-- Performance otimizada
-- Sem jQuery
-
-### Timeline de Eventos
-- Histórico automático de todas operações
-- Rastreia criação, mudanças de status
-- Ordenação cronológica
-
-### Otimizações Recentes 
-- **Vite Proxy Local:** Alterado alvo do proxy para `127.0.0.1` para eliminar latência de resolução IPv6 em chamadas ao backend.
-- **Gerenciamento de Estado WhatsApp:** Migração do polling antigo para `useQuery` global na captura do QR Code, evitando recarregamentos múltiplos e perda de conexão ao alternar abas (`refetchOnWindowFocus: false`).
-- **Build Otimizado:** Divisão de pacotes (`manualChunks` com Rollup) para fragmentar bibliotecas pesadas como React, Radix, Lucide e TanStack, evitando limite de 500kB.
-- **Pre-bundling (Dev):** `optimizeDeps` forçado no Vite para acelerar abertura da tela de Configurações sem travamentos.
-
----
-
-## Deploy
-
-### Opção 1: Vercel (Recomendado)
+### Build e Inicialização
 ```bash
-npm i -g vercel
-vercel
-
-# Frontend vai para Vercel
-# Backend vai para servidor separado (Render, Railway, etc)
-```
-
-### Opção 2: Self-Hosted
-```bash
-npm run build
-npm start  # Serve ./dist
-```
-
-### Opção 3: Docker
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY . .
-RUN npm install
-RUN npm run build
-CMD ["npm", "run", "dev:all"]
-```
-
----
-
-## Próximas Melhorias
-
-- [ ] Autenticação com JWT
-- [ ] Upload de arquivos (fotos/PDFs)
-- [ ] Relatórios em PDF (PDFKit)
-- [ ] Notificações em tempo real (WebSocket)
-- [ ] Integração WhatsApp Business API
-- [ ] Sistema de múltiplos usuários
-- [ ] Analytics avançado
-- [ ] Backup automático
-- [ ] Validação de CPF/CNPJ
-- [ ] Integração com Payment APIs
-
----
-
-## Troubleshooting
-
-### Porta 5173 em uso
-```bash
-npm run dev -- --port 5174
-```
-
-### Porta 3001 em uso
-```bash
-lsof -i :3001
-kill -9 <PID>
-# ou
-npm run dev:server -- --port 3002
-```
-
-### Erro no Prisma
-```bash
-rm -rf node_modules/.prisma
+# Clone o diretório e mapeie as dependências pelo NPM
+git clone <REPOSITORIO>
+cd PraticaTCC
 npm install
-npx prisma generate
+
+# Gere as configurações de ambiente necessárias
+cp .env.example .env
+# Defina strings válidas para DATABASE_URL e JWT_SECRET no arquivo .env gerado.
+
+# Migração de banco: reflete a definição do esquema no banco relacional e compila o Prisma Client
+npx prisma db push
 ```
 
-### Limpar banco de dados
 ```bash
-rm prisma/dev.db
-npm run seed
+# O comando inicializa o servidor de backend (:3001) e front-end (:5173) assíncronamente através dos pacotes nativos
+npm run dev:all
 ```
+*   **Aplicação Frontend:** Acessível em `http://localhost:5173`
+*   **API Gateway:** Acessível em `http://localhost:3001`
 
----
-
-## Referências Úteis
-
-- [Vite Docs](https://vitejs.dev)
-- [React Docs](https://react.dev)
-- [TypeScript Docs](https://www.typescriptlang.org)
-- [Tailwind CSS](https://tailwindcss.com)
-- [shadcn/ui](https://ui.shadcn.com)
-- [Prisma Docs](https://www.prisma.io/docs)
-- [React Query Docs](https://tanstack.com/query)
-- [Express Docs](https://expressjs.com)
-
----
-
-## Licença
-
-Este projeto é privado. Todos os direitos reservados.
-
----
-
-## Suporte
-
-Para dúvidas ou reportar bugs, abra uma issue no repositório.
-
----
-
-**Desenvolvido usando TypeScript, React e Express.js**

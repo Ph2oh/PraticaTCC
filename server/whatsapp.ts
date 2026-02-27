@@ -171,7 +171,7 @@ whatsappClient.on('message_create', async (message) => {
                 timestamp: new Date()
             });
 
-            console.log(`🔔 Nova solicitação de orçamento enfileirada para aprovação: ${cliente.nome}`);
+            console.log(`Nova solicitação de orçamento enfileirada para aprovação: ${cliente.nome}`);
 
 
         } catch (error) {
