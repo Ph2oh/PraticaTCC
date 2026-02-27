@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export interface AuthRequest extends Request {
     usuarioId?: string;
+    isAdmin?: boolean;
 }
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -18,8 +19,9 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+        const decoded = jwt.verify(token, JWT_SECRET) as { id: string; isAdmin: boolean };
         req.usuarioId = decoded.id;
+        req.isAdmin = !!decoded.isAdmin; // Converte string "true/false" ou boolean via JWT para bool explicitamente
         next();
     } catch (error) {
         return res.status(403).json({ error: 'Acesso negado: Token inválido ou expirado.' });

@@ -17,6 +17,7 @@ async function main() {
         senha: hashedSenha,
         empresa: "Agência Padrão",
         telefone: "(11) 90000-0000",
+        isAdmin: true,
         configuracao: {
           create: {
             corPrimaria: "224.3 76.3% 48%",

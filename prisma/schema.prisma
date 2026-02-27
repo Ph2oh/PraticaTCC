@@ -80,6 +80,7 @@ model Usuario {
   senha            String   // Senha hasheada com bcrypt
   empresa          String?  // Nome da Empresa/Agência
   telefone         String?  // Telefone da Empresa
+  isAdmin          Boolean  @default(false)
   createdAt        DateTime @default(now())
   
   // Relations

@@ -3,6 +3,8 @@ import cors from 'cors';
 import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { authenticateToken } from './middleware/auth';
 import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
 
@@ -18,15 +20,45 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED !== 'false';
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+}));
 app.use(express.json());
+
+// --- RATE LIMITING ---
+// Allow 5 login/register attempts per 15 minutes per IP
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: 'Muitas tentativas. Tente novamente mais tarde.' }
+});
+
+// --- ZOD SCHEMAS ---
+const loginSchema = z.object({
+    email: z.string().email('E-mail inválido'),
+    senha: z.string().min(1, 'A senha é obrigatória')
+});
+
+const registerSchema = z.object({
+    nome: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres'),
+    email: z.string().email('E-mail inválido'),
+    senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+    empresa: z.string().optional(),
+    telefone: z.string().optional()
+});
 
 // --- AUTH ROUTES ---
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
-        const { email, senha } = req.body;
+        const parseResult = loginSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ error: parseResult.error.errors[0].message });
+        }
+
+        const { email, senha } = parseResult.data;
         const usuario = await prisma.usuario.findUnique({ where: { email } });
 
         if (!usuario) {
@@ -39,13 +71,13 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: usuario.id },
+            { id: usuario.id, isAdmin: usuario.isAdmin },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        // Alteração estrutural: Restringe a permissão de administrador (e acesso ao WhatsApp) EXCLUSIVAMENTE ao nome 'Administrador SGO'
-        const isAdmin = usuario.nome === 'Administrador SGO';
+        // Alteração estrutural: Restringe a permissão de administrador baseada no campo seguro do banco
+        const isAdmin = usuario.isAdmin;
 
         res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, empresa: usuario.empresa, isAdmin } });
     } catch (error) {
@@ -55,9 +87,14 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
-        const { nome, email, senha, empresa, telefone } = req.body;
+        const parseResult = registerSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ error: parseResult.error.errors[0].message });
+        }
+
+        const { nome, email, senha, empresa, telefone } = parseResult.data;
 
         // Valida duplicidade
         const existingUser = await prisma.usuario.findUnique({ where: { email } });
@@ -76,6 +113,7 @@ app.post('/api/auth/register', async (req, res) => {
                 senha: hashedPassword,
                 empresa,
                 telefone,
+                isAdmin: false, // Força a isenção de administrador por padrão no registro público
                 configuracao: {
                     create: {
                         corPrimaria: "224.3 76.3% 48%",
@@ -83,20 +121,17 @@ app.post('/api/auth/register', async (req, res) => {
                     }
                 }
             },
-            select: { id: true, nome: true, email: true, empresa: true }
+            select: { id: true, nome: true, email: true, empresa: true, isAdmin: true }
         });
 
         // Autentica-o automaticamente
         const token = jwt.sign(
-            { id: novoUsuario.id },
+            { id: novoUsuario.id, isAdmin: novoUsuario.isAdmin },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        // Alteração estrutural: Restringe a permissão de administrador EXCLUSIVAMENTE ao nome 'Administrador SGO'
-        const isAdmin = novoUsuario.nome === 'Administrador SGO';
-
-        res.status(201).json({ token, usuario: { ...novoUsuario, isAdmin } });
+        res.status(201).json({ token, usuario: novoUsuario });
 
     } catch (error) {
         console.error('Erro no registro:', error);
@@ -107,6 +142,7 @@ app.post('/api/auth/register', async (req, res) => {
 // Define AuthRequest type for better type safety, assuming it's similar to express.Request with an added usuarioId
 interface AuthRequest extends express.Request {
     usuarioId?: string;
+    isAdmin?: boolean;
 }
 
 app.put('/api/auth/password', authenticateToken, async (req: AuthRequest, res) => {
@@ -145,20 +181,17 @@ app.put('/api/auth/password', authenticateToken, async (req: AuthRequest, res) =
 });
 
 // Get current user metadata
-app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
+app.get('/api/auth/me', authenticateToken, async (req: AuthRequest, res) => {
     try {
         const usuario = await prisma.usuario.findUnique({
             where: { id: req.usuarioId },
-            select: { id: true, nome: true, email: true, empresa: true }
+            select: { id: true, nome: true, email: true, empresa: true, isAdmin: true }
         });
         if (!usuario) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
 
-        // Alteração estrutural: Restringe a permissão EXCLUSIVAMENTE ao nome 'Administrador SGO'
-        const isAdmin = usuario.nome === 'Administrador SGO';
-
-        res.json({ ...usuario, isAdmin });
+        res.json(usuario);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao buscar dados do usuário' });
     }
@@ -547,13 +580,17 @@ app.get('/api/whatsapp/status', (req, res) => {
     res.json(getWhatsAppStatus());
 });
 
-app.post('/api/whatsapp/requests/:id/accept', async (req, res) => {
+app.post('/api/whatsapp/requests/:id/accept', async (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) {
         return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
     }
 
+    if (!req.isAdmin) {
+        return res.status(403).json({ error: 'Você não tem permissão de administrador para aceitar orçamentos do WhatsApp' });
+    }
+
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orcamento = await acceptWhatsAppRequest(id);
         res.json({ success: true, orcamento });
     } catch (e: unknown) {
@@ -562,13 +599,17 @@ app.post('/api/whatsapp/requests/:id/accept', async (req, res) => {
     }
 });
 
-app.post('/api/whatsapp/requests/:id/reject', (req, res) => {
+app.post('/api/whatsapp/requests/:id/reject', (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) {
         return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
     }
 
+    if (!req.isAdmin) {
+        return res.status(403).json({ error: 'Você não tem permissão de administrador para rejeitar orçamentos do WhatsApp' });
+    }
+
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const success = rejectWhatsAppRequest(id);
         if (success) {
             res.json({ success: true });
@@ -580,9 +621,13 @@ app.post('/api/whatsapp/requests/:id/reject', (req, res) => {
     }
 });
 
-app.post('/api/whatsapp/disconnect', async (req, res) => {
+app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) {
         return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
+    }
+
+    if (!req.isAdmin) {
+        return res.status(403).json({ error: 'Você não tem permissão de administrador para desconectar o WhatsApp' });
     }
 
     try {
