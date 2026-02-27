@@ -9,8 +9,13 @@ import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, accep
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
-// Mudança estrutural: esta flag permite executar a API sem inicializar a sessão do WhatsApp.
-// Útil em ambiente de desenvolvimento quando o Chromium/Puppeteer estiver indisponível.
+// Mudança estrutural: Garante que as credenciais críticas de segurança (.env) foram carregadas para o backend inicializar, caso contrário trava o server com erro claro
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET não está definido no arquivo .env");
+    process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+
 const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED !== 'false';
 
 app.use(cors());
@@ -35,7 +40,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         const token = jwt.sign(
             { id: usuario.id },
-            process.env.JWT_SECRET || 'secret-sgo-dev-2026',
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 
@@ -84,7 +89,7 @@ app.post('/api/auth/register', async (req, res) => {
         // Autentica-o automaticamente
         const token = jwt.sign(
             { id: novoUsuario.id },
-            process.env.JWT_SECRET || 'secret-sgo-dev-2026',
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 

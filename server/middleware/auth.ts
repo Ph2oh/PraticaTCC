@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret-sgo-dev-2026';
+// Alteração estrutural: Remover o fallback inseguro - Asseguramos que o middleware pegue apenas a variável protegida do servidor.
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export interface AuthRequest extends Request {
     usuarioId?: string;
