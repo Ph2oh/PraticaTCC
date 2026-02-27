@@ -46,6 +46,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('sgo_token');
         sessionStorage.removeItem('sgo_usuario');
 
+        // Resetar o tema para o padrão do sistema para a tela de login não ficar com as cores do último usuário
+        localStorage.removeItem('vite-ui-theme');
+        const root = window.document.documentElement;
+        root.classList.remove('light', 'dark');
+
+        // Remover cores customizadas (HSL) injetadas no CSS
+        root.style.removeProperty('--primary');
+
         queryClient.clear(); // Limpa TODO o cache da tela para não vazar pro próximo usuário
     };
 

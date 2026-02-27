@@ -22,14 +22,8 @@ const prisma = new PrismaClient();
 const WHATSAPP_CLIENT_ID = 'sgo-main';
 const WHATSAPP_SESSION_PATH = path.join(process.cwd(), '.wwebjs_auth', `session-${WHATSAPP_CLIENT_ID}`);
 
-// Create a new client instance
-// We use LocalAuth so it saves the session locally and you don't need to scan the QR code every time
-const whatsappClient = new Client({
-    authStrategy: new LocalAuth({ clientId: WHATSAPP_CLIENT_ID }),
-    puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    }
-});
+// Prevent multiple clients from running simultaneously during Vite hot-reloads
+let whatsappClient: any = null;
 
 let isClientReady = false;
 let currentQrCode = '';
@@ -46,8 +40,21 @@ const scheduleReconnect = (delayMs = 10000) => {
 };
 
 const safeInitializeWhatsAppClient = () => {
+    if (whatsappClient) {
+        console.log("Reiniciando cliente existente...");
+        whatsappClient.destroy().catch(() => { });
+    }
+
     statusMessage = 'Conectando ao WhatsApp...';
-    void whatsappClient.initialize().catch((error) => {
+
+    whatsappClient = new Client({
+        authStrategy: new LocalAuth({ clientId: WHATSAPP_CLIENT_ID }),
+        puppeteer: {
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        }
+    });
+
+    whatsappClient.initialize().catch((error: any) => {
         isClientReady = false;
         // Se o QR já foi gerado, preservamos para a UI continuar exibindo durante retentativas.
         // Isso evita o efeito de "spinner infinito" quando ocorre erro logo após emitir o QR no terminal.
@@ -55,130 +62,137 @@ const safeInitializeWhatsAppClient = () => {
         console.error(' Falha ao inicializar o cliente do WhatsApp:', error);
         scheduleReconnect();
     });
+
+    // Configurar os listeners de eventos APÓS criar a nova instância
+    setupWhatsAppListeners();
 };
 
-// When the client is ready, run this code
-whatsappClient.on('ready', () => {
-    console.log(' Cliente do WhatsApp está pronto e conectado!');
-    isClientReady = true;
-    currentQrCode = '';
-    statusMessage = 'WhatsApp conectado';
-});
+const setupWhatsAppListeners = () => {
+    if (!whatsappClient) return;
 
-whatsappClient.on('disconnected', (reason) => {
-    console.warn(' Cliente do WhatsApp desconectado:', reason);
-    isClientReady = false;
-    currentQrCode = '';
-    statusMessage = `WhatsApp desconectado: ${String(reason)}`;
-    scheduleReconnect();
-});
-
-whatsappClient.on('auth_failure', (message) => {
-    console.error(' Falha de autenticação do WhatsApp:', message);
-    isClientReady = false;
-    currentQrCode = '';
-    statusMessage = `Falha de autenticação: ${message}`;
-    scheduleReconnect();
-});
-
-// When the client receives QR-Code
-whatsappClient.on('qr', async (qr) => {
-    console.log(' Leia o QR Code abaixo com o seu WhatsApp para conectar a aplicação:');
-    qrcodeTerminal.generate(qr, { small: true });
-    statusMessage = 'QR Code gerado. Aguardando leitura pelo celular.';
-    try {
-        currentQrCode = await QRCode.toDataURL(qr);
-    } catch (err) {
+    // When the client is ready, run this code
+    whatsappClient.on('ready', () => {
+        console.log(' Cliente do WhatsApp está pronto e conectado!');
+        isClientReady = true;
         currentQrCode = '';
-        statusMessage = 'QR recebido, mas falhou ao converter imagem para exibição.';
-        console.error('Erro ao gerar imagem do QR Code', err);
-    }
-});
+        statusMessage = 'WhatsApp conectado';
+    });
 
-// Listening to all incoming and outgoing messages (useful if the user is testing by sending to themselves)
-whatsappClient.on('message_create', async (message) => {
-    // Ignore messages from groups or status
-    if (message.from.includes('@g.us') || message.isStatus) return;
+    whatsappClient.on('disconnected', (reason: any) => {
+        console.warn(' Cliente do WhatsApp desconectado:', reason);
+        isClientReady = false;
+        currentQrCode = '';
+        statusMessage = `WhatsApp desconectado: ${String(reason)}`;
+        scheduleReconnect();
+    });
 
-    // Ignore messages sent by the bot itself
-    if (message.fromMe) return;
+    whatsappClient.on('auth_failure', (message: any) => {
+        console.error(' Falha de autenticação do WhatsApp:', message);
+        isClientReady = false;
+        currentQrCode = '';
+        statusMessage = `Falha de autenticação: ${message}`;
+        scheduleReconnect();
+    });
 
-    const body = message.body.toLowerCase();
-
-    // Check if the message contains the keyword "orçamento" or "orcamento"
-    if (body.includes('orçamento') || body.includes('orcamento')) {
-        console.log(` Nova solicitação de orçamento detectada do número: ${message.from}`);
-
+    // When the client receives QR-Code
+    whatsappClient.on('qr', async (qr: any) => {
+        // qrcodeTerminal.generate(qr, { small: true }); // Comentado para evitar flood de tela preta/branca no terminal do usuário
+        console.log(' [WhatsApp] Novo QR Code gerado! Acesse Configurações > WhatsApp no navegador para escanear.');
+        statusMessage = 'QR Code gerado. Aguardando leitura pelo celular.';
         try {
-            const contact = await message.getContact();
-            const contactName = contact.name || contact.pushname || "Novo Cliente (WhatsApp)";
+            currentQrCode = await QRCode.toDataURL(qr);
+        } catch (err) {
+            currentQrCode = '';
+            statusMessage = 'QR recebido, mas falhou ao converter imagem para exibição.';
+            console.error('Erro ao gerar imagem do QR Code', err);
+        }
+    });
 
-            // The 'from' property format is similar to '5511999999999@c.us'
-            // We want to extract just the number
-            const phoneNumber = message.from.replace('@c.us', '');
+    // Listening to all incoming and outgoing messages (useful if the user is testing by sending to themselves)
+    whatsappClient.on('message_create', async (message: any) => {
+        // Ignore messages from groups or status
+        if (message.from.includes('@g.us') || message.isStatus) return;
 
-            // FIND OR CREATE CLIENT (E ATRELA AO USUÁRIO/TENANT PRINCIPAL DO SISTEMA)
-            // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura, 
-            // a captura de mensagens ocorrerá no contexto do PRIMEIRO usuário registrado (Admin).
-            // Alteração estrutural: Pegamos o admin baseado estritamente no nome 'Administrador SGO'
-            const adminUser = await prisma.usuario.findFirst({
-                where: { nome: 'Administrador SGO' }
-            });
+        // Ignore messages sent by the bot itself
+        if (message.fromMe) return;
 
-            if (!adminUser) {
-                console.error("ERRO CRÍTICO WhatsApp Bot: Não há nenhum Usuário/Tenant cadastrado no sistema para ser o dono deste cliente.");
-                return;
-            }
+        const body = message.body.toLowerCase();
 
-            let cliente = await prisma.cliente.findFirst({
-                where: { telefone: phoneNumber, usuarioId: adminUser.id }
-            });
+        // Check if the message contains the keyword "orçamento" or "orcamento"
+        if (body.includes('orçamento') || body.includes('orcamento')) {
+            console.log(` Nova solicitação de orçamento detectada do número: ${message.from}`);
 
-            if (!cliente) {
-                console.log(` Criando novo cliente para ${phoneNumber} no Tenant ${adminUser.id}`);
-                cliente = await prisma.cliente.create({
-                    data: {
-                        nome: contactName,
-                        email: '',
-                        telefone: phoneNumber,
-                        usuarioId: adminUser.id
+            try {
+                const contact = await message.getContact();
+                const contactName = contact.name || contact.pushname || "Novo Cliente (WhatsApp)";
+
+                // The 'from' property format is similar to '5511999999999@c.us'
+                // We want to extract just the number
+                const phoneNumber = message.from.replace('@c.us', '');
+
+                // FIND OR CREATE CLIENT (E ATRELA AO USUÁRIO/TENANT PRINCIPAL DO SISTEMA)
+                // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura, 
+                // a captura de mensagens ocorrerá no contexto do PRIMEIRO usuário registrado (Admin).
+                // Alteração estrutural: Pegamos o admin baseado estritamente no nome 'Administrador SGO'
+                const adminUser = await prisma.usuario.findFirst({
+                    where: { nome: 'Administrador SGO' }
+                });
+
+                if (!adminUser) {
+                    console.error("ERRO CRÍTICO WhatsApp Bot: Não há nenhum Usuário/Tenant cadastrado no sistema para ser o dono deste cliente.");
+                    return;
+                }
+
+                let cliente = await prisma.cliente.findFirst({
+                    where: { telefone: phoneNumber, usuarioId: adminUser.id }
+                });
+
+                if (!cliente) {
+                    console.log(` Criando novo cliente para ${phoneNumber} no Tenant ${adminUser.id}`);
+                    cliente = await prisma.cliente.create({
+                        data: {
+                            nome: contactName,
+                            email: '',
+                            telefone: phoneNumber,
+                            usuarioId: adminUser.id
+                        }
+                    });
+                }
+
+                // VERIFICA SE JÁ EXISTE ORÇAMENTO PENDENTE
+                const hasPending = await prisma.orcamento.findFirst({
+                    where: {
+                        clienteId: cliente.id,
+                        usuarioId: adminUser.id,
+                        status: 'pendente'
                     }
                 });
-            }
 
-            // VERIFICA SE JÁ EXISTE ORÇAMENTO PENDENTE
-            const hasPending = await prisma.orcamento.findFirst({
-                where: {
-                    clienteId: cliente.id,
-                    usuarioId: adminUser.id,
-                    status: 'pendente'
+                if (hasPending) {
+                    console.log(` Ignorando solicitação de ${cliente.nome}. Já possui orçamento pendente.`);
+                    return;
                 }
-            });
 
-            if (hasPending) {
-                console.log(` Ignorando solicitação de ${cliente.nome}. Já possui orçamento pendente.`);
-                return;
+                // ADICIONA À FILA DE APROVAÇÃO (NA MEMÓRIA)
+                const requestId = Date.now().toString() + Math.random().toString(36).substring(7);
+                pendingRequests.push({
+                    id: requestId,
+                    clienteId: cliente.id,
+                    clienteNome: cliente.nome,
+                    whatsappFrom: message.from,
+                    mensagemOriginal: message.body,
+                    timestamp: new Date()
+                });
+
+                console.log(`Nova solicitação de orçamento enfileirada para aprovação: ${cliente.nome}`);
+
+
+            } catch (error) {
+                console.error(' Erro completo ao processar mensagem do WhatsApp:', error);
             }
-
-            // ADICIONA À FILA DE APROVAÇÃO (NA MEMÓRIA)
-            const requestId = Date.now().toString() + Math.random().toString(36).substring(7);
-            pendingRequests.push({
-                id: requestId,
-                clienteId: cliente.id,
-                clienteNome: cliente.nome,
-                whatsappFrom: message.from,
-                mensagemOriginal: message.body,
-                timestamp: new Date()
-            });
-
-            console.log(`Nova solicitação de orçamento enfileirada para aprovação: ${cliente.nome}`);
-
-
-        } catch (error) {
-            console.error(' Erro completo ao processar mensagem do WhatsApp:', error);
         }
-    }
-});
+    });
+};
 
 // Export a function to start the client
 export const startWhatsAppClient = () => {
@@ -296,18 +310,32 @@ export const disconnectWhatsAppClient = async () => {
 };
 
 // Graceful shutdown
+const shutdownWhatsApp = async () => {
+    console.log(' Desligando instância do WhatsApp...');
+    if (whatsappClient) {
+        try {
+            await whatsappClient.destroy();
+        } catch (e) {
+            console.error("Erro ao dar destroy no cliente do WhatsApp", e);
+        }
+    }
+};
+
 process.on('SIGINT', async () => {
     console.log('(SIGINT) Desligando servidor e WhatsApp...');
-    if (isClientReady) {
-        await whatsappClient.destroy();
-    }
+    await shutdownWhatsApp();
     process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
     console.log('(SIGTERM) Desligando servidor e WhatsApp...');
-    if (isClientReady) {
-        await whatsappClient.destroy();
-    }
+    await shutdownWhatsApp();
     process.exit(0);
+});
+
+// For uncaught nodemon restarts
+process.on('uncaughtException', async (err) => {
+    console.error(err);
+    await shutdownWhatsApp();
+    process.exit(1);
 });

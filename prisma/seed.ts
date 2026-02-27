@@ -27,6 +27,13 @@ async function main() {
       }
     });
     console.log(`Admin user created: ${adminEmail} / ${adminPassword}`);
+  } else {
+    // Garante que se o admin já existia antes da migração de segurança, ele receba a flag true
+    admin = await prisma.usuario.update({
+      where: { email: adminEmail },
+      data: { isAdmin: true }
+    });
+    console.log(`Admin user updated to ensure isAdmin is true: ${adminEmail}`);
   }
 
   // Limpar dados APENAS do usuário Administrador para não afetar outros tenants (Inquilinos)

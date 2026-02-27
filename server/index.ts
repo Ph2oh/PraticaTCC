@@ -28,9 +28,11 @@ app.use(express.json());
 
 // --- RATE LIMITING ---
 // Allow 5 login/register attempts per 15 minutes per IP
+// Pula as requisições que tiveram sucesso (status < 400), bloqueando apenas loops de falhas/brute force
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
+    skipSuccessfulRequests: true,
     message: { error: 'Muitas tentativas. Tente novamente mais tarde.' }
 });
 

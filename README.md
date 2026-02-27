@@ -211,31 +211,64 @@ A interface base para acesso local recebe tráfego na URI `http://localhost:3001
 
 ---
 
-## Execução Local (Desenvolvimento)
+## Execução Local (Para outros Desenvolvedores)
 
-### Pré-requisitos
-*   Node.js v18 ou superior.
-*   Servidor em execução do banco PostgreSQL local ou provisionado remotamente.
+Se você clonou este repositório para contribuir ou testar, siga os passos abaixo para rodar o projeto na sua máquina:
 
-### Build e Inicialização
+### 1. Pré-requisitos
+*   [Node.js](https://nodejs.org/) v18 ou superior.
+*   Servidor em execução do banco PostgreSQL (pode ser local usando Docker/PgAdmin ou na nuvem como [Neon.tech](https://neon.tech/)).
+*   Opcional (se for testar o WhatsApp): Chromium/Google Chrome instalado.
+
+### 2. Instalação e Configuração
+
 ```bash
-# Clone o diretório e mapeie as dependências pelo NPM
-git clone <REPOSITORIO>
+# 1. Clone o repositório
+git clone <URL_DO_REPOSITORIO>
 cd PraticaTCC
+
+# 2. Instale todas as dependências
 npm install
 
-# Gere as configurações de ambiente necessárias
+# 3. Crie o arquivo de variáveis de ambiente
 cp .env.example .env
-# Defina strings válidas para DATABASE_URL e JWT_SECRET no arquivo .env gerado.
-
-# Migração de banco: reflete a definição do esquema no banco relacional e compila o Prisma Client
-npx prisma db push
 ```
+
+**⚠️ Atenção:** Abra o arquivo `.env` e configure obrigatoriamente:
+- `DATABASE_URL`: A URL de conexão com o seu banco PostgreSQL novo (ex: `postgresql://postgres:senha@localhost:5432/meubanco`).
+- `JWT_SECRET`: Uma senha/texto forte para assinar os tokens (ex: `minha_chave_super_segura_123`).
+
+### 3. Banco de Dados
+
+Com o banco acessível via `DATABASE_URL`, execute:
 
 ```bash
-# O comando inicializa o servidor de backend (:3001) e front-end (:5173) assíncronamente através dos pacotes nativos
+# Sincroniza o código Prisma com as tabelas do seu banco de dados vazio
+npx prisma db push
+
+# Gera os tipos do Prisma Client para o TypeScript
+npx prisma generate
+
+# (Obrigatório na 1ª vez) Cria o usuário Administrador padrão e dados de teste
+npm run seed
+```
+
+### Credenciais Padrão do Sistema
+Após rodar o comando `npm run seed`, o sistema será alimentado com a seguinte conta de Administrador Padrão. Você deve usá-la para fazer o primeiro login:
+
+*   **E-mail:** `admin@sgo.com`
+*   **Senha:** `password123`
+
+*(Recomenda-se alterar esta senha na aba "Configurações" após o primeiro acesso ao sistema num ambiente de Produção).*
+
+### 4. Iniciando a Aplicação
+
+```bash
+# O comando inicializa o backend (porta 3001) e front-end (porta 5173) simultaneamente
 npm run dev:all
 ```
-*   **Aplicação Frontend:** Acessível em `http://localhost:5173`
-*   **API Gateway:** Acessível em `http://localhost:3001`
+
+Acesse no navegador:
+*   **Aplicação Frontend:** `http://localhost:5173`
+*   **Acesso API:** `http://localhost:3001/api`
 
