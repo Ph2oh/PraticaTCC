@@ -45,7 +45,6 @@ Se quiser rodar a API sem inicializar o WhatsApp (útil para evitar bloqueios de
 $env:WHATSAPP_ENABLED="false"
 npm run dev:server
 ```
-
 Com essa flag ativa, as rotas principais de clientes/orçamentos continuam funcionando normalmente e apenas a integração de WhatsApp fica desabilitada.
 
 ---
@@ -138,6 +137,7 @@ PraticaTCC/
 - **Multilocação (Multi-Tenant):** O mesmo sistema pode suportar várias contas/empresas ("SaaS"). 
 - **Isolamento Lógico de Dados:** O sistema anexa e confere o ID do dono da conta (`usuarioId`) em toda e qualquer consulta (Prisma/Express), impedindo vazamento de Orçamentos de um cliente para a tela de outro.
 - **Gerenciamento de Sessão Dinâmico:** Event-listener global em React que sincroniza logins entre abas concorrentes, bloqueando a interferência e "envenenamento de cache" entre administradores distintos dividindo o mesmo navegador.
+- **Controle de Acesso ao WhatsApp:** A aba e as funcionalidades de pareamento do WhatsApp estão restritas exclusivamente ao usuário verificando o nome `Administrador SGO`, garantindo segurança contra conexões indevidas.
 
 ### Integração com WhatsApp
 - **Comunicação por QR Code:** O sistema se conecta diretamente ao seu número via biblioteca `whatsapp-web.js`.
@@ -385,7 +385,7 @@ app.post('/api/orcamentos', async (req, res) => {
 - Rastreia criação, mudanças de status
 - Ordenação cronológica
 
-### Otimizações Recentes (Performance e Build)
+### Otimizações Recentes 
 - **Vite Proxy Local:** Alterado alvo do proxy para `127.0.0.1` para eliminar latência de resolução IPv6 em chamadas ao backend.
 - **Gerenciamento de Estado WhatsApp:** Migração do polling antigo para `useQuery` global na captura do QR Code, evitando recarregamentos múltiplos e perda de conexão ao alternar abas (`refetchOnWindowFocus: false`).
 - **Build Otimizado:** Divisão de pacotes (`manualChunks` com Rollup) para fragmentar bibliotecas pesadas como React, Radix, Lucide e TanStack, evitando limite de 500kB.

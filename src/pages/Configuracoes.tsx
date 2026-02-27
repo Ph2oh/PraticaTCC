@@ -164,9 +164,12 @@ const Configuracoes = () => {
               <TabsTrigger value="aparencia" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Palette className="w-4 h-4 mr-3" /> Temas
               </TabsTrigger>
-              <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
-                <MessageSquare className="w-4 h-4 mr-3" /> Integrações
-              </TabsTrigger>
+              {/* Alteração estrutural: Esconde a aba do WhatsApp para quem não é administrador */}
+              {usuario?.isAdmin && (
+                <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
+                  <MessageSquare className="w-4 h-4 mr-3" /> Integrações
+                </TabsTrigger>
+              )}
               <TabsTrigger value="templates" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Type className="w-4 h-4 mr-3" /> Mensagens
               </TabsTrigger>
@@ -182,7 +185,7 @@ const Configuracoes = () => {
               <TabsTrigger value="geral">Geral</TabsTrigger>
               <TabsTrigger value="seguranca">Segurança</TabsTrigger>
               <TabsTrigger value="aparencia">Aparência</TabsTrigger>
-              <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+              {usuario?.isAdmin && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
               <TabsTrigger value="templates">Templates</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -353,7 +356,8 @@ const Configuracoes = () => {
           )}
 
           {/* Aba: WhatsApp */}
-          {activeTab === "whatsapp" && (
+          {/* Alteração estrutural: Bloqueia a renderização do conteúdo do WhatsApp caso o usuário não seja o administrador */}
+          {activeTab === "whatsapp" && usuario?.isAdmin && (
             <div className="space-y-6 animate-in fade-in-50">
               <div>
                 <h3 className="text-lg font-medium flex items-center gap-2">

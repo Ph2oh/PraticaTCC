@@ -7,6 +7,8 @@ interface Usuario {
     id: string;
     nome: string;
     email: string;
+    // Alteração estrutural: Flag `isAdmin` adicionada na tipagem para identificar o primeiro usuário e controlar níveis de acesso
+    isAdmin?: boolean;
 }
 
 interface AuthContextType {

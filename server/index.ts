@@ -38,7 +38,11 @@ app.post('/api/auth/login', async (req, res) => {
             process.env.JWT_SECRET || 'secret-sgo-dev-2026',
             { expiresIn: '24h' }
         );
-        res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, empresa: usuario.empresa } });
+
+        // Alteração estrutural: Restringe a permissão de administrador (e acesso ao WhatsApp) EXCLUSIVAMENTE ao nome 'Administrador SGO'
+        const isAdmin = usuario.nome === 'Administrador SGO';
+
+        res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, empresa: usuario.empresa, isAdmin } });
     } catch (error) {
         console.error('Erro no login:', error);
         res.status(500).json({ error: 'Erro interno no servidor' });
@@ -83,7 +87,11 @@ app.post('/api/auth/register', async (req, res) => {
             process.env.JWT_SECRET || 'secret-sgo-dev-2026',
             { expiresIn: '24h' }
         );
-        res.status(201).json({ token, usuario: novoUsuario });
+
+        // Alteração estrutural: Restringe a permissão de administrador EXCLUSIVAMENTE ao nome 'Administrador SGO'
+        const isAdmin = novoUsuario.nome === 'Administrador SGO';
+
+        res.status(201).json({ token, usuario: { ...novoUsuario, isAdmin } });
 
     } catch (error) {
         console.error('Erro no registro:', error);
@@ -141,7 +149,11 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
         if (!usuario) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
-        res.json(usuario);
+
+        // Alteração estrutural: Restringe a permissão EXCLUSIVAMENTE ao nome 'Administrador SGO'
+        const isAdmin = usuario.nome === 'Administrador SGO';
+
+        res.json({ ...usuario, isAdmin });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao buscar dados do usuário' });
     }
@@ -576,8 +588,8 @@ app.post('/api/whatsapp/disconnect', async (req, res) => {
     }
 });
 
-app.listen(Number(PORT), '127.0.0.1', () => {
-    console.log(`Servidor rodando na porta ${PORT} (IPv4 Explicitado)`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
 
     if (WHATSAPP_ENABLED) {
         // Start WhatsApp client when server starts

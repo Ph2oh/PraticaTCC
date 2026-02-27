@@ -120,8 +120,9 @@ whatsappClient.on('message_create', async (message) => {
             // FIND OR CREATE CLIENT (E ATRELA AO USUÁRIO/TENANT PRINCIPAL DO SISTEMA)
             // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura, 
             // a captura de mensagens ocorrerá no contexto do PRIMEIRO usuário registrado (Admin).
+            // Alteração estrutural: Pegamos o admin baseado estritamente no nome 'Administrador SGO'
             const adminUser = await prisma.usuario.findFirst({
-                orderBy: { id: 'asc' }
+                where: { nome: 'Administrador SGO' }
             });
 
             if (!adminUser) {
@@ -223,8 +224,9 @@ export const acceptWhatsAppRequest = async (id: string) => {
         console.log(` Criando novo orçamento (APROVADO) para ${request.clienteNome}`);
 
         // Busca o Admin para atrelar a propriedade do Orçamento (mesma lógica do Cliente)
+        // Alteração estrutural: Correção na busca do admin, agora restrito ao nome 'Administrador SGO'
         const adminUser = await prisma.usuario.findFirst({
-            orderBy: { id: 'asc' }
+            where: { nome: 'Administrador SGO' }
         });
 
         if (!adminUser) throw new Error("Usuário administrador não encontrado no sistema.");
