@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MessageSquare, User, Save, Sun, Moon, Palette, Type, Shield, Loader2, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
@@ -32,8 +33,19 @@ const Configuracoes = () => {
   const updateConfig = useUpdateConfig();
 
   // Local State for Forms
-  const [activeTab, setActiveTab] = useState("geral");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "geral");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setSearchParams({ tab: value }, { replace: true });
+  };
 
   // Visual
   const [selectedColor, setSelectedColor] = useState(COLORS[0].value);
@@ -156,7 +168,7 @@ const Configuracoes = () => {
 
         {/* Sidebar Nav */}
         <aside className="w-full md:w-64 shrink-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="w-full hidden md:block">
+          <Tabs value={activeTab} onValueChange={handleTabChange} orientation="vertical" className="w-full hidden md:block">
             <TabsList className="flex flex-col h-auto bg-transparent space-y-1 p-0 justify-start items-stretch">
               <TabsTrigger value="geral" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <User className="w-4 h-4 mr-3" /> Geral
@@ -180,7 +192,7 @@ const Configuracoes = () => {
           </Tabs>
 
           {/* Mobile Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:hidden mb-4">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full md:hidden mb-4">
             <TabsList className="grid grid-cols-2 h-auto w-full">
               <TabsTrigger value="geral">Geral</TabsTrigger>
               <TabsTrigger value="seguranca">Segurança</TabsTrigger>

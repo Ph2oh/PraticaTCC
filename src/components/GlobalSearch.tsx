@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, FileText, Users, Home, Calculator, BarChart2, Settings } from "lucide-react"
+import { Search, FileText, Users, Home, Calculator, BarChart2, Settings, Bot, Eye } from "lucide-react"
 
 import {
     CommandDialog,
@@ -56,26 +56,31 @@ export function GlobalSearch() {
                 <CommandList>
                     <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
 
-                    <CommandGroup heading="Acesso Rápido">
-                        <CommandItem onSelect={() => runCommand(() => navigate("/"))} className="cursor-pointer">
-                            <Home className="mr-2 h-4 w-4 text-primary" />
-                            <span>Dashboard</span>
-                        </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/orcamentos"))} className="cursor-pointer">
+                    <CommandGroup heading="Ações Rápidas">
+                        <CommandItem onSelect={() => runCommand(() => navigate("/orcamentos?action=new"))} className="cursor-pointer">
                             <Calculator className="mr-2 h-4 w-4 text-primary" />
-                            <span>Orçamentos</span>
+                            <span>Novo Orçamento</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/clientes"))} className="cursor-pointer">
+                        <CommandItem onSelect={() => runCommand(() => navigate("/clientes?action=new"))} className="cursor-pointer">
                             <Users className="mr-2 h-4 w-4 text-primary" />
-                            <span>Clientes</span>
+                            <span>Novo Cliente</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/relatorios"))} className="cursor-pointer">
-                            <BarChart2 className="mr-2 h-4 w-4 text-primary" />
-                            <span>Relatórios</span>
-                        </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/configuracoes"))} className="cursor-pointer">
+                    </CommandGroup>
+
+                    <CommandSeparator />
+
+                    <CommandGroup heading="Configurações e Sistema">
+                        <CommandItem onSelect={() => runCommand(() => navigate("/configuracoes?tab=mensagens"))} className="cursor-pointer">
                             <Settings className="mr-2 h-4 w-4 text-primary" />
-                            <span>Configurações</span>
+                            <span>Modelos de Mensagem</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => navigate("/configuracoes?tab=whatsapp"))} className="cursor-pointer">
+                            <Bot className="mr-2 h-4 w-4 text-primary" />
+                            <span>Status do WhatsApp</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => navigate("/configuracoes?tab=aparencia"))} className="cursor-pointer">
+                            <Eye className="mr-2 h-4 w-4 text-primary" />
+                            <span>Aparência e Tema</span>
                         </CommandItem>
                     </CommandGroup>
 

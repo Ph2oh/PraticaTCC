@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import type { Orcamento } from "@/types";
 import type { Status } from "@/components/StatusBadge";
 import StatusBadge from "@/components/StatusBadge";
-import { Phone, Calendar, User, DollarSign, Copy, Send, Trash2, Clock } from "lucide-react";
+import { Phone, Calendar, User, DollarSign, Copy, Send, Trash2, Clock, Sparkles, Bot, MonitorDot } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
     ContextMenu,
@@ -195,11 +195,29 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                                     : `shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${STATUS_CARD_COLORS[orc.status]}`
                                                                     }`}
                                                             >
-                                                                <div className="flex justify-between items-center mb-3">
-                                                                    <div className={`w-2 h-2 rounded-full ring-2 ring-background ${orc.status === 'pendente' ? 'bg-warning' : orc.status === 'enviado' ? 'bg-blue-500' : orc.status === 'contratado' ? 'bg-success' : 'bg-destructive'}`} />
-                                                                    <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase opacity-70">
-                                                                        #{orc.id.split('-')[0]}
-                                                                    </span>
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-2 h-2 rounded-full ring-2 ring-background ${orc.status === 'pendente' ? 'bg-warning' : orc.status === 'enviado' ? 'bg-blue-500' : orc.status === 'contratado' ? 'bg-success' : 'bg-destructive'}`} />
+                                                                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase opacity-70">
+                                                                            #{orc.id.split('-')[0]}
+                                                                        </span>
+
+                                                                        {orc.eventos && orc.eventos.length > 0 && (
+                                                                            <div className="flex items-center gap-1 w-max px-1.5 py-0.5 ml-1 rounded shadow-sm bg-background/50 border border-border/40 backdrop-blur-sm">
+                                                                                {orc.eventos.some(e => e.tipo === 'criado' && e.descricao.toLowerCase().includes('whatsapp')) ? (
+                                                                                    <>
+                                                                                        <Bot className="w-[10px] h-[10px] text-primary/80" />
+                                                                                        <span className="text-[9px] font-semibold text-primary/70 uppercase tracking-widest leading-none mt-[1px]">WhatsApp</span>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <MonitorDot className="w-[10px] h-[10px] text-muted-foreground/60" />
+                                                                                        <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-widest leading-none mt-[1px]">Manual</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
 
                                                                 <p className="font-medium text-foreground text-sm sm:text-base leading-snug mb-4 line-clamp-2">
