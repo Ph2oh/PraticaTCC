@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient, Prisma } from '@prisma/client';
@@ -21,7 +22,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED !== 'false';
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.NODE_ENV === 'production'
+        ? (process.env.FRONTEND_URL || 'http://localhost:5173')
+        : true, // Em desenvolvimento, aceita todas as origens
     credentials: true
 }));
 app.use(express.json());

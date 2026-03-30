@@ -231,16 +231,75 @@ cd PraticaTCC
 npm install
 
 # 3. Crie o arquivo de variáveis de ambiente
-cp .env.example .env
+cp .env.example -> .env
 ```
 
-**⚠️ Atenção:** Abra o arquivo `.env` e configure obrigatoriamente:
-- `DATABASE_URL`: A URL de conexão com o seu banco PostgreSQL novo (ex: `postgresql://postgres:senha@localhost:5432/meubanco`).
-- `JWT_SECRET`: Uma senha/texto forte para assinar os tokens (ex: `minha_chave_super_segura_123`).
+** Atenção:** Abra o arquivo `.env` e configure as seguintes variáveis:
+
+#### 2.1 Configurar DATABASE_URL (Neon.tech)
+
+Se você não tem uma conexão PostgreSQL:
+
+1. Acesse [https://neon.tech/](https://neon.tech/) e crie uma conta gratuita
+2. Crie um novo projeto (deixe as configurações padrão)
+3. Na dashboard do projeto, copie a **Connection String** (estará no formato abaixo):
+
+```
+postgresql://neon_username:senha_gerada@ep-xxxxx-pooler.region.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
+
+4. Cole no arquivo `.env`:
+
+```env
+DATABASE_URL="postgresql://neon_username:senha_gerada@ep-xxxxx-pooler.region.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+```
+
+Ou se preferir usar PostgreSQL local em Docker:
+
+```bash
+docker run --name postgres -e POSTGRES_PASSWORD=senha123 -p 5432:5432 -d postgres:15
+```
+
+Então configure:
+
+```env
+DATABASE_URL="postgresql://postgres:senha123@localhost:5432/sgo"
+```
+
+#### 2.2 Configurar JWT_SECRET
+
+Generate uma chave segura com:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Copie o resultado (64 caracteres) e adicione ao `.env`:
+
+```env
+JWT_SECRET="seu_hash_gerado_aqui"
+```
+
+#### 2.3 Configurar WhatsApp (Opcional)
+
+```env
+# Ativa ou desativa a integração com WhatsApp
+WHATSAPP_ENABLED="true"
+
+# Email do usuário que receberá as solicitações de orçamento via WhatsApp
+# Este usuário DEVE ter acesso de Administrador
+WHATSAPP_USER_EMAIL="admin@sgo.com"
+```
+
+Para testar com WhatsApp desabilitado (mais rápido no desenvolvimento):
+
+```env
+WHATSAPP_ENABLED="false"
+```
 
 ### 3. Banco de Dados
 
-Com o banco acessível via `DATABASE_URL`, execute:
+Com o banco acessível via `DATABASE_URL`, execute os comandos de inicialização:
 
 ```bash
 # Sincroniza o código Prisma com as tabelas do seu banco de dados vazio
@@ -253,7 +312,13 @@ npx prisma generate
 npm run seed
 ```
 
-### Credenciais Padrão do Sistema
+**Nota:** Se ocorrer erro no seed dizendo que `JWT_SECRET` não foi encontrado, verifique se:
+1. O arquivo `.env` existe na raiz do projeto
+2. `JWT_SECRET` está definido no `.env`
+3. Você salvou o arquivo `.env` antes de rodar o comando
+
+### 4. Credenciais Padrão do Sistema
+
 Após rodar o comando `npm run seed`, o sistema será alimentado com a seguinte conta de Administrador Padrão. Você deve usá-la para fazer o primeiro login:
 
 *   **E-mail:** `admin@sgo.com`
@@ -261,7 +326,7 @@ Após rodar o comando `npm run seed`, o sistema será alimentado com a seguinte 
 
 *(Recomenda-se alterar esta senha na aba "Configurações" após o primeiro acesso ao sistema num ambiente de Produção).*
 
-### 4. Iniciando a Aplicação
+### 5. Iniciando a Aplicação
 
 ```bash
 # O comando inicializa o backend (porta 3001) e front-end (porta 5173) simultaneamente
@@ -272,3 +337,67 @@ Acesse no navegador:
 *   **Aplicação Frontend:** `http://localhost:5173`
 *   **Acesso API:** `http://localhost:3001/api`
 
+---
+
+## Variáveis de Ambiente Completos (.env)
+
+Referência completa de todas as variáveis disponíveis:
+
+```env
+# ===== BANCO DE DADOS =====
+# URL de conexão PostgreSQL (obrigatório)
+# Exemplo com Neon.tech:
+DATABASE_URL="postgresql://neon_username:password@ep-xxxxx-pooler.region.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+# ===== AUTENTICAÇÃO =====
+# Chave para assinar tokens JWT (obrigatório)
+# Gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+/.env -> JWT_SECRET="seu_hash_de_64_caracteres_aqui"
+
+# ===== WHATSAPP =====
+# Ativa/desativa integração com WhatsApp
+WHATSAPP_ENABLED="true"
+
+# Email do usuário que receberá solicitações via WhatsApp
+# O usuário DEVE ter permissão de administrador
+WHATSAPP_USER_EMAIL="admin@sgo.com"
+
+# ===== FRONTEND (Opcional) =====
+# URL do frontend para CORS no backend (padrão: http://localhost:5173)
+FRONTEND_URL="http://localhost:5173"
+
+# ===== BACKEND (Opcional) =====
+# Porta HTTP do backend (padrão: 3001)
+PORT="3001"
+```
+
+---
+
+## Erros comuns
+
+### Erro: "JWT_SECRET não está definido"
+**Solução:** Verifique se o arquivo `.env` existe e contém `JWT_SECRET="..."`, então salve e execute o comando novamente.
+
+### Erro: "Environment variable not found: DATABASE_URL"
+**Solução:** Certifique-se de que:
+1. O arquivo `.env` existe na raiz do projeto
+2. Contém uma URL PostgreSQL válida
+3. O banco está acessível (teste a conexão manualmente se necessário)
+
+### Backend não conecta na porta 3001
+**Solução:**
+1. Verifique se outra aplicação está usando a porta 3001: `netstat -ano | findstr :3001` (Windows)
+2. Mate processos Node.js antigos: `taskkill /IM node.exe /F` (Windows)
+3. Tente rodar: `npm run dev:server` para ver erros específicos
+
+### WhatsApp mostra erro "Browser is already running"
+**Solução:** Rode o cleanup manual:
+```bash
+node scripts/cleanup-chrome.js
+```
+
+### Prisma não consegue conectar ao banco
+**Solução:** Teste a conexão diretamente:
+```bash
+npx prisma db execute --stdin < /dev/null
+```

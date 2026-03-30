@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthHeaders } from '@/utils/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_BASE = '/api/whatsapp';
 
@@ -39,7 +40,7 @@ async function parseJsonSafe<T>(response: Response): Promise<T | null> {
 
 export function useWhatsApp() {
     const queryClient = useQueryClient();
-
+    const { isAuthenticated } = useAuth();
     const { data: status = DEFAULT_STATUS, isLoading: loading } = useQuery<WhatsAppStatus>({
         queryKey: ['whatsapp-status'],
         queryFn: async () => {
@@ -83,7 +84,9 @@ export function useWhatsApp() {
                 };
             }
         },
-        refetchInterval: 5000,
+        // Só faz refetch se o usuário estiver autenticado
+        enabled: isAuthenticated,
+        refetchInterval: isAuthenticated ? 5000 : false,
         refetchOnWindowFocus: false, // Prevents reset on tab switching
         staleTime: 4000,
     });

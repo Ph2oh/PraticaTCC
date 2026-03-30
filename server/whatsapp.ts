@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcodeTerminal from 'qrcode-terminal';
@@ -131,30 +132,30 @@ const setupWhatsAppListeners = () => {
                 const phoneNumber = message.from.replace('@c.us', '');
 
                 // FIND OR CREATE CLIENT (E ATRELA AO USUÁRIO/TENANT PRINCIPAL DO SISTEMA)
-                // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura, 
-                // a captura de mensagens ocorrerá no contexto do PRIMEIRO usuário registrado (Admin).
-                // Alteração estrutural: Pegamos o admin baseado estritamente no nome 'Administrador SGO'
-                const adminUser = await prisma.usuario.findFirst({
-                    where: { nome: 'Administrador SGO' }
+                // OBS: Como o WhatsApp é Singleton por Servidor nesta fase de infraestrutura,
+                // a captura de mensagens ocorrerá no contexto do usuário configurado em WHATSAPP_USER_EMAIL
+                const whatsappUserEmail = process.env.WHATSAPP_USER_EMAIL || 'admin@sgo.com';
+                const whatsappUser = await prisma.usuario.findUnique({
+                    where: { email: whatsappUserEmail }
                 });
 
-                if (!adminUser) {
-                    console.error("ERRO CRÍTICO WhatsApp Bot: Não há nenhum Usuário/Tenant cadastrado no sistema para ser o dono deste cliente.");
+                if (!whatsappUser) {
+                    console.error(`ERRO CRÍTICO WhatsApp Bot: Usuário com email "${whatsappUserEmail}" não encontrado no sistema.`);
                     return;
                 }
 
                 let cliente = await prisma.cliente.findFirst({
-                    where: { telefone: phoneNumber, usuarioId: adminUser.id }
+                    where: { telefone: phoneNumber, usuarioId: whatsappUser.id }
                 });
 
                 if (!cliente) {
-                    console.log(` Criando novo cliente para ${phoneNumber} no Tenant ${adminUser.id}`);
+                    console.log(` Criando novo cliente para ${phoneNumber} no Tenant ${whatsappUser.id}`);
                     cliente = await prisma.cliente.create({
                         data: {
                             nome: contactName,
                             email: '',
                             telefone: phoneNumber,
-                            usuarioId: adminUser.id
+                            usuarioId: whatsappUser.id
                         }
                     });
                 }
@@ -163,7 +164,7 @@ const setupWhatsAppListeners = () => {
                 const hasPending = await prisma.orcamento.findFirst({
                     where: {
                         clienteId: cliente.id,
-                        usuarioId: adminUser.id,
+                        usuarioId: whatsappUser.id,
                         status: 'pendente'
                     }
                 });
@@ -237,18 +238,18 @@ export const acceptWhatsAppRequest = async (id: string) => {
     try {
         console.log(` Criando novo orçamento (APROVADO) para ${request.clienteNome}`);
 
-        // Busca o Admin para atrelar a propriedade do Orçamento (mesma lógica do Cliente)
-        // Alteração estrutural: Correção na busca do admin, agora restrito ao nome 'Administrador SGO'
-        const adminUser = await prisma.usuario.findFirst({
-            where: { nome: 'Administrador SGO' }
+        // Busca o usuário vinculado ao WhatsApp baseado no email configurado em WHATSAPP_USER_EMAIL
+        const whatsappUserEmail = process.env.WHATSAPP_USER_EMAIL || 'admin@sgo.com';
+        const whatsappUser = await prisma.usuario.findUnique({
+            where: { email: whatsappUserEmail }
         });
 
-        if (!adminUser) throw new Error("Usuário administrador não encontrado no sistema.");
+        if (!whatsappUser) throw new Error(`Usuário com email "${whatsappUserEmail}" não encontrado no sistema.`);
 
         const novoOrcamento = await prisma.orcamento.create({
             data: {
                 clienteId: request.clienteId,
-                usuarioId: adminUser.id,
+                usuarioId: whatsappUser.id,
                 descricao: `Criado via WhatsApp (Aprovado).\n\nMensagem original:\n"${request.mensagemOriginal}"`,
                 valor: 0,
                 status: 'pendente',
