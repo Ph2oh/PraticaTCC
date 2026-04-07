@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -642,6 +643,18 @@ app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
         res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
     }
 });
+
+// Se estivermos em PRODUÇÃO (rodando no Render, ou vercel)
+if (process.env.NODE_ENV === 'production') {
+    // 1. Ele fala para o express publicar a pasta com os arquivos buildados do React
+    app.use(express.static(path.join(process.cwd(), 'dist')));
+
+    // 2. Qualquer link que não for da API (como /orcamentos ou /dashboard) bate aqui
+    // e ele devolve o index.html, deixando a mágica das rotas com o React
+    app.use((req, res) => {
+        res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+    });
+}
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);

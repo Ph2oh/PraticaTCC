@@ -8,6 +8,7 @@
     "dev:server": "node scripts/cleanup-chrome.js && tsx server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
+    "start": "tsx server/index.ts",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
