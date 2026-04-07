@@ -40,22 +40,22 @@ PraticaTCC/
 
 ## Tecnologias Utilizadas e Justificativas
 
-A stack foi escolhida com foco em produtividade, tipagem segura (end-to-end) e facilidade de manutenção.
+A stack foi definida priorizando consistência de tipagem entre camadas, previsibilidade de comportamento e eficiência no desenvolvimento.
 
 | Camada | Tecnologia | Versão | Função Principal e Justificativa |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | `React` | 18.x | Construção da UI. Escolhido pelo vasto ecossistema, facilidade de componentização e adoção do mercado. |
-| **Linguagem** | `TypeScript` | 5.x | Tipagem estática end-to-end (Frontend/Backend). Reduz erros em tempo de execução e viabiliza a forte inteligência da IDE, melhorando drasticamente a escalabilidade. |
-| **Build** | `Vite` | 5.x | Ferramenta de build web. Muito mais rápida que Webpack, proporcionando Hot Module Replacement (HMR) instantâneo para um ciclo de desenvolvimento superior. |
-| **Styling** | `Tailwind CSS` | 3.x | Framework utilitário. Permite estilização rápida via classes injetadas no HTML. Facilita muito a manutenção sem precisar transitar entre arquivos .css. |
-| **Componentes** | `shadcn/ui` | Latest | Coleção de componentes acessíveis e estilizáveis (não instalados via NPM, e sim transpilados diretamente no source). Fornece blocos de interface lindos (como radix-ui sob o capô) sem roubar o controle do código. |
-| **Estado Remoto** | `React Query` | 5.x | Fetching assíncrono. Remove boilerplate (reduz ou elimina reducers/useEffect para chamadas API) além de lidar automaticamente com cache, repetição de tentativas e paginação. |
-| **Backend** | `Express.js` | 4.x | Framework Node.js minimalista. Fornece uma maneira muito simples de definir a API RESTful, de baixo acoplamento. |
-| **Autenticação** | `JWT + Bcrypt` | Latest | Padrão da indústria de web tokens para a comunicação sem estado (Stateless) somado à criptografia salt-hash irreversível para que senhas nunca fiquem legíveis no banco. |
-| **Validação** | `Zod` | 3.x | Biblioteca de Schema Validation. É acoplada aos handlers da rota (Express) para sanitizar e validar o payload que vêm do Frontend, retornando erros úteis sempre que formatos falham. |
-| **Database** | `PostgreSQL` | 15.x | Banco de dados SQL que entrega altíssima robustez e consistência transacional. |
-| **ORM** | `Prisma ORM` | 5.x | Facilita a interação com o banco de dados oferecendo suporte forte às tipagens TypeScript e gerenciador de migrations eficientes, prevenindo Injeção SQL. |
-| **Integração** | `whatsapp-web.js`| Latest | Automação via chromium. Alternativa vital para projetos de pequeno/médio porte, visto que as APIs Oficiais do WhatsApp possuem um esquema caro e intrincado ligado à aprovação unida da provedora Meta. |
+| **Frontend** | `React` | 18.x | Biblioteca para construção de interfaces baseada em componentes. Permite reuso, organização modular e ampla integração com o ecossistema web atual. |
+| **Linguagem** | `TypeScript` | 5.x | Superset do JavaScript com tipagem estática. Garante contratos explícitos entre módulos e reduz inconsistências entre frontend e backend. |
+| **Build** | `Vite` | 5.x | Ferramenta de build orientada a performance. Inicialização rápida e HMR eficiente, reduzindo o tempo de feedback durante o desenvolvimento. |
+| **Styling** | `Tailwind CSS` | 3.x | Abordagem utilitária para estilização. Elimina a necessidade de arquivos CSS extensos e favorece consistência visual diretamente na estrutura dos componentes. |
+| **Componentes** | `shadcn/ui` | Latest | Base de componentes acessíveis construída sobre Radix UI. Permite customização total sem abstrações rígidas ou dependência de bibliotecas fechadas. |
+| **Estado Remoto** | `React Query` | 5.x | Gerenciamento de estado assíncrono e cache de requisições. Centraliza o controle de dados remotos, incluindo invalidação, refetch e sincronização. |
+| **Backend** | `Express.js` | 4.x | Framework HTTP minimalista para Node.js. Estrutura simples para definição de rotas, middlewares e APIs REST. |
+| **Autenticação** | `JWT + Bcrypt` | Latest | JWT para autenticação stateless e Bcrypt para hashing seguro de senhas. Garante isolamento de credenciais e controle de sessão sem persistência no servidor. |
+| **Validação** | `Zod` | 3.x | Validação declarativa de schemas com tipagem integrada. Utilizado na borda da aplicação para garantir integridade dos dados recebidos. |
+| **Database** | `PostgreSQL` | 15.x | Banco relacional com suporte a transações ACID, integridade referencial e consultas complexas. |
+| **ORM** | `Prisma ORM` | 5.x | Camada de abstração para acesso ao banco com tipagem forte e controle de migrations. Reduz erros de consulta e padroniza o acesso aos dados. |
+| **Integração** | `whatsapp-web.js` | Latest | Automação baseada em sessão web do WhatsApp. Viabiliza integração sem dependência direta da API oficial, reduzindo custo e barreiras de entrada. |
 
 ---
 
