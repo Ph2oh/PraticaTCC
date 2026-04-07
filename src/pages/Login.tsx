@@ -21,7 +21,7 @@ export const Login: React.FC = () => {
         setLoading(true);
 
         try {
-            const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const BASE_URL = import.meta.env.VITE_API_URL || '/api';
             const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
