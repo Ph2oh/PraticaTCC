@@ -38,21 +38,24 @@ PraticaTCC/
 
 ---
 
-## Tecnologias Utilizadas
+## Tecnologias Utilizadas e Justificativas
 
-| Camada | Tecnologia | Versão | Função Principal |
+A stack foi escolhida com foco em produtividade, tipagem segura (end-to-end) e facilidade de manutenção.
+
+| Camada | Tecnologia | Versão | Função Principal e Justificativa |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | `React` | 18.x | Biblioteca para construção da interface de usuário. |
-| **Linguagem** | `TypeScript` | 5.x | Tipagem estática para frontend e backend. |
-| **Build** | `Vite` | 5.x | Ferramenta de build e servidor local. |
-| **Styling** | `Tailwind CSS` | 3.x | Framework CSS utilitário para estilização da interface. |
-| **Componentes** | `shadcn/ui` | Latest | Coleção de componentes injetados diretamente no código-fonte do projeto. |
-| **Estado Remoto** | `React Query` | 5.x | Gerenciamento de estado de dados assíncronos e controle de cache de rede. |
-| **Backend** | `Express.js` | 4.x | Framework para a estruturação da API REST. |
-| **Autenticação** | `JWT + Bcrypt` | Latest | Emissão de tokens de acesso para requisições e armazenamento de senhas com hash. |
-| **Integração** | `whatsapp-web.js`| Latest | Biblioteca baseada em Puppeteer para interagir com a interface web do WhatsApp. |
-| **Database** | `PostgreSQL` | 15.x | Sistema gerenciador de banco de dados relacional. |
-| **ORM** | `Prisma ORM` | 5.x | Ferramenta de mapeamento objeto-relacional para consultas e gerenciamento do schema. |
+| **Frontend** | `React` | 18.x | Construção da UI. Escolhido pelo vasto ecossistema, facilidade de componentização e adoção do mercado. |
+| **Linguagem** | `TypeScript` | 5.x | Tipagem estática end-to-end (Frontend/Backend). Reduz erros em tempo de execução e viabiliza a forte inteligência da IDE, melhorando drasticamente a escalabilidade. |
+| **Build** | `Vite` | 5.x | Ferramenta de build web. Muito mais rápida que Webpack, proporcionando Hot Module Replacement (HMR) instantâneo para um ciclo de desenvolvimento superior. |
+| **Styling** | `Tailwind CSS` | 3.x | Framework utilitário. Permite estilização rápida via classes injetadas no HTML. Facilita muito a manutenção sem precisar transitar entre arquivos .css. |
+| **Componentes** | `shadcn/ui` | Latest | Coleção de componentes acessíveis e estilizáveis (não instalados via NPM, e sim transpilados diretamente no source). Fornece blocos de interface lindos (como radix-ui sob o capô) sem roubar o controle do código. |
+| **Estado Remoto** | `React Query` | 5.x | Fetching assíncrono. Remove boilerplate (reduz ou elimina reducers/useEffect para chamadas API) além de lidar automaticamente com cache, repetição de tentativas e paginação. |
+| **Backend** | `Express.js` | 4.x | Framework Node.js minimalista. Fornece uma maneira muito simples de definir a API RESTful, de baixo acoplamento. |
+| **Autenticação** | `JWT + Bcrypt` | Latest | Padrão da indústria de web tokens para a comunicação sem estado (Stateless) somado à criptografia salt-hash irreversível para que senhas nunca fiquem legíveis no banco. |
+| **Validação** | `Zod` | 3.x | Biblioteca de Schema Validation. É acoplada aos handlers da rota (Express) para sanitizar e validar o payload que vêm do Frontend, retornando erros úteis sempre que formatos falham. |
+| **Database** | `PostgreSQL` | 15.x | Banco de dados SQL que entrega altíssima robustez e consistência transacional. |
+| **ORM** | `Prisma ORM` | 5.x | Facilita a interação com o banco de dados oferecendo suporte forte às tipagens TypeScript e gerenciador de migrations eficientes, prevenindo Injeção SQL. |
+| **Integração** | `whatsapp-web.js`| Latest | Automação via chromium. Alternativa vital para projetos de pequeno/médio porte, visto que as APIs Oficiais do WhatsApp possuem um esquema caro e intrincado ligado à aprovação unida da provedora Meta. |
 
 ---
 
@@ -72,14 +75,20 @@ PraticaTCC/
 
 ---
 
-## Segurança e Isolamento Lógico
+## Middlewares, Segurança e Isolamento Lógico
 
-A aplicação adota o modelo Multi-Tenant na arquitetura e na persistência de dados:
+ aplicação adota o modelo Multi-Tenant na arquitetura e na persistência de dados:
 
-*   **Configuração de Ambiente:** Chaves criptográficas (como `JWT_SECRET`) são providas estritamente através de variáveis de ambiente (`.env`).
-*   **Isolamento de Dados (Tenant-level):** Os registros contêm um atributo relacionando ao proprietário do dado (`usuarioId`). As consultas executadas via Prisma implementam um filtro obrigatório nesse atributo para prevenir acesso não autorizado entre contas distintas.
-*   **Validação de Sessão:** A camada de middleware na API (`/api`) intercepta requisições baseando a validação em tokens JWT com tempo configurado de expiração.
-*   **Controle de Integração:** Interações automatizadas com conexões WhatsApp são designadas exclusivamente a instâncias de usuário nível Administrador na base de dados.
+*   **Autenticação JWT (`authenticateToken`):** 
+    *   **Função:** Middleware inserido para travar a base das rotas de API não-públicas (excluindo `/auth`).
+    *   **Mecânica:** Ele extrai o `Authorization: Bearer <Token>`, verifica a assinatura do token JWT com a chave `JWT_SECRET` em ambiente isolado (`.env`). Quando aceito, injeta as propriedades `usuarioId` e `isAdmin` no objeto global Request.
+    *   **Isolamento (Tenant-Level):** As controllers capturam esse `req.usuarioId` injetado pelo middleware e obrigatoriamente acoplam na tag de `{ where: { usuarioId: req.usuarioId } }` do banco de dados (Prisma). Portanto, nunca um inquilino vai ver as tabelas dos outros.
+*   **Rate Limiting (`express-rate-limit`):**
+    *   **Ameaça prevenida:** Ataques de Força Bruta ou Inundações de Requisições Automatizadas (Scripts/Spam).
+    *   **Mecânica aplicada:** Embutido nos handlers `/api/auth/login` e `/register`, confina endereços de IP que erraram suas tentativas de acesso por limite excessivo em uma janela curta de minutos, bloqueando o tráfego até o período ser aliviado.
+*   **Validações Preventivas e de Acesso Privilegiado:** 
+    *   **Zod Schema:** Analisa o body (`req.body`) comparado ao molde de forma defensiva antes da camada se aprofundar dentro do express.
+    *   **Middleware de Administrador:** Certas integrações pesadas como Iniciar, Aceitar e Recusar requisições atreladas ao worker do Puppeteer do WhatsApp utilizam uma dupla validação que verifica a existência nativa da flag `req.isAdmin`. Apenas o e-mail master (seed principal) tem esse privilégio na conta.
 
 ---
 
@@ -178,7 +187,7 @@ dataRecebido (DateTime)
 clienteId (UUID - Relacional)
 ```
 
-### OrcamentoEvento (Trilha de Histórico)
+### OrcamentoEvento (Histórico)
 ```sql
 id (UUID)
 orcamentoId (UUID - Relacional)
