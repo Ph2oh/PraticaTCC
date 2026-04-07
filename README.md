@@ -1,6 +1,6 @@
 # SGO - Sistema de Gerenciamento de Orçamentos
 
-Sistema cliente-servidor para gerenciamento de clientes, orçamentos, registro de histórico de eventos e integração com o WhatsApp via emulação do cliente web. Desenvolvido em TypeScript.
+Sistema para gerenciamento de clientes, orçamentos, registro de histórico de eventos e integração com o WhatsApp via emulação do cliente web. Desenvolvido em TypeScript.
 
 ---
 
