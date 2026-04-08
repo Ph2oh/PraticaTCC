@@ -29,6 +29,7 @@ const AppSidebar = () => {
 
   return (
     <aside
+      id="tour-sidebar"
       className={cn(
         "flex flex-col bg-sidebar text-sidebar-foreground h-screen sticky top-0 transition-all duration-300 border-r border-sidebar-border",
         collapsed ? "w-[72px]" : "w-[260px]"
@@ -55,6 +56,7 @@ const AppSidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              id={item.to === '/orcamentos' ? 'tour-menu-orcamentos' : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive

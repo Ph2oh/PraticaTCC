@@ -73,6 +73,10 @@ A stack foi definida priorizando consistência de tipagem entre camadas, previsi
 *   Listagem de clientes com paginação e associação aos respectivos orçamentos.
 *   **Registro de Eventos:** Persistência no formato append-only para o fluxo de eventos de cada orçamento, onde operações de criação, modificação de dados e alteração de status são registradas com data e hora.
 
+### Sistema de Onboarding Interativo
+*   **Integração:** Novo recurso empregando `react-joyride` para apresentar as visões globais do sistema aos usuários na sua primeira viagem de navegação.
+*   **Comportamento:** Engatilhado passivamente (Baseado na leitura do `localStorage`), guiando por botões chaves do Dashboard e Buscas, sumindo discretamente sem persistir carga no banco de dados.
+
 ---
 
 ## Middlewares, Segurança e Isolamento Lógico

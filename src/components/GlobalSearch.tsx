@@ -39,6 +39,7 @@ export function GlobalSearch() {
     return (
         <>
             <button
+                id="tour-search"
                 onClick={() => setOpen(true)}
                 className="hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 hover:bg-accent hover:text-accent-foreground border border-border px-3 py-1.5 rounded-md transition-colors w-64 justify-between"
             >

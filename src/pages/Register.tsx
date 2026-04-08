@@ -44,6 +44,9 @@ export const Register: React.FC = () => {
 
             toast.success('Conta criada com sucesso! Redirecionando...');
 
+            // Ativa o Onboarding Tour apenas para esta sessão (novo usuário)
+            localStorage.setItem('sgo_is_new_user', 'true');
+
             // Login automático e redireciona
             login(data.token, data.usuario);
             navigate('/');

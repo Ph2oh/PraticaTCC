@@ -3,6 +3,7 @@ import AppSidebar from "./AppSidebar";
 import { GlobalSearch } from "./GlobalSearch";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect } from "react";
+import { OnboardingTour } from "./OnboardingTour";
 
 const AppLayout = () => {
   const { data: config } = useConfig();
@@ -16,6 +17,7 @@ const AppLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <OnboardingTour />
       <AppSidebar />
       <main className="flex-1 overflow-auto flex flex-col">
         {/* Top Header Global */}
@@ -24,7 +26,7 @@ const AppLayout = () => {
           <GlobalSearch />
         </header>
 
-        <div className="flex-1 p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
+        <div id="tour-dashboard" className="flex-1 p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
           <Outlet />
         </div>
       </main>

@@ -164,11 +164,13 @@ const Orcamentos = () => {
 
           {/* Content Area */}
           {viewMode === "kanban" ? (
-            <KanbanBoard
-              orcamentos={filtered}
-              onOrcamentoClick={(id) => setSelectedOrcamentoId(id)}
-              onStatusChange={handleStatusChange}
-            />
+            <div id="tour-kanban-board">
+              <KanbanBoard
+                orcamentos={filtered}
+                onOrcamentoClick={(id) => setSelectedOrcamentoId(id)}
+                onStatusChange={handleStatusChange}
+              />
+            </div>
           ) : (
             <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="overflow-x-auto">
