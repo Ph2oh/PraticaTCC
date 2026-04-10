@@ -417,7 +417,8 @@ app.post('/api/orcamentos', async (req: any, res) => {
 app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        // Adicionado motivoRecusa: salvo quando status='recusado', limpo nos demais
+        const { status, motivoRecusa } = req.body;
 
         const orcamentoAtigo = await prisma.orcamento.findUnique({
             where: { id, usuarioId: req.usuarioId },
@@ -428,11 +429,13 @@ app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
             where: { id },
             data: {
                 status,
+                // Se mudando para recusado, persiste o motivo; caso contrário limpa
+                motivoRecusa: status === 'recusado' ? (motivoRecusa ?? null) : null,
                 ...(orcamentoAtigo && orcamentoAtigo.status !== status ? {
                     eventos: {
                         create: {
                             tipo: 'status_alterado',
-                            descricao: `Status alterado para ${status}`,
+                            descricao: `Status alterado para ${status}${status === 'recusado' && motivoRecusa ? ` (${motivoRecusa})` : ''}`,
                             statusAntigo: orcamentoAtigo.status,
                             statusNovo: status,
                         }
@@ -456,7 +459,8 @@ app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
 app.put('/api/orcamentos/:id', async (req: any, res) => {
     try {
         const { id } = req.params;
-        const { descricao, valor, status } = req.body;
+        // Adicionado motivoRecusa: salvo quando status='recusado', limpo nos demais
+        const { descricao, valor, status, motivoRecusa } = req.body;
 
         // Buscar status anterior
         const orcamentoAtigo = await prisma.orcamento.findUnique({
@@ -467,7 +471,11 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
         const dataAtualizacao: Prisma.OrcamentoUpdateInput = {};
         if (descricao) dataAtualizacao.descricao = descricao;
         if (typeof valor !== 'undefined') dataAtualizacao.valor = Number(valor);
-        if (status) dataAtualizacao.status = status;
+        if (status) {
+            dataAtualizacao.status = status;
+            // Se mudando para recusado, persiste o motivo; caso contrário limpa o campo
+            dataAtualizacao.motivoRecusa = status === 'recusado' ? (motivoRecusa ?? null) : null;
+        }
 
         if (Object.keys(dataAtualizacao).length === 0) {
             return res.status(400).json({ error: 'Nenhuma informação para atualizar' });
@@ -478,7 +486,7 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
         if (status && orcamentoAtigo && orcamentoAtigo.status !== status) {
             eventosParaCriar.push({
                 tipo: 'status_alterado',
-                descricao: `Status alterado para ${status}`,
+                descricao: `Status alterado para ${status}${status === 'recusado' && motivoRecusa ? ` (${motivoRecusa})` : ''}`,
                 statusAntigo: orcamentoAtigo.status,
                 statusNovo: status,
             });

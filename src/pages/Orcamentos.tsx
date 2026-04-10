@@ -20,6 +20,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useOrcamentos, useUpdateOrcamento, useDeleteOrcamento } from "@/hooks/useOrcamentos";
 import { NovoOrcamentoDialog } from "@/components/NovoOrcamentoDialog";
 import type { Status } from "@/components/StatusBadge";
+// Importa o dialog de motivo de recusa para interceptar mudancas para 'recusado' na tabela e no kanban
+import { MotivoRecusaDialog, type MotivoRecusaValue } from "@/components/MotivoRecusaDialog";
 
 const Orcamentos = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,6 +30,8 @@ const Orcamentos = () => {
   const [selectedOrcamentoId, setSelectedOrcamentoId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isNovoOrcamentoOpen, setIsNovoOrcamentoOpen] = useState(false);
+  // Estado do dialog de recusa: guarda qual orcamento esta aguardando confirmacao de motivo
+  const [recusaPendente, setRecusaPendente] = useState<{ id: string; novoStatus: Status } | null>(null);
 
   const { data: orcamentos = [], isLoading, error } = useOrcamentos();
   const updateMutation = useUpdateOrcamento();
@@ -44,12 +48,29 @@ const Orcamentos = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusChange = (orcamentoId: string, newStatus: Status) => {
+  // Intercepta mudancas de status: se o destino for 'recusado', abre o dialog em vez de salvar direto
+  const handleStatusChange = (orcamentoId: string, newStatus: Status, motivoRecusa?: string) => {
+    if (newStatus === "recusado" && !motivoRecusa) {
+      setRecusaPendente({ id: orcamentoId, novoStatus: newStatus });
+      return;
+    }
     updateMutation.mutate({
       id: orcamentoId,
-      data: { status: newStatus },
+      data: { status: newStatus, motivoRecusa: motivoRecusa ?? null },
     });
   };
+
+  // Confirmacao do motivo via dialog (chamado tanto do kanban quanto da tabela)
+  const handleRecusaConfirm = (motivo: MotivoRecusaValue) => {
+    if (!recusaPendente) return;
+    updateMutation.mutate({
+      id: recusaPendente.id,
+      data: { status: recusaPendente.novoStatus, motivoRecusa: motivo },
+    });
+    setRecusaPendente(null);
+  };
+
+  const handleRecusaCancel = () => setRecusaPendente(null);
 
   const selectedOrcamento = orcamentos.find(o => o.id === selectedOrcamentoId) || null;
 
@@ -259,6 +280,7 @@ const Orcamentos = () => {
                           <ContextMenuSub>
                             <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
                             <ContextMenuSubContent className="w-48">
+                              {/* handleStatusChange intercepta 'recusado' e abre o dialog de motivo */}
                               {["pendente", "enviado", "contratado", "recusado"].map((st) => (
                                 <ContextMenuItem
                                   key={st}
@@ -266,7 +288,7 @@ const Orcamentos = () => {
                                   className="capitalize"
                                   onSelect={() => handleStatusChange(orc.id, st as Status)}
                                 >
-                                  {st}
+                                  {st === "enviado" ? "Em Negociação" : st === "recusado" ? "Recusado" : st === "contratado" ? "Contratado" : "Pendente"}
                                 </ContextMenuItem>
                               ))}
                             </ContextMenuSubContent>
@@ -327,6 +349,13 @@ const Orcamentos = () => {
           <NovoOrcamentoDialog
             open={isNovoOrcamentoOpen}
             onOpenChange={setIsNovoOrcamentoOpen}
+          />
+
+          {/* Dialog de motivo de recusa para mudancas feitas pela tabela e pelo menu de contexto */}
+          <MotivoRecusaDialog
+            open={recusaPendente !== null}
+            onConfirm={handleRecusaConfirm}
+            onCancel={handleRecusaCancel}
           />
         </>
       )}

@@ -30,7 +30,8 @@ export function useUpdateOrcamento() {
   const queryClient = useQueryClient();
   const { token } = useAuth();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { status?: Status; descricao?: string; valor?: number } }) =>
+    // Adicionado motivoRecusa ao tipo aceito pelo hook para repassar ao backend
+    mutationFn: ({ id, data }: { id: string; data: { status?: Status; descricao?: string; valor?: number; motivoRecusa?: string | null } }) =>
       updateOrcamento(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamentos", token] });

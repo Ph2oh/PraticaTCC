@@ -17,11 +17,14 @@ import {
 } from "@/components/ui/context-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useDeleteOrcamento } from "@/hooks/useOrcamentos";
+// Importa o dialog de motivo de recusa e seus tipos para interceptar mudancas para 'recusado'
+import { MotivoRecusaDialog, type MotivoRecusaValue } from "@/components/MotivoRecusaDialog";
 
 interface KanbanBoardProps {
     orcamentos: Orcamento[];
     onOrcamentoClick: (id: string) => void;
-    onStatusChange?: (orcamentoId: string, newStatus: Status) => void;
+    // Estendido: aceita motivoRecusa como terceiro argumento opcional quando newStatus='recusado'
+    onStatusChange?: (orcamentoId: string, newStatus: Status, motivoRecusa?: string) => void;
 }
 
 const STATUS_COLUMNS: { id: Status; label: string; colorClass: string; textColor: string }[] = [
@@ -56,6 +59,16 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
         recusado: [],
     });
 
+    // Estado do dialog de motivo de recusa: guarda a acao pendente ate o usuario confirmar ou cancelar
+    const [recusaPendente, setRecusaPendente] = useState<{
+        orcamentoId: string;
+        sourceColumn: Status;
+        destColumn: Status;
+        sourceIndex: number;
+        destIndex: number;
+        snapshotColumns: Record<Status, Orcamento[]>;
+    } | null>(null);
+
     // Atualiza as colunas locais quando a prop orcamentos muda
     useEffect(() => {
         const newColumns: Record<Status, Orcamento[]> = {
@@ -85,78 +98,120 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
         setColumns(newColumns);
     }, [orcamentos]);
 
-    const onDragEnd = (result: DropResult) => {
-        const { source, destination, draggableId } = result;
-
-        // Se dropou fora do quadro
-        if (!destination) return;
-
-        // Se dropou no mesmo lugar
-        if (
-            source.droppableId === destination.droppableId &&
-            source.index === destination.index
-        ) {
-            return;
-        }
-
-        const sourceColumn = source.droppableId as Status;
-        const destColumn = destination.droppableId as Status;
-
-        // Movendo na mesma coluna
-        if (sourceColumn === destColumn) {
-            const novaColuna = Array.from(columns[sourceColumn]);
-            const [removido] = novaColuna.splice(source.index, 1);
-            novaColuna.splice(destination.index, 0, removido);
-
-            setColumns({
-                ...columns,
-                [sourceColumn]: novaColuna,
-            });
-            return;
-        }
-
-        // Movendo para outra coluna
+    // Aplica efetivamente a mudanca de coluna apos confirmacao (ou imediatamente para status != recusado)
+    const aplicarMudancaColuna = (
+        sourceColumn: Status,
+        destColumn: Status,
+        sourceIndex: number,
+        destIndex: number,
+        motivoRecusa?: string
+    ) => {
         const sourceItems = Array.from(columns[sourceColumn]);
         const destItems = Array.from(columns[destColumn]);
-        const [removido] = sourceItems.splice(source.index, 1);
-
-        // Atualiza o status do item
+        const [removido] = sourceItems.splice(sourceIndex, 1);
         removido.status = destColumn;
+        destItems.splice(destIndex, 0, removido);
 
-        destItems.splice(destination.index, 0, removido);
+        setColumns({ ...columns, [sourceColumn]: sourceItems, [destColumn]: destItems });
 
-        setColumns({
-            ...columns,
-            [sourceColumn]: sourceItems,
-            [destColumn]: destItems,
-        });
-
-        // Chama o callback prop se existir
         if (onStatusChange) {
-            onStatusChange(removido.id, destColumn);
+            onStatusChange(removido.id, destColumn, motivoRecusa);
         }
 
-        // Gamificação / Micro-interação: Confete ao Fechar Contrato 🎉
+        // Gamificacao: confete ao fechar contrato
         if (destColumn === "contratado" && sourceColumn !== "contratado") {
             const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
             const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
             const interval: ReturnType<typeof setInterval> = setInterval(function () {
                 const particleCount = 50;
                 confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
                 confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
             }, 250);
-
-            setTimeout(() => clearInterval(interval), 1000); // Para o confete em 1 segundo
-
+            setTimeout(() => clearInterval(interval), 1000);
             toast({
-                title: "Novo Contrato Fechado! 🎉",
-                description: `O orçamento de ${removido.cliente?.nome || "Cliente"} foi ganho! Excelente trabalho!`,
+                title: "Novo Contrato Fechado!",
+                description: `O orçamento de ${columns[sourceColumn][sourceIndex]?.cliente?.nome || "Cliente"} foi ganho! Excelente trabalho!`,
             });
         }
     };
 
+    const onDragEnd = (result: DropResult) => {
+        const { source, destination } = result;
+
+        if (!destination) return;
+        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+        const sourceColumn = source.droppableId as Status;
+        const destColumn = destination.droppableId as Status;
+
+        // Movendo na mesma coluna — sem confirmacao necessaria
+        if (sourceColumn === destColumn) {
+            const novaColuna = Array.from(columns[sourceColumn]);
+            const [removido] = novaColuna.splice(source.index, 1);
+            novaColuna.splice(destination.index, 0, removido);
+            setColumns({ ...columns, [sourceColumn]: novaColuna });
+            return;
+        }
+
+        // Intercepta drag para 'recusado': guarda estado e abre dialog sem mover o card ainda
+        if (destColumn === "recusado" && sourceColumn !== "recusado") {
+            setRecusaPendente({
+                orcamentoId: columns[sourceColumn][source.index]?.id,
+                sourceColumn,
+                destColumn,
+                sourceIndex: source.index,
+                destIndex: destination.index,
+                snapshotColumns: columns,
+            });
+            return;
+        }
+
+        aplicarMudancaColuna(sourceColumn, destColumn, source.index, destination.index);
+    };
+
+    // Confirmacao do motivo de recusa via drag-and-drop
+    const handleRecusaConfirm = (motivo: MotivoRecusaValue) => {
+        if (!recusaPendente) return;
+        aplicarMudancaColuna(
+            recusaPendente.sourceColumn,
+            recusaPendente.destColumn,
+            recusaPendente.sourceIndex,
+            recusaPendente.destIndex,
+            motivo
+        );
+        setRecusaPendente(null);
+    };
+
+    // Cancelamento: descarta a acao sem alterar nenhuma coluna
+    const handleRecusaCancel = () => {
+        setRecusaPendente(null);
+    };
+
+    // Intercepta mudanca de status via menu de contexto para 'recusado'
+    const handleContextStatusChange = (orcamentoId: string, novoStatus: Status) => {
+        if (novoStatus === "recusado") {
+            // Localiza o item para saber em qual coluna esta
+            const sourceColumn = Object.keys(columns).find(
+                (col) => columns[col as Status].some((o) => o.id === orcamentoId)
+            ) as Status | undefined;
+            if (!sourceColumn || sourceColumn === "recusado") return;
+            const sourceIndex = columns[sourceColumn].findIndex((o) => o.id === orcamentoId);
+            const destIndex = columns[novoStatus].length;
+            setRecusaPendente({
+                orcamentoId,
+                sourceColumn,
+                destColumn: novoStatus,
+                sourceIndex,
+                destIndex,
+                snapshotColumns: columns,
+            });
+            return;
+        }
+        if (onStatusChange) onStatusChange(orcamentoId, novoStatus);
+    };
+
     return (
+        <>
         <div className="w-full pb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 w-full auto-rows-max">
                 <DragDropContext onDragEnd={onDragEnd}>
@@ -277,7 +332,8 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                                         <ContextMenuItem
                                                                             key={col.id}
                                                                             disabled={orc.status === col.id}
-                                                                            onSelect={() => onStatusChange && onStatusChange(orc.id, col.id)}
+                                                                            // Usa handleContextStatusChange para interceptar mudancas para 'recusado'
+                                                                            onSelect={() => handleContextStatusChange(orc.id, col.id)}
                                                                         >
                                                                             {col.label}
                                                                         </ContextMenuItem>
@@ -317,6 +373,14 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                 </DragDropContext>
             </div>
         </div>
+
+        {/* Dialog de motivo de recusa: fora do grid para evitar conflito de portal com o DragDropContext */}
+        <MotivoRecusaDialog
+            open={recusaPendente !== null}
+            onConfirm={handleRecusaConfirm}
+            onCancel={handleRecusaCancel}
+        />
+        </>
     );
 };
 

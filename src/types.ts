@@ -15,6 +15,8 @@ export interface Orcamento {
   descricao: string;
   valor: number;
   status: Status;
+  // Campo adicionado para registrar o motivo de recusa quando status = 'recusado'
+  motivoRecusa?: string | null;
   dataRecebido: string;
   dataAtualizado: string;
   clienteId: string;

@@ -198,6 +198,7 @@ const Relatorios = () => {
       emNegociacao: { qtd: 0, valor: 0 },
       ganhos: { qtd: 0, valor: 0 },
       perdidos: { qtd: 0, valor: 0 },
+      motivosRecusa: {} as Record<string, { qtd: number; valor: number }>,
       pipelineTotal: 0 // Dinheiro na mesa (pendente + negociacao)
     };
 
@@ -213,6 +214,13 @@ const Relatorios = () => {
         funil.ganhos.qtd++; funil.ganhos.valor += orc.valor;
       } else if (orc.status === "recusado") {
         funil.perdidos.qtd++; funil.perdidos.valor += orc.valor;
+        // Agrupa pelos motivos de recusa informados
+        const motivo = orc.motivoRecusa || "Não informado";
+        if (!funil.motivosRecusa[motivo]) {
+            funil.motivosRecusa[motivo] = { qtd: 0, valor: 0 };
+        }
+        funil.motivosRecusa[motivo].qtd++;
+        funil.motivosRecusa[motivo].valor += orc.valor;
       }
     });
 
@@ -563,6 +571,25 @@ const Relatorios = () => {
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-destructive/60"></div> Recusado</span>
             </div>
           </div>
+
+          {/* Breakdown de Motivos de Recusa */}
+          {pipelineStats.perdidos.qtd > 0 && (
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               {Object.entries(pipelineStats.motivosRecusa).sort((a, b) => b[1].qtd - a[1].qtd).map(([motivo, stats], idx) => (
+                  <div key={idx} className="bg-destructive/5 border border-destructive/10 p-5 rounded-xl shadow-sm text-center">
+                    <h4 className="text-destructive font-semibold text-[13px] mb-2 uppercase tracking-wide">{motivo}</h4>
+                    <p className="text-xl font-bold text-foreground">{currencyFormatter.format(stats.valor)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{stats.qtd} orçamento{stats.qtd !== 1 ? 's' : ''} perdido{stats.qtd !== 1 ? 's' : ''}</p>
+                    <div className="mt-4 bg-muted/30 h-1.5 w-full rounded-full overflow-hidden">
+                       <div 
+                         className="bg-destructive/60 h-full rounded-full" 
+                         style={{ width: `${(stats.qtd / pipelineStats.perdidos.qtd) * 100}%` }}
+                       />
+                    </div>
+                  </div>
+               ))}
+            </div>
+          )}
 
         </TabsContent>
 

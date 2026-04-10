@@ -42,6 +42,8 @@ export async function updateOrcamento(
     status?: Status;
     descricao?: string;
     valor?: number;
+    // Campo adicionado: permite registrar o motivo de recusa junto com a mudança de status
+    motivoRecusa?: string | null;
   }
 ): Promise<OrcamentoAPI> {
   // A atualização de cliente/telefone não é mais feita por aqui

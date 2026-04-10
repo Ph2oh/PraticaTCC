@@ -267,6 +267,14 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                                     <SelectItem value="recusado">Recusado</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            {/* Mostrar motivo de recusa se houver */}
+                            {orcamento.status === 'recusado' && orcamento.motivoRecusa && (
+                                <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive flex flex-col gap-1">
+                                    <span className="font-semibold">Motivo da Recusa:</span>
+                                    <span>{orcamento.motivoRecusa}</span>
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
 

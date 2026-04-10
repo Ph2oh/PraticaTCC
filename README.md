@@ -1,6 +1,6 @@
-# SGO - Sistema de Gerenciamento de Orçamentos
+# SGO - Protótipo de Sistema de Gerenciamento de Orçamentos
 
-Sistema para gerenciamento de clientes, orçamentos, registro de histórico de eventos e integração com o WhatsApp via emulação do cliente web. Desenvolvido em TypeScript.
+Protótipo de sistema para gerenciamento de clientes, orçamentos, registro de histórico de eventos e integração com o WhatsApp via emulação do cliente web. Desenvolvido em TypeScript.
 
 ---
 
@@ -67,6 +67,7 @@ A stack foi definida priorizando consistência de tipagem entre camadas, previsi
 
 ### Gestão de Orçamentos
 *   **Interface de Listagem:** Exibição em tabela com capacidade de busca e filtros, juntamente com visualização em Kanban para alteração de status via drag-and-drop.
+*   **Motivos de Recusa Analíticos:** Sempre que um orçamento é recusado ou perdido, o motivo exato (ex: Preço Alto, Data Indisponível) é levantado, rastreado e mensurado analiticamente nos relatórios de Funil e Pipeline.
 *   **Painel de Detalhes:** Componente de sobreposição acionado ao selecionar um orçamento, dividindo a visualização em abas: Detalhes Financeiros, Controles do WhatsApp e Histórico de Eventos.
 
 ### Gestão de Clientes e Histórico

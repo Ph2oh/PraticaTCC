@@ -29,6 +29,8 @@ model Orcamento {
   descricao      String
   valor          Float
   status         String   @default("pendente")
+  // Campo adicionado para registrar o motivo de recusa ao mover para status 'recusado'
+  motivoRecusa   String?
   dataRecebido   DateTime @default(now())
   dataAtualizado DateTime @updatedAt
 
