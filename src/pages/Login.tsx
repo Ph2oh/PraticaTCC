@@ -1,7 +1,7 @@
 // Alteração Estrutural: Criação da interface de Login usando componentes shadcn/ui.
 // Esta página chama o endpoint `/api/auth/login` e armazena o token via AuthContext.
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,9 @@ export const Login: React.FC = () => {
     const [resendLoading, setResendLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    // Detecta redirecionamento vindo da pagina de verificacao de e-mail
+    const emailRecemVerificado = location.state?.emailVerificado === true;
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -85,6 +88,11 @@ export const Login: React.FC = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    {emailRecemVerificado && (
+                        <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-sm text-center">
+                            E-mail confirmado com sucesso! Faca login para acessar o painel.
+                        </div>
+                    )}
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="email">E-mail</Label>

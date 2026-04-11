@@ -80,6 +80,22 @@ export const Register: React.FC = () => {
                         <p className="text-sm text-muted-foreground pb-4">
                             Por razões de segurança, você precisa confirmar que este e-mail pertence a você antes de acessar o painel.
                         </p>
+                        {/* Detecta o provedor do e-mail e abre o webmail correto para agilizar a confirmação */}
+                        {registeredEmail.includes('@gmail') && (
+                            <Button className="w-full" onClick={() => window.open('https://mail.google.com', '_blank')}>
+                                <Mail className="w-4 h-4 mr-2" /> Abrir Gmail
+                            </Button>
+                        )}
+                        {(registeredEmail.includes('@outlook') || registeredEmail.includes('@hotmail')) && (
+                            <Button className="w-full" onClick={() => window.open('https://outlook.live.com', '_blank')}>
+                                <Mail className="w-4 h-4 mr-2" /> Abrir Outlook
+                            </Button>
+                        )}
+                        {!registeredEmail.includes('@gmail') && !registeredEmail.includes('@outlook') && !registeredEmail.includes('@hotmail') && (
+                            <Button className="w-full" onClick={() => window.open(`https://mail.${registeredEmail.split('@')[1]}`, '_blank')}>
+                                <Mail className="w-4 h-4 mr-2" /> Abrir Caixa de Entrada
+                            </Button>
+                        )}
                         <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
                             Já confirmei, ir para Login <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>

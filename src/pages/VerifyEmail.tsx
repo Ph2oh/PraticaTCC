@@ -10,6 +10,7 @@ export const VerifyEmail: React.FC = () => {
     const navigate = useNavigate();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('Validando token seguro...');
+    const [countdown, setCountdown] = useState(3);
 
     useEffect(() => {
         if (!token) {
@@ -34,7 +35,7 @@ export const VerifyEmail: React.FC = () => {
                 }
 
                 setStatus('success');
-                setMessage('Perfeito! Seu e-mail foi atestando com sucesso.');
+                setMessage('Perfeito! Seu e-mail foi confirmado com sucesso.');
             } catch (error: any) {
                 setStatus('error');
                 setMessage(error.message);
@@ -48,6 +49,25 @@ export const VerifyEmail: React.FC = () => {
 
         return () => clearTimeout(timeout);
     }, [token]);
+
+    // Redireciona automaticamente para o dashboard após verificação bem-sucedida
+    useEffect(() => {
+        if (status !== 'success') return;
+
+        const interval = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    // Redireciona para /login pois o usuario ainda nao possui JWT.
+                    // O /dashboard e uma rota protegida e exigiria autenticacao antes de carregar.
+                    navigate('/login', { state: { emailVerificado: true } });
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [status, navigate]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
@@ -76,13 +96,26 @@ export const VerifyEmail: React.FC = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="text-center space-y-4 pb-8">
-                    {status !== 'loading' && (
-                        <Button 
-                            className="w-full font-bold" 
-                            variant={status === 'error' ? 'outline' : 'default'}
+                    {status === 'success' && (
+                        <>
+                            <p className="text-sm text-muted-foreground">
+                                Redirecionando para o painel em <strong>{countdown}</strong> segundo{countdown !== 1 ? 's' : ''}...
+                            </p>
+                            <Button
+                                className="w-full font-bold"
+                                onClick={() => navigate('/login', { state: { emailVerificado: true } })}
+                            >
+                                Entrar agora
+                            </Button>
+                        </>
+                    )}
+                    {status === 'error' && (
+                        <Button
+                            className="w-full font-bold"
+                            variant="outline"
                             onClick={() => navigate('/login')}
                         >
-                            Ir para o painel de Login
+                            Voltar para o Login
                         </Button>
                     )}
                 </CardContent>

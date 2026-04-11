@@ -335,15 +335,25 @@ cp .env.example .env
 Edite o `.env` com suas credenciais:
 
 ```env
-# Banco de dados (obrigatório)
+# ---> CONFIGURAÇÕES LOCAIS (Sua Máquina) <---
+
+# Banco de dados (obrigatório: pode ser localhost ou o Neon Tech)
 DATABASE_URL="postgresql://usuario:senha@host/banco?sslmode=require"
 
 # JWT (obrigatório — gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 JWT_SECRET="sua_chave_de_64_caracteres"
 
 # Motor do WhatsApp (opcional, desative para desenvolvimento genérico rápido sem Puppeteer)
-# As sessões não dependem mais de um e-mail global no ENV, sendo restritas ao req.usuarioId da conta logada que escaneou.
 WHATSAPP_ENABLED="false"
+
+# Autenticação e E-mail (Mude o FRONTEND_URL para a porta Vite para simulação)
+FRONTEND_URL="http://localhost:5173"
+SMTP_HOST="smtp.ethereal.email"
+SMTP_PORT="587"
+SMTP_USER="ethereal_user"
+SMTP_PASS="ethereal_pass"
+SMTP_SECURE="false"
+SMTP_FROM="teste@local.dev"
 ```
 
 ### Banco de Dados
@@ -424,11 +434,30 @@ npx prisma migrate deploy
 
 ### 2. Processo de Build e Configuração
 1. Faça o clone do repositório na sua instância Linux.
-2. Crie e configure de forma segura o arquivo `.env` para apontar ao seu banco de dados de produção e gere uma `JWT_SECRET` forte.
+2. Crie e configure o arquivo `.env` para apontar ao seu banco de dados de produção EXCLUSIVO. **Este arquivo possui diferenças drásticas do seu ambiente local!**
+
+    ```env
+    # ---> CONFIGURAÇÕES ONLINE (VPS Produção) <---
+    DATABASE_URL="postgresql://usuario_PRODUCAO:senha@host/banco?sslmode=require"
+    JWT_SECRET="chave_super_segura"
+    WHATSAPP_ENABLED="true"
+
+    # URL oficial pública com o HTTPS gerado e porta web liberada
+    FRONTEND_URL="https://seusistema.com.br"
+
+    # Chaves absolutas corporativas (Exemplo: Resend.com)
+    SMTP_HOST="smtp.resend.com"
+    SMTP_PORT="465"
+    SMTP_USER="resend"
+    SMTP_PASS="re_SuaChaveOficial"
+    SMTP_SECURE="true"
+    SMTP_FROM="contato@seusistema.com.br"
+    ```
+
 3. Instale recursos do projeto: `npm install`
 4. Propague o modelo de dados e migrações **de forma segura**: `npx prisma generate` && `npx prisma migrate deploy`
-   *(Importante: Nunca use 'prisma db push' em produção, sob risco de perda de colunas e dados)*
-5. Compacte o projeto Frontend executando: `npm run build` (Isto gerará a pasta otimizada `/dist`).
+   *(Importante: Nunca use `prisma db push` em produção, sob risco de perda de colunas e dados)*
+5. Compile o projeto executando: `npm run build`.
 
 ### 3. Rodando os Serviços
 - **Frontend**: A resposta ao rodar o comando *build* é uma compilação veloz do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx). **Nota**: A API Express agora implementa compressão Gzip automaticamente, acelerando entregas.
@@ -439,7 +468,15 @@ npx prisma migrate deploy
   Isso garantirá que o Express e o Bot do WhatsApp subam e monitorem os leads.
 - **Monitoramento / Graceful Shutdown**: O servidor Node detém tratamento automático de `SIGINT`/`SIGTERM` para fechamento sem vazamento de memória (DB connections desconectados com segurança) e uma rota simples de pings `/api/health` para verificações de uptime.
 
-
+### 4. Integração Contínua Automatizada
+Para facilitar envios de alterações em código local para sua máquina em produção sem derrubar a aplicação, um script automatizado (`update.sh`) está embutido no projeto.
+Sempre que desejar espelhar as alterações do GitHub para Nuvem, entre no terminal do seu Servidor VPS e chame o script:
+```bash
+cd PraticaTCC
+git pull origin develop
+bash update.sh
+```
+O script cuidará automaticamente da instalação de pacotes recém inseridos, compilação do Vite e restart invisível via PM2!
 ---
 
 ## Fluxo de Trabalho e Contribuição (Git Flow)

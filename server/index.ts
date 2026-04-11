@@ -40,11 +40,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- RATE LIMITING ---
-// Allow 5 login/register attempts per 15 minutes per IP
+// Allow 20 login/register attempts per 15 minutes per IP
 // Pula as requisições que tiveram sucesso (status < 400), bloqueando apenas loops de falhas/brute force
+// Limite de 20 tentativas equilibra proteção contra brute force com usabilidade real de testes e usuários legítimos
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: 20,
     skipSuccessfulRequests: true,
     message: { error: 'Muitas tentativas. Tente novamente mais tarde.' }
 });
