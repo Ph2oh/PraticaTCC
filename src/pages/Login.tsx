@@ -14,6 +14,8 @@ export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [loading, setLoading] = useState(false);
+    const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+    const [resendLoading, setResendLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
@@ -32,17 +34,41 @@ export const Login: React.FC = () => {
             const data = await response.json();
 
             if (!response.ok) {
+                if (data.requireVerification) {
+                    setUnverifiedEmail(email);
+                    throw new Error(data.error);
+                }
                 throw new Error(data.error || 'Erro ao fazer login');
             }
 
             login(data.token, data.usuario);
             toast.success('Login realizado com sucesso!');
-            // Alteracao: redireciona para /dashboard pois '/' agora e a landing page publica
             navigate('/dashboard');
         } catch (error: any) {
             toast.error(error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResendEmail = async () => {
+        if (!unverifiedEmail) return;
+        setResendLoading(true);
+        try {
+            const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+            const response = await fetch(`${BASE_URL}/auth/resend-verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: unverifiedEmail }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Erro ao reenviar e-mail');
+            
+            toast.success('Novo link de confirmação enviado para seu e-mail!');
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -81,6 +107,22 @@ export const Login: React.FC = () => {
                                 required
                             />
                         </div>
+                        
+                        {unverifiedEmail && (
+                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 p-3 rounded-md text-sm space-y-2">
+                                <p>Sua conta requer confirmação para acessar o sistema.</p>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="w-full text-xs h-8 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                    onClick={handleResendEmail}
+                                    disabled={resendLoading}
+                                >
+                                    {resendLoading ? 'Enviando...' : 'Reenviar E-mail de Confirmação'}
+                                </Button>
+                            </div>
+                        )}
+
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading ? 'Entrando...' : 'Entrar no Sistema'}
                         </Button>

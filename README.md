@@ -394,11 +394,11 @@ node scripts/cleanup-chrome.js
 
 ### Prisma Schema fora de sincronia após deploy
 
-O script de build já inclui `prisma db push` automaticamente. Para forçar manualmente:
+Para atualizar a estrutura do banco em produção de forma segura:
 
 ```bash
-npx prisma db push --accept-data-loss
 npx prisma generate
+npx prisma migrate deploy
 ```
 
 ---
@@ -412,24 +412,33 @@ npx prisma generate
 
 ## Deploy em VPS (Produção)
 
-Para colocar a aplicação em ambiente de produção (VPS), siga os passos de arquitetura recomendados:
-
-### 1. Dependências da VPS
+### 1. Dependências da VPS (Servidor Linux)
 - **Node.js**: Instalado (versão 18+).
 - **Gerenciador de Processos**: PM2 instalado globalmente (`npm install -g pm2`) para manter o backend vivo em segundo plano.
 - **Servidor Web / Proxy Reverso**: NGINX configurado para servir as portas HTTP/HTTPS e expor o frontend.
 - **Banco de Dados**: PostgreSQL rodando na própria máquina ou via provedor como RDS/Neon.
+- **Dependências Chromium (IMPORTANTE)**: Para o bot do WhatsApp rodar corretamente em VPS (Ubuntu/Debian sem interface gráfica), instale as bibliotecas base:
+  ```bash
+  sudo apt install -y ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 lsb-release wget xdg-utils
+  ```
 
 ### 2. Processo de Build e Configuração
 1. Faça o clone do repositório na sua instância Linux.
-2. Crie e configure de forma segura o arquivo `.env` para apontar ao seu banco de dados de produção (verifique se `DATABASE_URL` confere) e gere uma `JWT_SECRET` nova e criptográfica.
+2. Crie e configure de forma segura o arquivo `.env` para apontar ao seu banco de dados de produção e gere uma `JWT_SECRET` forte.
 3. Instale recursos do projeto: `npm install`
-4. Propague o modelo de dados e construa os tipos: `npx prisma generate` && `npx prisma db push`
-5. Compacte o projeto Frontend executando: `npm run build`
+4. Propague o modelo de dados e migrações **de forma segura**: `npx prisma generate` && `npx prisma migrate deploy`
+   *(Importante: Nunca use 'prisma db push' em produção, sob risco de perda de colunas e dados)*
+5. Compacte o projeto Frontend executando: `npm run build` (Isto gerará a pasta otimizada `/dist`).
 
 ### 3. Rodando os Serviços
-- **Frontend**: A resposta ao rodar o comando *build* é uma compilação veloz do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx).
-- **Backend (API)**: A API baseada em Express fará as regras de negócio em segundo plano. Para não expor seu terminal, você pode rodá-la usando o PM2: `pm2 start server/index.ts --interpreter tsx --name sgo-api`. Essa API vai estar ativa localmente e poderá ser escutada internamente pelo provedor frontend ou chamada via domínio.
+- **Frontend**: A resposta ao rodar o comando *build* é uma compilação veloz do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx). **Nota**: A API Express agora implementa compressão Gzip automaticamente, acelerando entregas.
+- **Backend (API)**: A API baseada em Express fará as regras de negócio em segundo plano. Para não expor seu terminal, você pode rodá-la usando o PM2: 
+  ```bash
+  pm2 start ecosystem.config.cjs
+  ```
+  Isso garantirá que o Express e o Bot do WhatsApp subam e monitorem os leads.
+- **Monitoramento / Graceful Shutdown**: O servidor Node detém tratamento automático de `SIGINT`/`SIGTERM` para fechamento sem vazamento de memória (DB connections desconectados com segurança) e uma rota simples de pings `/api/health` para verificações de uptime.
+
 
 ---
 

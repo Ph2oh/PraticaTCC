@@ -90,6 +90,8 @@ model Usuario {
   empresa          String?  // Nome da Empresa/Agência
   telefone         String?  // Telefone da Empresa
   isAdmin          Boolean  @default(false)
+  emailVerificado  Boolean  @default(false)
+  tokenVerificacaoEmail String? @unique
   createdAt        DateTime @default(now())
   
   // Relations

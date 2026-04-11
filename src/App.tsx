@@ -16,6 +16,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
 // Alteracao Estrutural: Importacao da LandingPage adicionada para servir como
 // ponto de entrada publico da aplicacao para usuarios nao autenticados.
 import LandingPage from "./pages/LadingPage";
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
 
                 {/* Rotas protegidas - requerem autenticacao */}
                 <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

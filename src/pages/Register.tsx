@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Mail, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -15,6 +16,7 @@ export const Register: React.FC = () => {
     const [empresa, setEmpresa] = useState('');
     const [telefone, setTelefone] = useState('');
     const [loading, setLoading] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
 
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -43,21 +45,49 @@ export const Register: React.FC = () => {
                 throw new Error(data.error || 'Erro ao criar conta.');
             }
 
-            toast.success('Conta criada com sucesso! Redirecionando...');
-
-            // Ativa o Onboarding Tour apenas para esta sessão (novo usuário)
-            localStorage.setItem('sgo_is_new_user', 'true');
-
-            // Login automatico e redireciona para o painel
-            // Alteracao: redireciona para /dashboard pois '/' agora e a landing page publica
-            login(data.token, data.usuario);
-            navigate('/dashboard');
+            if (data.requireVerification) {
+                setRegisteredEmail(email);
+            } else {
+                // Ativa o Onboarding Tour apenas para esta sessão (novo usuário)
+                localStorage.setItem('sgo_is_new_user', 'true');
+                login(data.token, data.usuario);
+                navigate('/dashboard');
+            }
         } catch (error: any) {
             toast.error(error.message);
         } finally {
             setLoading(false);
         }
     };
+
+    if (registeredEmail) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+                <Card className="w-full max-w-md animate-in fade-in zoom-in duration-500">
+                    <CardHeader className="space-y-1">
+                        <div className="flex justify-center mb-6 mt-4">
+                            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                                <Mail className="w-10 h-10 text-primary" />
+                            </div>
+                        </div>
+                        <CardTitle className="text-2xl font-bold text-center">Verifique seu e-mail</CardTitle>
+                        <CardDescription className="text-center text-base pt-2">
+                            Enviamos um link de confirmação para:<br/>
+                            <strong className="text-foreground">{registeredEmail}</strong>
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-center space-y-4 pb-8">
+                        <p className="text-sm text-muted-foreground pb-4">
+                            Por razões de segurança, você precisa confirmar que este e-mail pertence a você antes de acessar o painel.
+                        </p>
+                        <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+                            Já confirmei, ir para Login <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">

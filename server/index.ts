@@ -1,12 +1,15 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import crypto from 'crypto';
+import { sendVerificationEmail } from './utils/mailer';
 import { authenticateToken } from './middleware/auth';
 import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
 
@@ -29,6 +32,12 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+app.use(compression());
+
+// Healthcheck (Liveness/Readiness para PM2 e monitoramento)
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date() });
+});
 
 // --- RATE LIMITING ---
 // Allow 5 login/register attempts per 15 minutes per IP
@@ -76,6 +85,13 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
+        if (!usuario.emailVerificado) {
+            return res.status(403).json({ 
+                error: 'Por favor, confirme seu e-mail antes de acessar o sistema.', 
+                requireVerification: true 
+            });
+        }
+
         const token = jwt.sign(
             { id: usuario.id, isAdmin: usuario.isAdmin },
             JWT_SECRET,
@@ -110,6 +126,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
         // Hash senha
         const hashedPassword = await bcrypt.hash(senha, 10);
+        const verificationToken = crypto.randomBytes(32).toString('hex');
 
         // Cria o Usuário já com sua Configuração (Isolamento de Tenant)
         const novoUsuario = await prisma.usuario.create({
@@ -120,6 +137,8 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
                 empresa,
                 telefone,
                 isAdmin: false, // Força a isenção de administrador por padrão no registro público
+                emailVerificado: false,
+                tokenVerificacaoEmail: verificationToken,
                 configuracao: {
                     create: {
                         corPrimaria: "224.3 76.3% 48%",
@@ -130,14 +149,15 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             select: { id: true, nome: true, email: true, empresa: true, isAdmin: true }
         });
 
-        // Autentica-o automaticamente
-        const token = jwt.sign(
-            { id: novoUsuario.id, isAdmin: novoUsuario.isAdmin },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        // Envia e-mail de verificação de forma assíncrona
+        sendVerificationEmail(novoUsuario.email, novoUsuario.nome, verificationToken)
+            .catch(err => console.error("[MAILER] Falha ao enviar email disparado no registro", err));
 
-        res.status(201).json({ token, usuario: novoUsuario });
+        // Retorna avisando que precisa de verificação em vez de logar automaticamente
+        res.status(201).json({ 
+            requireVerification: true,
+            message: 'Conta criada! Um link de verificação foi enviado para o seu e-mail.' 
+        });
 
     } catch (error) {
         console.error('Erro no registro:', error);
@@ -145,7 +165,69 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     }
 });
 
-// Define AuthRequest type for better type safety, assuming it's similar to express.Request with an added usuarioId
+// Verificação de E-mail
+app.post('/api/auth/verify-email', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ error: 'Token não fornecido' });
+
+        const usuario = await prisma.usuario.findUnique({
+            where: { tokenVerificacaoEmail: token }
+        });
+
+        if (!usuario) {
+            return res.status(400).json({ error: 'O link de verificação é inválido ou já expirou.' });
+        }
+
+        await prisma.usuario.update({
+            where: { id: usuario.id },
+            data: { 
+                emailVerificado: true, 
+                tokenVerificacaoEmail: null 
+            }
+        });
+
+        res.json({ success: true, message: 'E-mail verificado com sucesso.' });
+    } catch (error) {
+        console.error('Erro na validação de email:', error);
+        res.status(500).json({ error: 'Erro interno ao validar o e-mail.' });
+    }
+});
+
+// Reenvio de Instução de Verificação
+app.post('/api/auth/resend-verification', authLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'E-mail não fornecido' });
+
+        const usuario = await prisma.usuario.findUnique({ where: { email } });
+        
+        // Camufla se não existir por segurança contra enumeração
+        if (!usuario) return res.json({ success: true });
+
+        if (usuario.emailVerificado) {
+            return res.status(400).json({ error: 'Sua conta já está ativada. Você pode tentar fazer o login direto.' });
+        }
+
+        const novoToken = crypto.randomBytes(32).toString('hex');
+
+        await prisma.usuario.update({
+            where: { id: usuario.id },
+            data: { tokenVerificacaoEmail: novoToken }
+        });
+
+        sendVerificationEmail(usuario.email, usuario.nome, novoToken)
+            .catch(err => console.error("[MAILER] Falha no reenvio de email", err));
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erro no reenvio:', error);
+        res.status(500).json({ error: 'Falha interna ao tentar reenviar.' });
+    }
+});
+
+// Define AuthRequest type for better type safety
+
 interface AuthRequest extends express.Request {
     usuarioId?: string;
     isAdmin?: boolean;
@@ -689,3 +771,19 @@ app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
     if (!WHATSAPP_ENABLED) console.log(' Integração com WhatsApp desabilitada.');
 });
+
+// --- GRACEFUL SHUTDOWN ---
+const gracefulShutdown = async (signal: string) => {
+    console.log(`\n[${signal}] Iniciando desligamento seguro do servidor...`);
+    try {
+        await prisma.$disconnect();
+        console.log('✅ Conexão com o banco de dados (Prisma) encerrada.');
+    } catch (err) {
+        console.error('❌ Erro ao desconectar o Prisma:', err);
+    }
+    // O shutdown do whatsapp já é tratado independentemente em whatsapp.ts
+    process.exit(0);
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
