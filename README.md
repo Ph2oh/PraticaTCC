@@ -392,3 +392,43 @@ npx prisma generate
 
 - **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 leads, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
 - **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.
+
+---
+
+## Deploy em VPS (Produção)
+
+Para colocar a aplicação em ambiente de produção (VPS), siga os passos de arquitetura recomendados:
+
+### 1. Dependências da VPS
+- **Node.js**: Instalado (versão 18+).
+- **Gerenciador de Processos**: PM2 instalado globalmente (`npm install -g pm2`) para manter o backend vivo em segundo plano.
+- **Servidor Web / Proxy Reverso**: NGINX configurado para servir as portas HTTP/HTTPS e expor o frontend.
+- **Banco de Dados**: PostgreSQL rodando na própria máquina ou via provedor como RDS/Neon.
+
+### 2. Processo de Build e Configuração
+1. Faça o clone do repositório na sua instância Linux.
+2. Crie e configure de forma segura o arquivo `.env` para apontar ao seu banco de dados de produção (verifique se `DATABASE_URL` confere) e gere uma `JWT_SECRET` nova e criptográfica.
+3. Instale recursos do projeto: `npm install`
+4. Propague o modelo de dados e construa os tipos: `npx prisma generate` && `npx prisma db push`
+5. Compacte o projeto Frontend executando: `npm run build`
+
+### 3. Rodando os Serviços
+- **Frontend**: A resposta ao rodar o comando *build* é uma compilação veloz do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx).
+- **Backend (API)**: A API baseada em Express fará as regras de negócio em segundo plano. Para não expor seu terminal, você pode rodá-la usando o PM2: `pm2 start server/index.ts --interpreter tsx --name sgo-api`. Essa API vai estar ativa localmente e poderá ser escutada internamente pelo provedor frontend ou chamada via domínio.
+
+---
+
+## Fluxo de Trabalho e Contribuição (Git Flow)
+
+Por segurança e para evitar subida de código instável, o projeto adota regras focadas em **Git Flow**, dividindo ambientes de trabalho:
+
+- **Branch `main` (Produção)**: Representa o ambiente oficial sem erros. Sob nenhuma hipótese desenvolva diretamente nela. Ela recebe os *merges* das funcionalidades completas consolidadas.
+- **Branch `develop` (Homologação)**: Espelha o andamento integrado dos desenvolvedores. Branch de encontro para integrar módulos de código.
+- **Branches de Funcionalidades (`feature/nome-da-feature`)**: São ramificadas de `develop` sempre que for necessário criar novidades. Exemplo: `git checkout -b feature/novo-painel`. Somente após teste local e commit fechado, se direciona um Pull Request para `develop`.
+- **Branches de Correção (`bugfix/nome-do-bug` e `hotfix`)**: Criadas para reparos rápidos, sendo as `hotfixes` originadas diretamentes em emergências de `main`.
+
+**Ciclo correto para iniciar um de trabalho:**
+1. Verifique sempre seu repositório local e baixe as atualizações dos servidores antes: `git checkout develop` e `git pull`.
+2. Isole seu trajeto em uma vertente específica, nomeada descritivamente: `git checkout -b feature/dashboard-vps`.
+3. Desenvolva, confira logs e faça as transações do banco. Após certo do resultado, suba a sua *branch*: `git commit -m "feat: configuração de deploy pronta"` seguido de `git push origin feature/dashboard-vps`.
+4. Vá ao GitHub e solicite o Merge (Pull Request).
