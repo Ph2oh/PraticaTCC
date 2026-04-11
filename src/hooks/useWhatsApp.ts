@@ -18,6 +18,7 @@ export interface WhatsAppStatus {
     qrCode: string;
     disabled?: boolean;
     message?: string;
+    activeSession?: boolean;
     pendingRequests?: PendingWhatsAppRequest[];
 }
 
@@ -141,9 +142,29 @@ export function useWhatsApp() {
         }
     });
 
+    const startAuthMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`${API_BASE}/start`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            const payload = await parseJsonSafe<{ success?: boolean; error?: string }>(res);
+
+            if (!res.ok) {
+                throw new Error(payload?.error || 'Erro ao inicializar contêiner');
+            }
+
+            return payload ?? { success: true };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['whatsapp-status'] });
+        }
+    });
+
     return {
         status,
-        loading: loading || disconnectMutation.isPending,
+        loading: loading || disconnectMutation.isPending || startAuthMutation.isPending,
+        startConnection: () => startAuthMutation.mutateAsync(),
         disconnect: () => disconnectMutation.mutateAsync(),
         acceptRequest: (id: string) => acceptMutation.mutateAsync(id),
         rejectRequest: (id: string) => rejectMutation.mutateAsync(id)

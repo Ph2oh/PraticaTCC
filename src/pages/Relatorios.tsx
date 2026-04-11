@@ -893,8 +893,7 @@ const Relatorios = () => {
 
           {/* Gráfico do Funil 3 Steps (Recharts) */}
           <div className="mt-8 rounded-xl border border-border p-6 bg-card shadow-sm animate-in fade-in">
-            <h3 className="text-sm font-semibold mb-6 uppercase text-muted-foreground tracking-wide flex items-center gap-2">
-              <MousePointerClick className="w-4 h-4" /> Conversão de orçamentos (Recebido {`>`} Enviado {`>`} Fechado)
+            <h3 className="text-sm font-semibold mb-6 uppercase text-muted-foreground tracking-wide"> Conversão de orçamentos (Recebido {`>`} Enviado {`>`} Fechado)
             </h3>
 
             <div className="w-full h-[300px]">

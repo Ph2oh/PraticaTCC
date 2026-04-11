@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
+import { WhatsAppWizardSetup } from "@/components/WhatsAppWizardSetup";
 import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -193,12 +194,9 @@ const Configuracoes = () => {
               <TabsTrigger value="metas" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <TrendingUp className="w-4 h-4 mr-3" /> Metas
               </TabsTrigger>
-              {/* Alteração estrutural: Esconde a aba do WhatsApp para quem não é administrador */}
-              {usuario?.isAdmin && (
-                <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
-                  <MessageSquare className="w-4 h-4 mr-3" /> Integrações
-                </TabsTrigger>
-              )}
+              <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
+                <MessageSquare className="w-4 h-4 mr-3" /> Integrações
+              </TabsTrigger>
               <TabsTrigger value="templates" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Type className="w-4 h-4 mr-3" /> Mensagens
               </TabsTrigger>
@@ -215,7 +213,7 @@ const Configuracoes = () => {
               <TabsTrigger value="seguranca">Segurança</TabsTrigger>
               <TabsTrigger value="aparencia">Aparência</TabsTrigger>
               <TabsTrigger value="metas">Metas</TabsTrigger>
-              {usuario?.isAdmin && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
+              <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -430,78 +428,9 @@ const Configuracoes = () => {
           )}
 
           {/* Aba: WhatsApp */}
-          {/* Alteração estrutural: Bloqueia a renderização do conteúdo do WhatsApp caso o usuário não seja o administrador */}
-          {activeTab === "whatsapp" && usuario?.isAdmin && (
+          {activeTab === "whatsapp" && (
             <div className="space-y-6 animate-in fade-in-50">
-              <div>
-                <h3 className="text-lg font-medium flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5 text-green-500" /> WhatsApp
-                </h3>
-                <p className="text-sm text-muted-foreground">Acompanhe e configure a conexão com o WhatsApp.</p>
-              </div>
-              <Separator />
-
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm max-w-2xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl border ${status.ready ? 'bg-green-500/10 border-green-500/20' : 'bg-destructive/10 border-destructive/20'}`}>
-                      <MessageSquare className={`w-6 h-6 ${status.ready ? 'text-green-600 dark:text-green-500' : 'text-destructive'}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-card-foreground">Sessão Ativa</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {waLoading ? "Consultando servidor de mensagens..." : status.ready ? "Conectado" : "Desconectado. Aguardando leitura do QR Code."}
-                      </p>
-                    </div>
-                  </div>
-                  {status.ready && (
-                    <Button variant="destructive" size="sm" onClick={disconnect} disabled={waLoading}>
-                      Desconectar Dispositivo
-                    </Button>
-                  )}
-                </div>
-
-                {!waLoading && !status.ready && status.qrCode && (
-                  <div className="mt-8 flex flex-col items-center justify-center p-8 border border-dashed border-border rounded-xl bg-muted/10">
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <img src={status.qrCode} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
-                    </div>
-                    <p className="text-sm text-center text-muted-foreground mt-6 max-w-sm font-medium">
-                      Abra o WhatsApp no seu celular, vá em Aparelhos Conectados e aponte a câmera para este QR Code.
-                    </p>
-                  </div>
-                )}
-
-                {!waLoading && status.disabled && (
-                  <div className="mt-8 flex flex-col items-center justify-center p-10 border border-dashed border-border rounded-xl bg-muted/10">
-                    <p className="text-sm text-muted-foreground font-medium text-center">
-                      Integração com WhatsApp está desabilitada neste ambiente.
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/70 mt-2 text-center">
-                      Defina WHATSAPP_ENABLED=true para habilitar novamente.
-                    </p>
-                  </div>
-                )}
-
-                {!waLoading && !status.ready && !status.qrCode && !status.disabled && status.message && (
-                  <div className="mt-8 flex flex-col items-center justify-center p-10 border border-dashed border-border rounded-xl bg-muted/10">
-                    <p className="text-sm text-muted-foreground font-medium text-center">
-                      {status.message}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/70 mt-2 text-center">
-                      O sistema seguirá tentando reconectar automaticamente.
-                    </p>
-                  </div>
-                )}
-
-                {!waLoading && !status.ready && !status.qrCode && !status.disabled && !status.message && (
-                  <div className="mt-8 flex flex-col items-center justify-center p-12 border border-dashed border-border rounded-xl bg-muted/10">
-                    <Loader2 className="w-8 h-8 text-muted-foreground animate-spin mb-4" />
-                    <p className="text-sm text-muted-foreground">Gerando QR Code Criptografado...</p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-1">O primeiro ciclo de conexão do pacote WWeb.js pode demorar até 45 segundos.</p>
-                  </div>
-                )}
-              </div>
+              <WhatsAppWizardSetup />
             </div>
           )}
 

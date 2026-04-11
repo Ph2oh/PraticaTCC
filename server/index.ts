@@ -618,26 +618,29 @@ app.put('/api/config', async (req: any, res) => {
 
 
 // --- WHATSAPP ROUTES ---
-app.get('/api/whatsapp/status', (req, res) => {
+app.get('/api/whatsapp/status', (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) {
         return res.json({ ready: false, qrCode: '', pendingRequests: [], disabled: true });
     }
+    if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
+    res.json(getWhatsAppStatus(req.usuarioId));
+});
 
-    res.json(getWhatsAppStatus());
+app.post('/api/whatsapp/start', (req: AuthRequest, res) => {
+    if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
+    if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
+    
+    startWhatsAppClient(req.usuarioId);
+    res.json({ success: true, message: 'Iniciando contêiner do WhatsApp...' });
 });
 
 app.post('/api/whatsapp/requests/:id/accept', async (req: AuthRequest, res) => {
-    if (!WHATSAPP_ENABLED) {
-        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
-    }
-
-    if (!req.isAdmin) {
-        return res.status(403).json({ error: 'Você não tem permissão de administrador para aceitar orçamentos do WhatsApp' });
-    }
+    if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
+    if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
 
     try {
         const id = req.params.id as string;
-        const orcamento = await acceptWhatsAppRequest(id);
+        const orcamento = await acceptWhatsAppRequest(req.usuarioId, id);
         res.json({ success: true, orcamento });
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : 'Erro ao aprovar solicitação';
@@ -646,17 +649,12 @@ app.post('/api/whatsapp/requests/:id/accept', async (req: AuthRequest, res) => {
 });
 
 app.post('/api/whatsapp/requests/:id/reject', (req: AuthRequest, res) => {
-    if (!WHATSAPP_ENABLED) {
-        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
-    }
-
-    if (!req.isAdmin) {
-        return res.status(403).json({ error: 'Você não tem permissão de administrador para rejeitar orçamentos do WhatsApp' });
-    }
+    if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
+    if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
 
     try {
         const id = req.params.id as string;
-        const success = rejectWhatsAppRequest(id);
+        const success = rejectWhatsAppRequest(req.usuarioId, id);
         if (success) {
             res.json({ success: true });
         } else {
@@ -668,16 +666,11 @@ app.post('/api/whatsapp/requests/:id/reject', (req: AuthRequest, res) => {
 });
 
 app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
-    if (!WHATSAPP_ENABLED) {
-        return res.status(503).json({ error: 'Integração com WhatsApp desabilitada no ambiente atual' });
-    }
-
-    if (!req.isAdmin) {
-        return res.status(403).json({ error: 'Você não tem permissão de administrador para desconectar o WhatsApp' });
-    }
+    if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
+    if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
 
     try {
-        const success = await disconnectWhatsAppClient();
+        const success = await disconnectWhatsAppClient(req.usuarioId);
         res.json({ success });
     } catch (e) {
         res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
@@ -686,11 +679,7 @@ app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
 
 // Se estivermos em PRODUÇÃO (rodando no Render, ou vercel)
 if (process.env.NODE_ENV === 'production') {
-    // 1. Ele fala para o express publicar a pasta com os arquivos buildados do React
     app.use(express.static(path.join(process.cwd(), 'dist')));
-
-    // 2. Qualquer link que não for da API (como /orcamentos ou /dashboard) bate aqui
-    // e ele devolve o index.html, deixando a mágica das rotas com o React
     app.use((req, res) => {
         res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
     });
@@ -698,11 +687,5 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
-
-    if (WHATSAPP_ENABLED) {
-        // Start WhatsApp client when server starts
-        startWhatsAppClient();
-    } else {
-        console.log(' Integração com WhatsApp desabilitada (WHATSAPP_ENABLED=false).');
-    }
+    if (!WHATSAPP_ENABLED) console.log(' Integração com WhatsApp desabilitada.');
 });

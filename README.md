@@ -270,6 +270,21 @@ templateAgradecimento (String — Template pós-fechamento)
 
 ---
 
+## Decisão de Arquitetura: Uso do whatsapp-web.js vs Cloud API Oficial
+
+Apesar deste sistema possuir fortes aspirações para escalabilidade multi-tenant, o núcleo de mensageria foi deliberadamente construído operando a emulação extra-oficial de navegadores (`whatsapp-web.js` instanciando containers Linux/Chromium na raiz da VPS) em detrimento à **API Cloud Oficial da Meta / Graph API**.
+
+### Parecer Técnico:
+1. **Complexidade operacional:** A Cloud API exige que todo sistema integrador (modelo SaaS) que conecte "APIs para outras contas de negócios" passe pela criação de um aplicativo comercial verificado. A Meta cobra contratos societários, CNPJ autêntico para emissão do status Oauth e infindáveis aprovações em código vivo (*App Reviews*) onde dezenas de engenheiros deles bloqueiam qualquer projeto iniciante.
+2. **Simplicidade Absoluta da Experiência do Usuário Central (UX):** Se plugado em Webhooks Cloud, todo novo ideal criativo que pagasse a mensalidade do SGO precisaria dominar autenticações de painéis WABA complexos no menu "*Facebook Login for Business*". Mas, com nossa arquitetura robusta no Web.js, instalamos o majestoso *Wizard* visual que solicita aos clientes a tarefa mais comum que a raça humana já executa há uma década: **Mire o celular e leia o QR Code.**
+3. **Escudo de Faturamentos de Tráfego:** Integradores atrelados à documentação original sofrem tarifários variando da janela das 24h transcorridas além das rígidas aprovações de envios de _Templates Oficiais_. Nossa ponte, sendo um canal invisível "Consumer" baseado nos pacotes de WebSockets via Puppeteer, assegura Custo Operacional ZERO irrestrito.
+
+### Consequências Acordadas ( Trade-off):
+- **O Fator do Algoritmo Banidor:** A arquitetura rasga claramente as diretrizes restritivas (*ToS / Terms of Service*) impostas unilateralmente pela META para uso empresarial. Para garantir longa vida útil aos chips de celulares plugados ao emulador do servidor, é intrinsecamente dependente contar que a base de clientes do SaaS nunca utilizará o sistema pra panfletagem de *SPAM frio* capaz de acumular denúncias pesadas da bolha.
+- **Impacto do uso da biblioteca `whatsapp-web.js` na Memória RAM:** Se operássemos no modelo de Webhooks permitidos da Meta (Rest API), a nossa instãncia consumiria somente Megabytes de I/O em eventos POST limpos. Usar Chromium virtual aumenta consideravelmente o uso de recursos na máquina onde a instancia do navegador irá rodar. Uma estimativa dura de até ~`200MB de RAM real` por cada fotógrafo logado obriga gastos elevados previstos na escalada do *Virtual Private Server* contratado para manter todo mundo simultaneamente com "navegadores zumbis" armados 24hrs no Linux.
+
+---
+
 ## Design System
 
 O sistema utiliza um tema baseado em CSS Custom Properties (HSL) com suporte a dark/light mode e modo automático por preferência do sistema.
@@ -326,9 +341,9 @@ DATABASE_URL="postgresql://usuario:senha@host/banco?sslmode=require"
 # JWT (obrigatório — gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 JWT_SECRET="sua_chave_de_64_caracteres"
 
-# WhatsApp (opcional, desative para desenvolvimento mais rápido)
+# Motor do WhatsApp (opcional, desative para desenvolvimento genérico rápido sem Puppeteer)
+# As sessões não dependem mais de um e-mail global no ENV, sendo restritas ao req.usuarioId da conta logada que escaneou.
 WHATSAPP_ENABLED="false"
-WHATSAPP_USER_EMAIL="admin@sgo.com"
 ```
 
 ### Banco de Dados
