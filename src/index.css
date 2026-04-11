@@ -77,45 +77,44 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    /* Very dark gray */
-    --foreground: 0 0% 98%;
+    /* Layers de profundidade baseadas em Dark Slate (Github / Antigravity Style) */
+    --background: 220 28% 6%;      /* Fundo da aplicação (Muito escuro) */
+    --foreground: 210 40% 98%;
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 21% 10%;           /* Fundo dos cards (Levemente elevado) */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 21% 10%;        /* Tooltips e Modais */
+    --popover-foreground: 210 40% 98%;
 
     --primary: 262.1 83.3% 57.8%;
-    /* Violet 600 */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 215 20% 16%;      /* Botoes e badges secundários */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 215 20% 16%;          /* Fundos calmos como abas inativas */
+    --muted-foreground: 215 16% 65%;
 
-    --accent: 262.1 83.3% 57.8%;
+    --accent: 215 20% 16%;         /* Hover em menus e linhas */
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 35.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
+    --border: 215 14% 20%;         /* Bordas visiveis mas suaves */
+    --input: 215 14% 20%;
     --ring: 262.1 83.3% 57.8%;
 
-    --sidebar-background: 240 10% 3.9%;
-    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-background: 220 30% 5%;  /* Menu lateral o mais fundo possivel */
+    --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 262.1 83.3% 57.8%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 215 20% 16%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 215 14% 20%;
     --sidebar-ring: 262.1 83.3% 57.8%;
-    --sidebar-muted: 240 5% 64.9%;
+    --sidebar-muted: 215 16% 65%;
   }
 }
 

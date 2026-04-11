@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MessageSquare, User, Save, Sun, Moon, Palette, Type, Shield, Loader2, MessageCircle } from "lucide-react";
+import { MessageSquare, User, Save, Sun, Moon, Palette, Type, Shield, Loader2, MessageCircle, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,11 @@ const Configuracoes = () => {
   const [novaSenha, setNovaSenha] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Metas
+  const [metaReceita, setMetaReceita] = useState<number>(20000);
+  const [metaConversao, setMetaConversao] = useState<number>(45);
+  const [metaContratosSemana, setMetaContratosSemana] = useState<number>(3);
+
   // Populate local state when config is loaded
   useEffect(() => {
     if (config) {
@@ -67,6 +72,9 @@ const Configuracoes = () => {
       setTemplateProposta(config.templateProposta || "");
       setTemplateLembrete(config.templateLembrete || "");
       setTemplateAgradecimento(config.templateAgradecimento || "");
+      setMetaReceita(config.metaReceita ?? 20000);
+      setMetaConversao(config.metaConversao ?? 45);
+      setMetaContratosSemana(config.metaContratosSemana ?? 3);
 
       // Apply Root color dynamically to preview
       document.documentElement.style.setProperty('--primary', config.corPrimaria);
@@ -82,7 +90,10 @@ const Configuracoes = () => {
     selectedColor !== config.corPrimaria ||
     templateProposta !== (config.templateProposta || "") ||
     templateLembrete !== (config.templateLembrete || "") ||
-    templateAgradecimento !== (config.templateAgradecimento || "")
+    templateAgradecimento !== (config.templateAgradecimento || "") ||
+    metaReceita !== (config.metaReceita ?? 20000) ||
+    metaConversao !== (config.metaConversao ?? 45) ||
+    metaContratosSemana !== (config.metaContratosSemana ?? 3)
   ) : false;
 
   const handleSave = async () => {
@@ -93,7 +104,10 @@ const Configuracoes = () => {
         tema: theme,
         templateProposta,
         templateLembrete,
-        templateAgradecimento
+        templateAgradecimento,
+        metaReceita,
+        metaConversao,
+        metaContratosSemana,
       });
       toast({ title: "Configurações salvas", description: "O sistema foi atualizado com sucesso." });
     } catch (err) {
@@ -176,6 +190,9 @@ const Configuracoes = () => {
               <TabsTrigger value="aparencia" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Palette className="w-4 h-4 mr-3" /> Temas
               </TabsTrigger>
+              <TabsTrigger value="metas" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
+                <TrendingUp className="w-4 h-4 mr-3" /> Metas
+              </TabsTrigger>
               {/* Alteração estrutural: Esconde a aba do WhatsApp para quem não é administrador */}
               {usuario?.isAdmin && (
                 <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
@@ -197,6 +214,7 @@ const Configuracoes = () => {
               <TabsTrigger value="geral">Geral</TabsTrigger>
               <TabsTrigger value="seguranca">Segurança</TabsTrigger>
               <TabsTrigger value="aparencia">Aparência</TabsTrigger>
+              <TabsTrigger value="metas">Metas</TabsTrigger>
               {usuario?.isAdmin && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
               <TabsTrigger value="templates">Templates</TabsTrigger>
             </TabsList>
@@ -226,6 +244,50 @@ const Configuracoes = () => {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* Aba: Metas */}
+          {activeTab === "metas" && (
+            <div className="space-y-6 animate-in fade-in-50">
+              <div>
+                <h3 className="text-lg font-medium">Metas e Indicadores Base</h3>
+                <p className="text-sm text-muted-foreground">Estes valores irão alimentar e balizar os medidores de desempenho do Dashboard.</p>
+              </div>
+              <Separator />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+                <div className="space-y-2">
+                  <Label>Meta de Receita Mensal (R$)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="20000" 
+                    value={metaReceita} 
+                    onChange={(e) => setMetaReceita(Number(e.target.value))} 
+                  />
+                  <p className="text-[11px] text-muted-foreground">Valor em reais (ex: 20000 para R$ 20.000).</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Meta de Conversão (%)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="45" 
+                    value={metaConversao} 
+                    onChange={(e) => setMetaConversao(Number(e.target.value))} 
+                  />
+                  <p className="text-[11px] text-muted-foreground">Porcentagem (ex: 45 para 45%).</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Meta de Contratos por Semana</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="3" 
+                    min={1}
+                    value={metaContratosSemana} 
+                    onChange={(e) => setMetaContratosSemana(Number(e.target.value))} 
+                  />
+                  <p className="text-[11px] text-muted-foreground">Número inteiro (ex: 3 contratos/semana). Usada como linha de referência no gráfico semanal do Dashboard.</p>
+                </div>
+              </div>
             </div>
           )}
 

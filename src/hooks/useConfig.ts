@@ -10,6 +10,9 @@ export interface ConfigAPI {
     templateProposta: string;
     templateLembrete: string;
     templateAgradecimento: string;
+    metaReceita: number;
+    metaConversao: number;
+    metaContratosSemana: number;
 }
 
 export const fetchConfig = async (): Promise<ConfigAPI> => {

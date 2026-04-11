@@ -425,12 +425,28 @@ app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
         });
         if (!orcamentoAtigo) return res.status(404).json({ error: 'Orçamento não encontrado.' });
 
+        let dataFechamentoUpdate: Date | null | undefined = undefined;
+        let dataCancelamentoUpdate: Date | null | undefined = undefined;
+
+        if (status === 'contratado' && orcamentoAtigo.status !== 'contratado') {
+            dataFechamentoUpdate = new Date();
+            dataCancelamentoUpdate = null;
+        } else if (['recusado', 'cancelado', 'perdido'].includes(status) && !['recusado', 'cancelado', 'perdido'].includes(orcamentoAtigo.status)) {
+            dataFechamentoUpdate = null;
+            dataCancelamentoUpdate = new Date();
+        } else if (status === 'pendente' && orcamentoAtigo.status !== 'pendente') {
+            dataFechamentoUpdate = null;
+            dataCancelamentoUpdate = null;
+        }
+
         const orcamentoAtualizado = await prisma.orcamento.update({
             where: { id },
             data: {
                 status,
                 // Se mudando para recusado, persiste o motivo; caso contrário limpa
                 motivoRecusa: status === 'recusado' ? (motivoRecusa ?? null) : null,
+                ...(dataFechamentoUpdate !== undefined ? { dataFechamento: dataFechamentoUpdate } : {}),
+                ...(dataCancelamentoUpdate !== undefined ? { dataCancelamento: dataCancelamentoUpdate } : {}),
                 ...(orcamentoAtigo && orcamentoAtigo.status !== status ? {
                     eventos: {
                         create: {
@@ -451,6 +467,7 @@ app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
         });
         res.json(orcamentoAtualizado);
     } catch (error) {
+        console.error("Erro na API PATCH orcamentos status:", error);
         res.status(500).json({ error: 'Erro ao atualizar status do orçamento' });
     }
 });
@@ -475,6 +492,17 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
             dataAtualizacao.status = status;
             // Se mudando para recusado, persiste o motivo; caso contrário limpa o campo
             dataAtualizacao.motivoRecusa = status === 'recusado' ? (motivoRecusa ?? null) : null;
+            
+            if (status === 'contratado' && orcamentoAtigo.status !== 'contratado') {
+                dataAtualizacao.dataFechamento = new Date();
+                dataAtualizacao.dataCancelamento = null;
+            } else if (['recusado', 'cancelado', 'perdido'].includes(status) && !['recusado', 'cancelado', 'perdido'].includes(orcamentoAtigo.status)) {
+                dataAtualizacao.dataFechamento = null;
+                dataAtualizacao.dataCancelamento = new Date();
+            } else if (status === 'pendente' && orcamentoAtigo.status !== 'pendente') {
+                dataAtualizacao.dataFechamento = null;
+                dataAtualizacao.dataCancelamento = null;
+            }
         }
 
         if (Object.keys(dataAtualizacao).length === 0) {
@@ -521,6 +549,7 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
 
         res.json(orcamentoAtualizado);
     } catch (error) {
+        console.error("Erro na API PUT orcamentos completo:", error);
         res.status(500).json({ error: 'Erro ao atualizar orçamento' });
     }
 });
@@ -564,7 +593,7 @@ app.get('/api/config', async (req: any, res) => {
 // Update user config
 app.put('/api/config', async (req: any, res) => {
     try {
-        const { corPrimaria, tema, templateProposta, templateLembrete, templateAgradecimento } = req.body;
+        const { corPrimaria, tema, templateProposta, templateLembrete, templateAgradecimento, metaReceita, metaConversao, metaContratosSemana } = req.body;
 
         const dataAtualizacao: Prisma.ConfiguracaoUpdateInput = {};
         if (corPrimaria) dataAtualizacao.corPrimaria = corPrimaria;
@@ -572,6 +601,9 @@ app.put('/api/config', async (req: any, res) => {
         if (templateProposta) dataAtualizacao.templateProposta = templateProposta;
         if (templateLembrete) dataAtualizacao.templateLembrete = templateLembrete;
         if (templateAgradecimento) dataAtualizacao.templateAgradecimento = templateAgradecimento;
+        if (typeof metaReceita !== 'undefined') dataAtualizacao.metaReceita = Number(metaReceita);
+        if (typeof metaConversao !== 'undefined') dataAtualizacao.metaConversao = Number(metaConversao);
+        if (typeof metaContratosSemana !== 'undefined') dataAtualizacao.metaContratosSemana = Number(metaContratosSemana);
 
         const config = await prisma.configuracao.update({
             where: { usuarioId: req.usuarioId },

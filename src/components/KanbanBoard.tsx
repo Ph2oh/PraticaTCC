@@ -19,12 +19,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useDeleteOrcamento } from "@/hooks/useOrcamentos";
 // Importa o dialog de motivo de recusa e seus tipos para interceptar mudancas para 'recusado'
 import { MotivoRecusaDialog, type MotivoRecusaValue } from "@/components/MotivoRecusaDialog";
+import { ConfirmacaoReversaoDialog } from "@/components/ConfirmacaoReversaoDialog";
 
 interface KanbanBoardProps {
     orcamentos: Orcamento[];
     onOrcamentoClick: (id: string) => void;
     // Estendido: aceita motivoRecusa como terceiro argumento opcional quando newStatus='recusado'
     onStatusChange?: (orcamentoId: string, newStatus: Status, motivoRecusa?: string) => void;
+    highlightedId?: string | null;
 }
 
 const STATUS_COLUMNS: { id: Status; label: string; colorClass: string; textColor: string }[] = [
@@ -48,7 +50,7 @@ const STATUS_AVATAR_COLORS: Record<Status, string> = {
     recusado: "bg-destructive/10 text-destructive",
 };
 
-export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: KanbanBoardProps) => {
+export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, highlightedId }: KanbanBoardProps) => {
     const { toast } = useToast();
     const deleteMutation = useDeleteOrcamento();
 
@@ -61,6 +63,16 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
 
     // Estado do dialog de motivo de recusa: guarda a acao pendente ate o usuario confirmar ou cancelar
     const [recusaPendente, setRecusaPendente] = useState<{
+        orcamentoId: string;
+        sourceColumn: Status;
+        destColumn: Status;
+        sourceIndex: number;
+        destIndex: number;
+        snapshotColumns: Record<Status, Orcamento[]>;
+    } | null>(null);
+
+    // Estado do dialog de reversao de contrato
+    const [reversaoPendente, setReversaoPendente] = useState<{
         orcamentoId: string;
         sourceColumn: Status;
         destColumn: Status;
@@ -153,6 +165,19 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             return;
         }
 
+        // Intercepta reversao de contrato (contratado -> qualquer outro)
+        if (sourceColumn === "contratado" && destColumn !== "contratado") {
+            setReversaoPendente({
+                orcamentoId: columns[sourceColumn][source.index]?.id,
+                sourceColumn,
+                destColumn,
+                sourceIndex: source.index,
+                destIndex: destination.index,
+                snapshotColumns: columns,
+            });
+            return;
+        }
+
         // Intercepta drag para 'recusado': guarda estado e abre dialog sem mover o card ainda
         if (destColumn === "recusado" && sourceColumn !== "recusado") {
             setRecusaPendente({
@@ -169,7 +194,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
         aplicarMudancaColuna(sourceColumn, destColumn, source.index, destination.index);
     };
 
-    // Confirmacao do motivo de recusa via drag-and-drop
+    // Confirmacao do motivo de recusa via drag-and-drop ou contextMenu
     const handleRecusaConfirm = (motivo: MotivoRecusaValue) => {
         if (!recusaPendente) return;
         aplicarMudancaColuna(
@@ -182,21 +207,59 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
         setRecusaPendente(null);
     };
 
-    // Cancelamento: descarta a acao sem alterar nenhuma coluna
     const handleRecusaCancel = () => {
         setRecusaPendente(null);
     };
 
-    // Intercepta mudanca de status via menu de contexto para 'recusado'
+    // Confirmacao da reversao de status contratado
+    const handleReversaoConfirm = () => {
+        if (!reversaoPendente) return;
+        
+        // Se a reversao for para 'recusado', joga no proximo dialog (MotivoRecusa)
+        if (reversaoPendente.destColumn === "recusado") {
+            setRecusaPendente(reversaoPendente);
+            setReversaoPendente(null);
+            return;
+        }
+        
+        aplicarMudancaColuna(
+            reversaoPendente.sourceColumn,
+            reversaoPendente.destColumn,
+            reversaoPendente.sourceIndex,
+            reversaoPendente.destIndex
+        );
+        setReversaoPendente(null);
+    };
+
+    const handleReversaoCancel = () => {
+        setReversaoPendente(null);
+    };
+
+    // Intercepta mudanca de status via menu de contexto
     const handleContextStatusChange = (orcamentoId: string, novoStatus: Status) => {
+        const sourceColumn = Object.keys(columns).find(
+            (col) => columns[col as Status].some((o) => o.id === orcamentoId)
+        ) as Status | undefined;
+        if (!sourceColumn || sourceColumn === novoStatus) return;
+
+        const sourceIndex = columns[sourceColumn].findIndex((o) => o.id === orcamentoId);
+        const destIndex = columns[novoStatus].length;
+
+        // Regra 1: Reversão de "contratado" sempre pede confirmação
+        if (sourceColumn === "contratado" && novoStatus !== "contratado") {
+            setReversaoPendente({
+                orcamentoId,
+                sourceColumn,
+                destColumn: novoStatus,
+                sourceIndex,
+                destIndex,
+                snapshotColumns: columns,
+            });
+            return;
+        }
+
+        // Regra 2: Movimentação para "recusado" pede motivo de recusa
         if (novoStatus === "recusado") {
-            // Localiza o item para saber em qual coluna esta
-            const sourceColumn = Object.keys(columns).find(
-                (col) => columns[col as Status].some((o) => o.id === orcamentoId)
-            ) as Status | undefined;
-            if (!sourceColumn || sourceColumn === "recusado") return;
-            const sourceIndex = columns[sourceColumn].findIndex((o) => o.id === orcamentoId);
-            const destIndex = columns[novoStatus].length;
             setRecusaPendente({
                 orcamentoId,
                 sourceColumn,
@@ -207,7 +270,9 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             });
             return;
         }
-        if (onStatusChange) onStatusChange(orcamentoId, novoStatus);
+
+        // Caso normal sem interceptações:
+        aplicarMudancaColuna(sourceColumn, novoStatus, sourceIndex, destIndex);
     };
 
     return (
@@ -238,6 +303,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                     <ContextMenu>
                                                         <ContextMenuTrigger asChild>
                                                             <div
+                                                                id={`orc-${orc.id}`}
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
@@ -247,6 +313,8 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
                                                                 }}
                                                                 className={`group mb-4 cursor-pointer rounded-[20px] p-4 sm:p-5 transition-all duration-400 ease-out border bg-card/60 backdrop-blur-md ${snapshot.isDragging
                                                                     ? "shadow-[0_20px_40px_rgba(0,0,0,0.12)] scale-[1.03] rotate-1 ring-2 ring-primary/20 z-50 opacity-95 bg-card/90"
+                                                                    : highlightedId === orc.id
+                                                                    ? "ring-2 ring-primary bg-primary/20 animate-pulse shadow-lg"
                                                                     : `shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${STATUS_CARD_COLORS[orc.status]}`
                                                                     }`}
                                                             >
@@ -379,6 +447,13 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange }: Ka
             open={recusaPendente !== null}
             onConfirm={handleRecusaConfirm}
             onCancel={handleRecusaCancel}
+        />
+        
+        {/* Novo Dialog de confirmacao de reversao de status Contratado */}
+        <ConfirmacaoReversaoDialog
+            open={reversaoPendente !== null}
+            onConfirm={handleReversaoConfirm}
+            onCancel={handleReversaoCancel}
         />
         </>
     );

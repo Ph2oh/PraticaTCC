@@ -49,30 +49,38 @@ const Relatorios = () => {
     direction: "asc" | "desc";
   }>({ key: "receitaGanha", direction: "desc" }); // Padrão: Maior receita real ganha primeiro
 
+  // Define time bounds based on the global filter
+  const { startDate, endDate } = useMemo(() => {
+    const hoje = new Date();
+    let start = new Date(0);
+    let end = new Date(8640000000000000); // Distant future
+
+    if (periodoGlobal === "mes_atual") {
+      start = startOfMonth(hoje);
+    } else if (periodoGlobal === "ultimos_3_meses") {
+      start = subMonths(hoje, 3);
+    } else if (periodoGlobal === "ultimos_6_meses") {
+      start = subMonths(hoje, 6);
+    } else if (periodoGlobal === "custom") {
+      start = dateFrom ? new Date(dateFrom) : new Date(0);
+      end = dateTo ? endOfDay(new Date(dateTo)) : new Date(8640000000000000);
+    }
+    return { startDate: start, endDate: end };
+  }, [periodoGlobal, dateFrom, dateTo]);
+
   const orcamentosFiltradosGlobalmente = useMemo(() => {
     return orcamentos.filter((orc) => {
       const dataOrc = new Date(orc.dataRecebido);
-      let isValidTime = true;
-      const hoje = new Date();
+      const dataFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
+      const dataCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
 
-      if (periodoGlobal === "mes_atual") {
-        isValidTime = dataOrc >= startOfMonth(hoje);
-      } else if (periodoGlobal === "ultimos_3_meses") {
-        isValidTime = dataOrc >= subMonths(hoje, 3);
-      } else if (periodoGlobal === "ultimos_6_meses") {
-        isValidTime = dataOrc >= subMonths(hoje, 6);
-      } else if (periodoGlobal === "custom") {
-        const matchesDateFrom = dateFrom ? dataOrc >= new Date(dateFrom) : true;
-        let matchesDateTo = true;
-        if (dateTo) {
-          matchesDateTo = dataOrc <= endOfDay(new Date(dateTo));
-        }
-        isValidTime = matchesDateFrom && matchesDateTo;
-      }
+      const recebidoIn = dataOrc >= startDate && dataOrc <= endDate;
+      const fechadoIn = dataFechamento && (dataFechamento >= startDate && dataFechamento <= endDate);
+      const recusaIn = dataCancelamento && (dataCancelamento >= startDate && dataCancelamento <= endDate) && orc.status === "recusado";
 
-      return isValidTime;
+      return recebidoIn || fechadoIn || recusaIn;
     });
-  }, [orcamentos, periodoGlobal, dateFrom, dateTo]);
+  }, [orcamentos, startDate, endDate]);
 
   // Aba 1: Filtros finos baseados na lista Global
   const filteredOrcamentos = useMemo(() => {
@@ -87,16 +95,30 @@ const Relatorios = () => {
   }, [orcamentosFiltradosGlobalmente, searchTerm, statusFilter]);
 
   const totalPeriodo = filteredOrcamentos.length;
-  const filteredContratados = filteredOrcamentos.filter(o => o.status === "contratado").length;
-  const taxaConversao = totalPeriodo ? (filteredContratados / totalPeriodo) * 100 : 0;
+  // Apenas contratos FECHADOS NESTE PERIODO especifico
+  const filteredContratados = filteredOrcamentos.filter(o => o.status === "contratado" && o.dataFechamento && new Date(o.dataFechamento) >= startDate && new Date(o.dataFechamento) <= endDate).length;
+  // E apenas recusas REALIZADAS NESTE PERIODO para a matematica da Win-Rate pura
+  const filteredRecusados = filteredOrcamentos.filter(o => o.status === "recusado" && o.dataCancelamento && new Date(o.dataCancelamento) >= startDate && new Date(o.dataCancelamento) <= endDate).length;
 
-  const receitaFechada = filteredOrcamentos
-    .filter(o => o.status === "contratado")
-    .reduce((total, orc) => total + orc.valor, 0);
+  const decisoes = filteredContratados + filteredRecusados;
+  const taxaConversao = decisoes > 0 ? (filteredContratados / decisoes) * 100 : 0;
 
-  const ticketMedio = totalPeriodo
-    ? currencyFormatter.format(filteredOrcamentos.reduce((total, orc) => total + orc.valor, 0) / totalPeriodo)
-    : currencyFormatter.format(0);
+  // Metricas Quantitativas e Temporais Restritas ao Período
+  const orcamentosFechadosNoPeriodo = filteredOrcamentos.filter(o => o.status === "contratado" && o.dataFechamento && new Date(o.dataFechamento) >= startDate && new Date(o.dataFechamento) <= endDate);
+
+  const receitaFechada = orcamentosFechadosNoPeriodo.reduce((total, orc) => total + orc.valor, 0);
+
+  const ticketMedioReal = orcamentosFechadosNoPeriodo.length > 0
+    ? receitaFechada / orcamentosFechadosNoPeriodo.length
+    : 0;
+
+  // Sales Velocity (Pilar 1: Análise Temporal)
+  const somaCicloVendas = orcamentosFechadosNoPeriodo.reduce((acc, orc) => {
+    const inicio = new Date(orc.dataRecebido);
+    const fim = new Date(orc.dataFechamento!);
+    return acc + Math.max(differenceInDays(fim, inicio), 0);
+  }, 0);
+  const cicloAprovacaoMedio = orcamentosFechadosNoPeriodo.length > 0 ? (somaCicloVendas / orcamentosFechadosNoPeriodo.length).toFixed(1) : "0";
 
   const getDiasNegociacao = (dataRecebido: string | Date, dataAtualizado: string | Date, status: string) => {
     if (status === "pendente" || status === "enviado") {
@@ -198,26 +220,49 @@ const Relatorios = () => {
       emNegociacao: { qtd: 0, valor: 0 },
       ganhos: { qtd: 0, valor: 0 },
       perdidos: { qtd: 0, valor: 0 },
+      estagnados: { qtd: 0, valor: 0 }, // Analise de Aging (Pipelines envelhecidos)
       motivosRecusa: {} as Record<string, { qtd: number; valor: number }>,
       pipelineTotal: 0 // Dinheiro na mesa (pendente + negociacao)
     };
 
     // Analisa funil baseado no intervalo de tempo global definido
     orcamentosFiltradosGlobalmente.forEach(orc => {
-      if (orc.status === "pendente") {
+      // Captacoes do periodo selecionado
+      const dRecebido = new Date(orc.dataRecebido);
+      const belongsRecebido = dRecebido >= startDate && dRecebido <= endDate;
+
+      // Fechamentos e Perdas do periodo selecionado
+      const dFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
+      const belongsFechado = dFechamento && dFechamento >= startDate && dFechamento <= endDate;
+
+      const dCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
+      const belongsCancelado = dCancelamento && dCancelamento >= startDate && dCancelamento <= endDate;
+
+      if (orc.status === "pendente" && belongsRecebido) {
         funil.pendentes.qtd++; funil.pendentes.valor += orc.valor;
         funil.pipelineTotal += orc.valor;
-      } else if (orc.status === "enviado") {
+      } else if (orc.status === "enviado" && belongsRecebido) {
         funil.emNegociacao.qtd++; funil.emNegociacao.valor += orc.valor;
         funil.pipelineTotal += orc.valor;
-      } else if (orc.status === "contratado") {
+      }
+
+      // Checagem de Estagnação (Aging)
+      if ((orc.status === "pendente" || orc.status === "enviado") && belongsRecebido) {
+        const dias = differenceInDays(new Date(), dRecebido);
+        if (dias >= 20) {
+          funil.estagnados.qtd++;
+          funil.estagnados.valor += orc.valor;
+        }
+      }
+
+      if (orc.status === "contratado" && belongsFechado) {
         funil.ganhos.qtd++; funil.ganhos.valor += orc.valor;
-      } else if (orc.status === "recusado") {
+      } else if (orc.status === "recusado" && belongsCancelado) {
         funil.perdidos.qtd++; funil.perdidos.valor += orc.valor;
         // Agrupa pelos motivos de recusa informados
         const motivo = orc.motivoRecusa || "Não informado";
         if (!funil.motivosRecusa[motivo]) {
-            funil.motivosRecusa[motivo] = { qtd: 0, valor: 0 };
+          funil.motivosRecusa[motivo] = { qtd: 0, valor: 0 };
         }
         funil.motivosRecusa[motivo].qtd++;
         funil.motivosRecusa[motivo].valor += orc.valor;
@@ -285,26 +330,34 @@ const Relatorios = () => {
         {/* ======================= ABA 1: BASE GERAL ======================= */}
         <TabsContent value="geral" className="space-y-6 animate-in fade-in-50">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Volume</p>
+              <p className="text-sm text-muted-foreground">Volume Geral</p>
               <p className="text-3xl font-bold text-card-foreground mt-1">{totalPeriodo}</p>
               <p className="text-xs text-muted-foreground mt-1">orçamentos</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Conversão</p>
+              <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
               <p className="text-3xl font-bold text-card-foreground mt-1">{taxaConversao.toFixed(1)}%</p>
-              <p className="text-xs text-success mt-1">{filteredContratados} contratos fechado</p>
+              <p className="text-xs text-success mt-1">{filteredContratados} contratos fechados</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
               <p className="text-sm text-muted-foreground">Receita Fechada</p>
               <p className="text-3xl font-bold text-success mt-1">{currencyFormatter.format(receitaFechada)}</p>
-              <p className="text-xs text-muted-foreground mt-1">faturamento</p>
+              <p className="text-xs text-muted-foreground mt-1">faturamento apurado</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Receita Projetada</p>
-              <p className="text-3xl font-bold text-card-foreground mt-1">{ticketMedio}</p>
-              <p className="text-xs text-muted-foreground mt-1">estimativa de faturamento</p>
+              <p className="text-sm text-muted-foreground">Ticket Médio</p>
+              <p className="text-3xl font-bold text-card-foreground mt-1">{currencyFormatter.format(ticketMedioReal)}</p>
+              <p className="text-xs text-muted-foreground mt-1">por contrato fechado</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center flex flex-col justify-center relative overflow-hidden group">
+              <div className="absolute inset-x-0 -bottom-1 h-1 bg-primary/20"></div>
+              <p className="text-sm text-muted-foreground">Vida útil do orçamento </p>
+              <p className="text-3xl font-bold text-card-foreground mt-1 flex items-center justify-center gap-2">
+                {cicloAprovacaoMedio} <span className="text-base font-normal text-muted-foreground">dias</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 truncate">ciclo médio de aprovação</p>
             </div>
           </div>
 
@@ -528,7 +581,7 @@ const Relatorios = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-warning/5 border border-warning/20 p-5 rounded-xl text-center shadow-sm" title="Orçamentos pendentes de contato inicial">
               <h4 className="text-warning font-semibold text-sm mb-2 uppercase tracking-wide">Pendente</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.pendentes.valor)}</p>
@@ -543,16 +596,23 @@ const Relatorios = () => {
               </p>
             </div>
 
+            <div className="bg-orange-500/5 border border-orange-500/30 p-5 rounded-xl text-center shadow-sm relative" title="Orçamentos que não avançaram nos últimos 20 dias">
+              <div className="absolute -top-2.5 -right-2.5 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">Aging</div>
+              <h4 className="text-orange-600 font-semibold text-sm mb-2 uppercase tracking-wide">Congelados</h4>
+              <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.estagnados.valor)}</p>
+              <p className="text-xs text-muted-foreground mt-1 font-medium">{pipelineStats.estagnados.qtd} travados {`>`} 20 dias</p>
+            </div>
+
             <div className="bg-success/5 border border-success/20 p-5 rounded-xl text-center shadow-sm" title="Orçamentos efetivamente ganhos e contratados">
               <h4 className="text-success font-semibold text-sm mb-2 uppercase tracking-wide">Valor Fechado</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.ganhos.valor)}</p>
               <p className="text-xs text-muted-foreground mt-1 text-success font-medium">Você fechou {pipelineStats.ganhos.qtd} negócios</p>
             </div>
 
-            <div className="bg-destructive/5 border border-destructive/20 p-5 rounded-xl text-center shadow-sm relative overflow-hidden" title="Orçamentos que os clientes não aprovaram">
+            <div className="bg-destructive/5 border border-destructive/20 p-5 rounded-xl text-center shadow-sm" title="Orçamentos que os clientes não aprovaram">
               <h4 className="text-destructive font-semibold text-sm mb-2 uppercase tracking-wide">Valor Perdido</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.perdidos.valor)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{pipelineStats.perdidos.qtd} recusados permanentemente</p>
+              <p className="text-xs text-muted-foreground mt-1">{pipelineStats.perdidos.qtd} recusados definitivamente</p>
             </div>
           </div>
 
@@ -575,19 +635,19 @@ const Relatorios = () => {
           {/* Breakdown de Motivos de Recusa */}
           {pipelineStats.perdidos.qtd > 0 && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-               {Object.entries(pipelineStats.motivosRecusa).sort((a, b) => b[1].qtd - a[1].qtd).map(([motivo, stats], idx) => (
-                  <div key={idx} className="bg-destructive/5 border border-destructive/10 p-5 rounded-xl shadow-sm text-center">
-                    <h4 className="text-destructive font-semibold text-[13px] mb-2 uppercase tracking-wide">{motivo}</h4>
-                    <p className="text-xl font-bold text-foreground">{currencyFormatter.format(stats.valor)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{stats.qtd} orçamento{stats.qtd !== 1 ? 's' : ''} perdido{stats.qtd !== 1 ? 's' : ''}</p>
-                    <div className="mt-4 bg-muted/30 h-1.5 w-full rounded-full overflow-hidden">
-                       <div 
-                         className="bg-destructive/60 h-full rounded-full" 
-                         style={{ width: `${(stats.qtd / pipelineStats.perdidos.qtd) * 100}%` }}
-                       />
-                    </div>
+              {Object.entries(pipelineStats.motivosRecusa).sort((a, b) => b[1].qtd - a[1].qtd).map(([motivo, stats], idx) => (
+                <div key={idx} className="bg-destructive/5 border border-destructive/10 p-5 rounded-xl shadow-sm text-center">
+                  <h4 className="text-destructive font-semibold text-[13px] mb-2 uppercase tracking-wide">{motivo}</h4>
+                  <p className="text-xl font-bold text-foreground">{currencyFormatter.format(stats.valor)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stats.qtd} orçamento{stats.qtd !== 1 ? 's' : ''} perdido{stats.qtd !== 1 ? 's' : ''}</p>
+                  <div className="mt-4 bg-muted/30 h-1.5 w-full rounded-full overflow-hidden">
+                    <div
+                      className="bg-destructive/60 h-full rounded-full"
+                      style={{ width: `${(stats.qtd / pipelineStats.perdidos.qtd) * 100}%` }}
+                    />
                   </div>
-               ))}
+                </div>
+              ))}
             </div>
           )}
 

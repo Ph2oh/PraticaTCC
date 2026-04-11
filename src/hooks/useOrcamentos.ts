@@ -3,6 +3,7 @@ import { fetchOrcamentos, createOrcamento, updateOrcamento, deleteOrcamento, typ
 import type { Status } from "@/components/StatusBadge";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export function useOrcamentos() {
   const { token } = useAuth();
@@ -29,14 +30,23 @@ export function useCreateOrcamento() {
 export function useUpdateOrcamento() {
   const queryClient = useQueryClient();
   const { token } = useAuth();
+  const { toast } = useToast();
+
   return useMutation({
-    // Adicionado motivoRecusa ao tipo aceito pelo hook para repassar ao backend
     mutationFn: ({ id, data }: { id: string; data: { status?: Status; descricao?: string; valor?: number; motivoRecusa?: string | null } }) =>
       updateOrcamento(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamentos", token] });
       queryClient.invalidateQueries({ queryKey: ["clientes", token] });
     },
+    onError: (err: any) => {
+      console.error("Mutação falhou no front-end:", err);
+      toast({
+        title: "Erro ao salvar alterações",
+        description: err?.message || "Algo deu errado ao atualizar as informações no servidor.",
+        variant: "destructive",
+      });
+    }
   });
 }
 

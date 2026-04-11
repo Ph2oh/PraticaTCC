@@ -19,6 +19,8 @@ export interface Orcamento {
   motivoRecusa?: string | null;
   dataRecebido: string;
   dataAtualizado: string;
+  dataFechamento?: string | null;
+  dataCancelamento?: string | null;
   clienteId: string;
   cliente?: Cliente;
   eventos?: OrcamentoEvento[];

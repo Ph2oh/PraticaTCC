@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { Search, Download, Plus, LayoutGrid, List, Inbox, Loader, Copy, Send, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Download, Plus, LayoutGrid, List, Inbox, Loader, Copy, Send, Trash2, Calendar } from "lucide-react";
+import { startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -10,6 +12,13 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import StatusBadge from "@/components/StatusBadge";
@@ -22,9 +31,11 @@ import { NovoOrcamentoDialog } from "@/components/NovoOrcamentoDialog";
 import type { Status } from "@/components/StatusBadge";
 // Importa o dialog de motivo de recusa para interceptar mudancas para 'recusado' na tabela e no kanban
 import { MotivoRecusaDialog, type MotivoRecusaValue } from "@/components/MotivoRecusaDialog";
+import { ConfirmacaoReversaoDialog } from "@/components/ConfirmacaoReversaoDialog";
 
 const Orcamentos = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterPeriodo, setFilterPeriodo] = useState<string>("mes_atual");
   const [filterStatus, setFilterStatus] = useState<Status | "todos">("todos");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
   const [selectedOrcamentoId, setSelectedOrcamentoId] = useState<string | null>(null);
@@ -32,6 +43,12 @@ const Orcamentos = () => {
   const [isNovoOrcamentoOpen, setIsNovoOrcamentoOpen] = useState(false);
   // Estado do dialog de recusa: guarda qual orcamento esta aguardando confirmacao de motivo
   const [recusaPendente, setRecusaPendente] = useState<{ id: string; novoStatus: Status } | null>(null);
+
+  // Estado do dialog de reversao: guarda orcamento que vai reverter o "ganho"
+  const [reversaoPendente, setReversaoPendente] = useState<{ id: string; novoStatus: Status } | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
 
   const { data: orcamentos = [], isLoading, error } = useOrcamentos();
   const updateMutation = useUpdateOrcamento();
@@ -45,22 +62,89 @@ const Orcamentos = () => {
       orc.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
       orc.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "todos" || orc.status === filterStatus;
-    return matchesSearch && matchesStatus;
+
+    // Filtro Temporal baseado na dataRecebido, dataFechamento e dataCancelamento
+    const dataOrc = new Date(orc.dataRecebido);
+    const dataFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
+    const dataCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
+
+    const now = new Date();
+    let matchesPeriod = true;
+
+    if (filterPeriodo !== "todos") {
+      const isMesAtual = isWithinInterval(dataOrc, { start: startOfMonth(now), end: endOfMonth(now) });
+      const fechadoMesAtual = dataFechamento ? isWithinInterval(dataFechamento, { start: startOfMonth(now), end: endOfMonth(now) }) : false;
+      const canceladoMesAtual = dataCancelamento ? isWithinInterval(dataCancelamento, { start: startOfMonth(now), end: endOfMonth(now) }) : false;
+
+      if (filterPeriodo === "mes_atual") {
+        // Mostra mês atual OU orçamentos antigos vivos no pipeline OU antigos finalizados neste mês!
+        const isFunilAtivo = orc.status === "pendente" || orc.status === "enviado";
+        matchesPeriod = isMesAtual || isFunilAtivo || fechadoMesAtual || canceladoMesAtual;
+      } else if (filterPeriodo === "mes_passado") {
+        const lastMonth = subMonths(now, 1);
+        const start = startOfMonth(lastMonth);
+        const end = endOfMonth(lastMonth);
+        const isMesPassado = isWithinInterval(dataOrc, { start, end });
+        const fechadoMesPassado = dataFechamento ? isWithinInterval(dataFechamento, { start, end }) : false;
+        const canceladoMesPassado = dataCancelamento ? isWithinInterval(dataCancelamento, { start, end }) : false;
+
+        matchesPeriod = isMesPassado || fechadoMesPassado || canceladoMesPassado;
+      } else if (filterPeriodo === "ultimos_3_meses") {
+        const trimesAgo = subMonths(now, 2);
+        const start = startOfMonth(trimesAgo);
+        const end = endOfMonth(now);
+        const isUltimos3 = isWithinInterval(dataOrc, { start, end });
+        const fechadoUltimos3 = dataFechamento ? isWithinInterval(dataFechamento, { start, end }) : false;
+        const canceladoUltimos3 = dataCancelamento ? isWithinInterval(dataCancelamento, { start, end }) : false;
+
+        matchesPeriod = isUltimos3 || fechadoUltimos3 || canceladoUltimos3;
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesPeriod;
   });
 
-  // Intercepta mudancas de status: se o destino for 'recusado', abre o dialog em vez de salvar direto
-  const handleStatusChange = (orcamentoId: string, newStatus: Status, motivoRecusa?: string) => {
+  // Intercepta mudancas de status na tabela: valida reversão de contrato e motivo de recusa
+  const handleStatusChange = (orcamentoId: string, newStatus: Status, motivoRecusa?: string, bypassReversao?: boolean) => {
+    const orc = orcamentos.find(o => o.id === orcamentoId);
+
+    // Regra 1: Reversão de "contratado" sempre pede confirmação
+    if (orc && orc.status === "contratado" && newStatus !== "contratado" && !bypassReversao) {
+      setReversaoPendente({ id: orcamentoId, novoStatus: newStatus });
+      return;
+    }
+
+    // Regra 2: Movimentação para "recusado" pede motivo de recusa
     if (newStatus === "recusado" && !motivoRecusa) {
       setRecusaPendente({ id: orcamentoId, novoStatus: newStatus });
       return;
     }
+
     updateMutation.mutate({
       id: orcamentoId,
       data: { status: newStatus, motivoRecusa: motivoRecusa ?? null },
     });
   };
 
-  // Confirmacao do motivo via dialog (chamado tanto do kanban quanto da tabela)
+  useEffect(() => {
+    if (highlightId && !isLoading) {
+      setTimeout(() => {
+        const el = document.getElementById(`orc-${highlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+
+      // Remove the highlight parameter after 3 seconds to stop flashing
+      const timer = setTimeout(() => {
+        searchParams.delete("highlight");
+        setSearchParams(searchParams, { replace: true });
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, isLoading, searchParams, setSearchParams]);
+
+  // Confirmacao da recusa
   const handleRecusaConfirm = (motivo: MotivoRecusaValue) => {
     if (!recusaPendente) return;
     updateMutation.mutate({
@@ -71,6 +155,14 @@ const Orcamentos = () => {
   };
 
   const handleRecusaCancel = () => setRecusaPendente(null);
+
+  // Confirmacao da reversão de contrato
+  const handleReversaoConfirm = () => {
+    if (!reversaoPendente) return;
+    // Repassa acao para handleStatusChange pulando a checagem que acabou de ser aceita
+    handleStatusChange(reversaoPendente.id, reversaoPendente.novoStatus, undefined, true);
+    setReversaoPendente(null);
+  };
 
   const selectedOrcamento = orcamentos.find(o => o.id === selectedOrcamentoId) || null;
 
@@ -165,21 +257,32 @@ const Orcamentos = () => {
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div className="flex gap-2">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as Status | "todos")}
-                className="px-4 py-2.5 rounded-lg border border-input bg-card text-sm text-card-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="todos">Todos os status</option>
-                <option value="pendente">Pendente</option>
-                <option value="enviado">Enviado</option>
-                <option value="contratado">Contratado</option>
-                <option value="recusado">Recusado</option>
-              </select>
-              <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-input bg-card text-sm text-muted-foreground hover:bg-muted transition-colors">
-                <Download className="w-4 h-4" /> Exportar
-              </button>
+            <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+              <Select value={filterPeriodo} onValueChange={setFilterPeriodo}>
+                <SelectTrigger className="w-[200px] h-10 bg-card">
+                  <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mes_atual">Mês Atual</SelectItem>
+                  <SelectItem value="mes_passado">Mês Passado</SelectItem>
+                  <SelectItem value="ultimos_3_meses">Últimos 3 Meses</SelectItem>
+                  <SelectItem value="todos">Todo Histórico</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val as Status | "todos")}>
+                <SelectTrigger className="w-[180px] h-10 bg-card">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="enviado">Em Negociação</SelectItem>
+                  <SelectItem value="contratado">Contratado</SelectItem>
+                  <SelectItem value="recusado">Recusado / Não fechado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -190,6 +293,7 @@ const Orcamentos = () => {
                 orcamentos={filtered}
                 onOrcamentoClick={(id) => setSelectedOrcamentoId(id)}
                 onStatusChange={handleStatusChange}
+                highlightedId={highlightId}
               />
             </div>
           ) : (
@@ -218,8 +322,9 @@ const Orcamentos = () => {
                       <ContextMenu key={orc.id}>
                         <ContextMenuTrigger asChild>
                           <tr
+                            id={`orc-${orc.id}`}
                             className={`border-b border-border/10 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group ${selectedItems.has(orc.id) ? "bg-primary/5" : ""
-                              }`}
+                              } ${highlightId === orc.id ? "bg-primary/20 animate-pulse ring-2 ring-inset ring-primary/50" : ""}`}
                           >
                             <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                               <Checkbox
@@ -356,6 +461,13 @@ const Orcamentos = () => {
             open={recusaPendente !== null}
             onConfirm={handleRecusaConfirm}
             onCancel={handleRecusaCancel}
+          />
+
+          {/* Dialog de confirmacao de reversao de status Contratado na tabela */}
+          <ConfirmacaoReversaoDialog
+            open={reversaoPendente !== null}
+            onConfirm={handleReversaoConfirm}
+            onCancel={() => setReversaoPendente(null)}
           />
         </>
       )}
