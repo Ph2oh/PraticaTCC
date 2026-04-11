@@ -75,9 +75,9 @@ export function WhatsAppWizardSetup() {
                                             <div className="mx-auto bg-primary/10 p-4 rounded-full w-20 h-20 flex items-center justify-center">
                                                 <Smartphone className="w-10 h-10 text-primary" />
                                             </div>
-                                            <CardTitle className="text-2xl">Vamos começar?</CardTitle>
+                                            <CardTitle className="text-2xl">Vamos começar</CardTitle>
                                             <CardDescription className="text-base px-6">
-                                                Ao clicar abaixo, iremos preparar um canal seguro entre o servidor e o seu WhatsApp.
+                                                Clique para estabelecer uma conexão segura com seu WhatsApp Business.
                                             </CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-8 pb-10 flex justify-center">
@@ -89,7 +89,7 @@ export function WhatsAppWizardSetup() {
                                             >
                                                 {loading
                                                     ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Iniciando...</>
-                                                    : "Sincronizar WhatsApp"
+                                                    : "Iniciar autenticação"
                                                 }
                                             </Button>
                                         </CardContent>
