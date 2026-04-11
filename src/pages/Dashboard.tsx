@@ -386,7 +386,7 @@ const Dashboard = () => {
         </div>
 
         {/* CARD 3: Receita Projetada (Novo) */}
-        <div className="flex flex-col justify-between rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 text-white p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="flex flex-col justify-between rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 text-white p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 opacity-20 p-2 group-hover:-translate-y-2 transition-transform duration-500">
             <Coins className="w-24 h-24" />
           </div>
@@ -396,7 +396,6 @@ const Dashboard = () => {
               {currencyFormatter.format(projetada)}
             </p>
             <p className="text-[11px] font-semibold text-white/80 uppercase pt-1">
-              Estimativa sobre pipeline atual
             </p>
           </div>
           <Dialog>
@@ -522,16 +521,16 @@ const Dashboard = () => {
               <Bar dataKey="recusados" fill="#ef4444" radius={[4, 4, 0, 0]} name="Recusados">
                 <LabelList dataKey="recusados" position="top" fill="#ef4444" fontSize={11} fontWeight={600} formatter={(v: number) => v > 0 ? v : ""} />
               </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
         {/* Pie Chart: Distribuição financeira por Serviço */}
         <div className="rounded-2xl bg-card p-6 shadow-sm border border-transparent">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-card-foreground lowercase first-letter:uppercase">Distribuição por serviço (mês atual)</h3>
+            <h3 className="text-sm font-semibold text-card-foreground lowercase first-letter:uppercase">Orçamentos contratados (por seguimento)</h3>
           </div>
-          
+
           {servicosData.length > 0 ? (
             <div className="flex flex-col items-center justify-center">
               <div className="relative w-full h-[240px] flex items-center justify-center mt-2 group">
@@ -580,12 +579,12 @@ const Dashboard = () => {
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="history" className="border-none bg-card rounded-2xl shadow-sm px-6">
           <AccordionTrigger className="text-sm font-semibold text-card-foreground hover:no-underline py-6">
-            Análise Histórica e Comparativo (Últimos 6 meses)
+            Análise histórica e comparativo (últimos 6 meses)
           </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6 pt-2">
               <div className="rounded-xl border border-border/50 bg-muted/10 p-5">
-                <h3 className="text-sm font-semibold text-card-foreground mb-4">Volume Recebido vs Fechado</h3>
+                <h3 className="text-sm font-semibold text-card-foreground mb-4">Volume recebido vs fechado</h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <AreaChart data={monthlySeries}>
                     <defs>
@@ -609,7 +608,7 @@ const Dashboard = () => {
               </div>
 
               <div className="rounded-xl border border-border/50 bg-muted/10 p-5">
-                <h3 className="text-sm font-semibold text-card-foreground mb-4">Recebidos vs Recusados</h3>
+                <h3 className="text-sm font-semibold text-card-foreground mb-4">Recebidos vs recusados</h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={monthlySeries} barGap={4} margin={{ top: 24, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -656,7 +655,7 @@ const Dashboard = () => {
       {/* Recent Table */}
       <div className="rounded-2xl bg-card shadow-sm border border-transparent overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-border/50">
-          <h3 className="text-sm font-semibold text-card-foreground">Orçamentos Recentes</h3>
+          <h3 className="text-sm font-semibold text-card-foreground">Orçamentos recentes</h3>
           <a href="/orcamentos" className="text-xs font-medium text-primary flex items-center gap-1 hover:text-primary/80 transition-colors">
             Ver todos <ArrowUpRight className="w-3 h-3" />
           </a>

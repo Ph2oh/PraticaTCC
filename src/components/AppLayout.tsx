@@ -23,7 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const AppLayout = () => {
   const { data: config } = useConfig();
   const { theme, setTheme } = useTheme();
-  const { logout } = useAuth();
+  const { logout, usuario } = useAuth();
   const navigate = useNavigate();
   const [novoOrcamentoOpen, setNovoOrcamentoOpen] = useState(false);
 
@@ -53,7 +53,7 @@ const AppLayout = () => {
             {/* 1. Botão Ação Rápida */}
             <Button size="sm" onClick={() => setNovoOrcamentoOpen(true)} className="hidden sm:flex gap-1.5 shadow-sm rounded-md">
               <Plus className="w-4 h-4" />
-              <span>Criar Orçamento</span>
+              <span>Criar orçamento</span>
             </Button>
             
             <Button size="icon" variant="default" onClick={() => setNovoOrcamentoOpen(true)} className="sm:hidden w-8 h-8 rounded-full shadow-sm">
@@ -94,15 +94,17 @@ const AppLayout = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full ml-1 p-0">
                   <Avatar className="h-8 w-8 ring-2 ring-transparent transition-all hover:ring-primary/50 cursor-pointer shadow-sm">
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">PH</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                      {usuario?.nome?.substring(0, 2).toUpperCase() || "PH"}
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 rounded-xl border-border/60 shadow-xl" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal p-3">
                   <div className="flex flex-col space-y-1 ">
-                    <p className="text-sm font-semibold leading-none">Minha Conta</p>
-                    <p className="text-xs leading-none text-muted-foreground mt-1">usuario@phfotografia.com</p>
+                    <p className="text-sm font-semibold leading-none">{usuario?.nome || "Minha conta"}</p>
+                    <p className="text-xs leading-none text-muted-foreground mt-1">{usuario?.email || "Nenhum email cadastrado"}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-border/60" />
@@ -113,7 +115,7 @@ const AppLayout = () => {
                 <DropdownMenuSeparator className="bg-border/60" />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer py-2 text-red-500 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50">
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair do Sistema</span>
+                  <span>Sair do sistema</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

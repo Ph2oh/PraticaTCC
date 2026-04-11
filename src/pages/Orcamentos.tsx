@@ -235,7 +235,7 @@ const Orcamentos = () => {
             <div className="flex bg-muted/50 p-1 rounded-lg border border-border self-start">
               <button
                 onClick={() => setViewMode("table")}
-                title="Visualização em Tabela"
+                title="Visualização em tabela"
                 className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${viewMode === "table" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
@@ -243,7 +243,7 @@ const Orcamentos = () => {
               </button>
               <button
                 onClick={() => setViewMode("kanban")}
-                title="Visualização Kanban"
+                title="Visualização em kanban"
                 className={`flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors ${viewMode === "kanban" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
@@ -273,7 +273,7 @@ const Orcamentos = () => {
               <SelectContent>
                 <SelectItem value="todos">Todos os status</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="enviado">Em Negociação</SelectItem>
+                <SelectItem value="enviado">Em negociação</SelectItem>
                 <SelectItem value="contratado">Contratado</SelectItem>
                 <SelectItem value="recusado">Recusado / Não fechado</SelectItem>
               </SelectContent>
@@ -431,7 +431,7 @@ const Orcamentos = () => {
                           <ContextMenuSeparator />
 
                           <ContextMenuSub>
-                            <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
+                            <ContextMenuSubTrigger>Mudar status</ContextMenuSubTrigger>
                             <ContextMenuSubContent className="w-48">
                               {/* handleStatusChange intercepta 'recusado' e abre o dialog de motivo */}
                               {["pendente", "enviado", "contratado", "recusado"].map((st) => (
@@ -441,7 +441,7 @@ const Orcamentos = () => {
                                   className="capitalize"
                                   onSelect={() => handleStatusChange(orc.id, st as Status)}
                                 >
-                                  {st === "enviado" ? "Em Negociação" : st === "recusado" ? "Recusado" : st === "contratado" ? "Contratado" : "Pendente"}
+                                  {st === "enviado" ? "Em negociação" : st === "recusado" ? "Recusado" : st === "contratado" ? "Contratado" : "Pendente"}
                                 </ContextMenuItem>
                               ))}
                             </ContextMenuSubContent>
@@ -468,7 +468,7 @@ const Orcamentos = () => {
               {filtered.length === 0 && (
                 <EmptyState
                   icon={Inbox}
-                  title="Nenhum Orçamento Encontrado"
+                  title="Nenhum orçamento encontrado"
                   description={
                     searchTerm ? "Tente buscar usando termos ou IDs diferentes." : "Esse é o lugar onde você acompanhará todos os orçamentos solicitados."
                   }
@@ -484,7 +484,7 @@ const Orcamentos = () => {
                       }}
                       className="text-primary text-sm font-medium hover:underline"
                     >
-                      {searchTerm || filterStatus !== "todos" ? "Limpar Filtros" : "Criar Orçamento"}
+                      {searchTerm || filterStatus !== "todos" ? "Limpar filtros" : "Criar orçamento"}
                     </button>
                   }
                 />

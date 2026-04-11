@@ -165,7 +165,7 @@ const Configuracoes = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Configurações do Sistema</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie preferências, aparência e integrações do painel Administrativo.</p>
+          <p className="text-sm text-muted-foreground mt-1">Gerencie preferências, aparência e integrações do painel administrativo.</p>
         </div>
         {hasChanges && (
           <Button onClick={handleSave} disabled={isSaving || updateConfig.isPending} className="min-w-[140px] animate-in fade-in slide-in-from-bottom-4">
@@ -228,18 +228,18 @@ const Configuracoes = () => {
           {activeTab === "geral" && (
             <div className="space-y-6 animate-in fade-in-50">
               <div>
-                <h3 className="text-lg font-medium">Perfil do Proprietário</h3>
+                <h3 className="text-lg font-medium">Perfil do proprietário</h3>
                 <p className="text-sm text-muted-foreground">Informações sobre a conta responsável por este Workspace protegido.</p>
               </div>
               <Separator />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                 <div className="space-y-2">
-                  <Label>Nome Registrado</Label>
+                  <Label>Nome registrado</Label>
                   <Input placeholder="Nome" value={usuario?.nome || "Carregando..."} disabled className="bg-muted/50" />
                   <p className="text-[11px] text-muted-foreground">O nome da conta não pode ser modificado nesta versão.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email de Autenticação</Label>
+                  <Label>Email de autenticação</Label>
                   <Input placeholder="email@exemplo.com" value={usuario?.email || "Carregando..."} disabled className="bg-muted/50" />
                 </div>
               </div>
@@ -257,7 +257,7 @@ const Configuracoes = () => {
               <Separator />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
                 <div className="space-y-2">
-                  <Label>Meta de Receita Mensal (R$)</Label>
+                  <Label>Meta de receita mensal (R$)</Label>
                   <Input
                     type="number"
                     placeholder="20000"
@@ -267,7 +267,7 @@ const Configuracoes = () => {
                   <p className="text-[11px] text-muted-foreground">Valor em reais (ex: 20000 para R$ 20.000).</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Meta de Conversão (%)</Label>
+                  <Label>Meta de conversão (%)</Label>
                   <Input
                     type="number"
                     placeholder="45"
@@ -277,7 +277,7 @@ const Configuracoes = () => {
                   <p className="text-[11px] text-muted-foreground">Porcentagem (ex: 45 para 45%).</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Meta de Contratos por Semana</Label>
+                  <Label>Meta de contratos por semana</Label>
                   <Input
                     type="number"
                     placeholder="3"
@@ -314,7 +314,7 @@ const Configuracoes = () => {
                   <CardContent>
                     <form id="password-form" onSubmit={handlePasswordChange} className="space-y-5">
                       <div className="grid gap-2">
-                        <Label htmlFor="senhaAtual">Senha Atual</Label>
+                        <Label htmlFor="senhaAtual">Senha atual</Label>
                         <Input
                           id="senhaAtual"
                           type="password"
@@ -327,7 +327,7 @@ const Configuracoes = () => {
                       </div>
 
                       <div className="grid gap-2">
-                        <Label htmlFor="novaSenha">Nova Senha</Label>
+                        <Label htmlFor="novaSenha">Nova senha</Label>
                         <Input
                           id="novaSenha"
                           type="password"
@@ -362,13 +362,13 @@ const Configuracoes = () => {
           {activeTab === "aparencia" && (
             <div className="space-y-6 animate-in fade-in-50">
               <div>
-                <h3 className="text-lg font-medium">Identidade Visual</h3>
+                <h3 className="text-lg font-medium">Identidade visual</h3>
                 <p className="text-sm text-muted-foreground">Personalize a cara do painel de acordo com a sua preferência e marca.</p>
               </div>
               <Separator />
 
               <div className="space-y-3">
-                <Label className="text-base">Tema Principal</Label>
+                <Label className="text-base">Tema principal</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
                   <Button
                     type="button"
@@ -396,7 +396,7 @@ const Configuracoes = () => {
               </div>
 
               <div className="pt-4 space-y-3 border-t border-border/40 max-w-2xl">
-                <Label className="text-base">Cor Primária da Interface</Label>
+                <Label className="text-base">Cor primária da interface</Label>
                 <p className="text-sm text-muted-foreground">Escolha a cor que representa os botões, detalhes e links do sistema.</p>
 
                 <div className="flex flex-wrap gap-4 mt-4">
@@ -509,7 +509,7 @@ const Configuracoes = () => {
           {activeTab === "templates" && (
             <div className="space-y-6 animate-in fade-in-50">
               <div>
-                <h3 className="text-lg font-medium">Templates de Mensagem Pronta</h3>
+                <h3 className="text-lg font-medium">Templates de mensagem pronta</h3>
                 <p className="text-sm text-muted-foreground">Estas mensagens ficam disponíveis nas mensagens prontas de clientes e orçamentos como atalhos para abrir no seu WhatsApp Web.</p>
               </div>
               <Separator />

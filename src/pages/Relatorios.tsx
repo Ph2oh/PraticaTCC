@@ -11,6 +11,8 @@ import { startOfMonth, subMonths, endOfDay, subDays } from "date-fns";
 import { ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, MousePointerClick, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { exportarExcel, exportarPDF, exportarCSV, DadosExportacao } from "@/lib/exportUtils";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -35,9 +37,9 @@ const Relatorios = () => {
   const isLoading = loadingOrcamentos || loadingClientes;
 
   // Filtro Global de Período
-  const [periodoGlobal, setPeriodoGlobal] = useState("todos"); // 'mes_atual', 'ultimos_3_meses', 'ultimos_6_meses', 'todos'
+  const [periodoGlobal, setPeriodoGlobal] = useState("mes_atual"); // 'mes_atual', 'ultimos_3_meses', 'ultimos_6_meses', 'todos'
 
-  // Filtros Globais Adicionais
+  // Métricas globais Adicionais
   const [searchTerm, setSearchTerm] = useState("");
   // Controla qual alerta está com o painel de explicação expandido
   const [alertExpandido, setAlertExpandido] = useState<string | null>(null);
@@ -160,15 +162,15 @@ const Relatorios = () => {
       alertas.push({
         id: 'alta-recusa',
         type: 'destructive',
-        msg: 'Aten\u00e7\u00e3o: O volume de or\u00e7amentos perdidos est\u00e1 bem maior que ganhos neste ciclo. Pode haver desalinhamento nos pre\u00e7os ou obje\u00e7\u00e3o.',
-        detail: 'Este alerta \u00e9 disparado quando o n\u00famero de recusas ultrapassa 1,5\u00d7 o total de contratos fechados e h\u00e1 mais de 5 recusas no per\u00edodo. Para cada proposta aceita, mais de uma e meia est\u00e1 sendo rejeitada \u2014 uma taxa que compromete a sa\u00fade comercial. Poss\u00edveis causas: precifica\u00e7\u00e3o acima da expectativa do mercado, proposta pouco convincente ou aus\u00eancia de follow-up. Recomenda\u00e7\u00e3o: revise os motivos de recusa cadastrados na aba Funil e identifique padr\u00f5es recorrentes.'
+        msg: 'Atenção: O volume de orçamentos perdidos é superior aos orçamentos contratados. Pode haver desalinhamento nos valores ou objeção.',
+        detail: 'Este alerta é disparado quando o número de recusas ultrapassa 1,5× o total de contratos fechados e há mais de 5 recusas no período. Para cada proposta aceita, mais de uma e meia está sendo rejeitada — uma taxa que compromete a saúde comercial. Possíveis causas: precificação acima da expectativa do mercado, proposta pouco convincente ou ausência de follow-up. Recomendação: revise os motivos de recusa cadastrados na aba Funil e identifique padrões recorrentes.'
       });
     } else if (statsA.receita > 0 && statsP.receita > 0 && statsA.receita < statsP.receita * 0.5) {
       alertas.push({
         id: 'queda-receita',
         type: 'warning',
-        msg: 'Aviso Temporal: Faturamento do per\u00edodo atual est\u00e1 despencando comparado ao espelho passado.',
-        detail: 'Este alerta aparece quando a receita apurada no per\u00edodo atual \u00e9 inferior a 50% da receita do per\u00edodo anterior equivalente. Isso sugere uma queda expressiva no volume de fechamentos ou no ticket m\u00e9dio. Verifique se houve redu\u00e7\u00e3o no volume de entradas, aumento na taxa de perda ou mudan\u00e7a no perfil de clientes atendidos neste ciclo.'
+        msg: 'Aviso Temporal: Faturamento do período atual está despencando comparado ao espelho passado.',
+        detail: 'Este alerta aparece quando a receita apurada no período atual é inferior a 50% da receita do período anterior equivalente. Isso sugere uma queda expressiva no volume de fechamentos ou no ticket médio. Verifique se houve redução no volume de entradas, aumento na taxa de perda ou mudança no perfil de clientes atendidos neste ciclo.'
       });
     }
 
@@ -372,6 +374,37 @@ const Relatorios = () => {
     return funil;
   }, [orcamentosFiltradosGlobalmente, startDate, endDate]);
 
+  // Export Handlers
+  const handleExport = (format: 'xlxs' | 'csv' | 'pdf') => {
+    const payload: DadosExportacao = {
+      periodo: periodoGlobal,
+      resumo: {
+        totalOrcamentos: totalPeriodo,
+        receitaFechada: receitaFechada,
+        ticketMedio: ticketMedioReal,
+        taxaConversao: pipelineStats.pipelineTotal > 0 ? ((pipelineStats.ganhos.valor / pipelineStats.pipelineTotal) * 100).toFixed(1) + "%" : "0%"
+      },
+      clientes: clientPerformance.map(c => ({
+        nome: c.nome,
+        pedidosFechados: c.pedidosGanhos,
+        receitaGerada: c.receitaGanha,
+        ultimaAtividade: new Date()
+      })),
+      pipeline: filteredOrcamentos.map(orc => ({
+        id: orc.id,
+        cliente: orc.cliente?.nome || 'Desconhecido',
+        descricao: orc.descricao || '',
+        status: orc.status,
+        valor: orc.valor,
+        dataRecebido: orc.dataRecebido,
+        dataFechamento: orc.dataFechamento || ''
+      }))
+    };
+
+    if (format === 'xlxs') exportarExcel(payload);
+    if (format === 'csv') exportarCSV(payload);
+    if (format === 'pdf') exportarPDF(payload);
+  };
 
   if (isLoading) {
     return (
@@ -400,10 +433,8 @@ const Relatorios = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
 
           {/* Seletor Global de Tempo */}
-          <div className="flex items-center gap-2 bg-background border rounded-md px-3 h-10 shrink-0">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+          <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm">
             <select
-              className="bg-transparent text-sm outline-none text-foreground w-[160px] cursor-pointer"
               value={periodoGlobal}
               onChange={(e) => {
                 setPeriodoGlobal(e.target.value);
@@ -411,26 +442,38 @@ const Relatorios = () => {
                   setDateFrom(''); setDateTo('');
                 }
               }}
+              className="bg-transparent text-sm font-medium pr-8 pl-3 py-2 outline-none cursor-pointer hover:bg-muted/50 rounded-md transition-colors"
+              title="Período"
             >
-              <option value="todos">Todo o Período</option>
-              <option value="mes_atual">Mês Atual</option>
+              <option value="mes_atual">Este Mês</option>
               <option value="ultimos_3_meses">Últimos 3 Meses</option>
               <option value="ultimos_6_meses">Últimos 6 Meses</option>
+              <option value="todos">Todos os Orçamentos</option>
               <option value="custom">Data Customizada</option>
             </select>
           </div>
 
-          <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md h-10 hover:opacity-90 transition-opacity">
-            <Download className="w-4 h-4" /> Exportar Relatório
-          </button>
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="hidden sm:flex items-center justify-center border border-border bg-card hover:bg-muted/50 px-4 gap-2 text-sm font-medium rounded-lg shadow-sm transition-colors cursor-pointer h-10">
+                <Download className="w-4 h-4" /> Exportar Relatório
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleExport('csv')} className="cursor-pointer">Exportar como CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('xlxs')} className="cursor-pointer">Exportar Excel (XLSX)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('pdf')} className="cursor-pointer">Exportar como PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <Tabs defaultValue="geral" className="w-full">
         <TabsList className="grid grid-cols-1 md:grid-cols-3 w-full max-w-[700px] mb-6 border bg-card">
           <TabsTrigger value="geral" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><BarChart3 className="w-4 h-4" /> Base de Orçamentos</TabsTrigger>
-          <TabsTrigger value="ltv" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><Users className="w-4 h-4" /> Desempenho de Clientes</TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><TrendingUp className="w-4 h-4" /> Funil & Pipeline</TabsTrigger>
+          <TabsTrigger value="ltv" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><Users className="w-4 h-4" /> Desempenho de clientes</TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><TrendingUp className="w-4 h-4" /> Funil de vendas</TabsTrigger>
         </TabsList>
 
         {/* ======================= ABA 1: BASE GERAL ======================= */}
@@ -442,7 +485,7 @@ const Relatorios = () => {
                 <Alert key={a.id} variant={a.type as "default" | "destructive" | null | undefined} className="bg-background/80 backdrop-blur-sm shadow-sm py-3">
                   <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                   <div className="flex-1 ml-1">
-                    <AlertTitle className="text-sm font-semibold mb-0.5">Insight Automatizado</AlertTitle>
+                    <AlertTitle className="text-sm font-semibold mb-0.5">Insight automatizado</AlertTitle>
                     <AlertDescription className="text-xs opacity-90">{a.msg}</AlertDescription>
                     <button
                       onClick={() => setAlertExpandido(alertExpandido === a.id ? null : a.id)}
@@ -485,7 +528,7 @@ const Relatorios = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Card 1 */}
             <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Volume Geral</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Volume geral</h4>
               <div className="flex-1 flex flex-col justify-center">
                 <p className="text-5xl font-medium text-foreground leading-none mb-2">{totalPeriodo}</p>
                 <p className="text-xs font-semibold text-muted-foreground">oportunidades</p>
@@ -513,7 +556,7 @@ const Relatorios = () => {
 
             {/* Card 3 */}
             <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Receita Fechada</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Receita fechada</h4>
               <div className="flex-1 flex flex-col justify-center">
                 <p className="text-5xl font-medium text-primary leading-none mb-2">{filteredContratados}</p>
                 <p className="text-xs font-semibold text-muted-foreground">{currencyFormatter.format(receitaFechada)}</p>
@@ -527,7 +570,7 @@ const Relatorios = () => {
 
             {/* Card 4 */}
             <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Ticket Médio</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Ticket médio</h4>
               <div className="flex-1 flex flex-col justify-center mt-2">
                 <p className="text-[26px] font-medium text-primary leading-none mb-2 truncate" title={currencyFormatter.format(ticketMedioReal)}>
                   {currencyFormatter.format(ticketMedioReal)}
@@ -578,7 +621,7 @@ const Relatorios = () => {
                 >
                   <option value="todos">Todos os Status</option>
                   <option value="pendente">Pendente</option>
-                  <option value="enviado">Em Negociação</option>
+                  <option value="enviado">Em negociação</option>
                   <option value="contratado">Contratado</option>
                   <option value="recusado">Recusado</option>
                 </select>
@@ -669,7 +712,7 @@ const Relatorios = () => {
         <TabsContent value="ltv" className="space-y-6 animate-in fade-in-50">
           <div className="bg-card p-6 rounded-xl border border-border/50 mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-sm">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">Melhores Clientes</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Melhores clientes</h3>
               <p className="text-sm text-muted-foreground">O <i>Customer Lifetime Value</i> mostra quais clientes investiram na sua empresa ao longo do tempo.</p>
             </div>
             <div className="relative w-full sm:w-72">
@@ -794,7 +837,7 @@ const Relatorios = () => {
             </div>
 
             <div className="bg-blue-500/5 border border-blue-500/20 p-5 rounded-xl text-center shadow-sm" title="Propostas ativamente em negociação com clientes">
-              <h4 className="text-blue-500 font-semibold text-sm mb-2 uppercase tracking-wide">Em Negociação</h4>
+              <h4 className="text-blue-500 font-semibold text-sm mb-2 uppercase tracking-wide">Em negociação</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.emNegociacao.valor)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {pipelineStats.emNegociacao.qtd} aguardando resposta
@@ -809,20 +852,20 @@ const Relatorios = () => {
             </div>
 
             <div className="bg-success/5 border border-success/20 p-5 rounded-xl text-center shadow-sm" title="Orçamentos efetivamente ganhos e contratados">
-              <h4 className="text-success font-semibold text-sm mb-2 uppercase tracking-wide">Valor Fechado</h4>
+              <h4 className="text-success font-semibold text-sm mb-2 uppercase tracking-wide">Valor fechado</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.ganhos.valor)}</p>
               <p className="text-xs text-muted-foreground mt-1 text-success font-medium">Você fechou {pipelineStats.ganhos.qtd} negócios</p>
             </div>
 
             <div className="bg-destructive/5 border border-destructive/20 p-5 rounded-xl text-center shadow-sm" title="Orçamentos que os clientes não aprovaram">
-              <h4 className="text-destructive font-semibold text-sm mb-2 uppercase tracking-wide">Valor Perdido</h4>
+              <h4 className="text-destructive font-semibold text-sm mb-2 uppercase tracking-wide">Valor perdido</h4>
               <p className="text-2xl font-bold text-foreground">{currencyFormatter.format(pipelineStats.perdidos.valor)}</p>
               <p className="text-xs text-muted-foreground mt-1">{pipelineStats.perdidos.qtd} recusados definitivamente</p>
             </div>
           </div>
 
           <div className="mt-8 rounded-xl border border-border p-6 bg-card">
-            <h3 className="text-sm font-semibold mb-6 uppercase text-muted-foreground tracking-wide">Termômetro do Funil R$</h3>
+            <h3 className="text-sm font-semibold mb-6 uppercase text-muted-foreground tracking-wide">Termômetro do funil R$</h3>
             <div className="w-full h-8 rounded-full overflow-hidden flex bg-muted/30 border border-border shadow-inner">
               <div className="bg-warning/80 h-full transition-all group relative cursor-pointer" style={{ width: `${(pipelineStats.pendentes.valor / Math.max(pipelineStats.pipelineTotal + pipelineStats.ganhos.valor + pipelineStats.perdidos.valor, 1)) * 100}%` }}></div>
               <div className="bg-blue-500 h-full transition-all group relative cursor-pointer" style={{ width: `${(pipelineStats.emNegociacao.valor / Math.max(pipelineStats.pipelineTotal + pipelineStats.ganhos.valor + pipelineStats.perdidos.valor, 1)) * 100}%` }}></div>
@@ -831,7 +874,7 @@ const Relatorios = () => {
             </div>
             <div className="flex flex-wrap items-center mt-3 gap-4 text-[11px] font-medium text-muted-foreground justify-center">
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-warning/80"></div> Pendente</span>
-              <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> Em Negociação</span>
+              <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> Em negociação</span>
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-success"></div> Ganho</span>
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-destructive/60"></div> Recusado</span>
             </div>
