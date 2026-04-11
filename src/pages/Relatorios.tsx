@@ -185,8 +185,9 @@ const Relatorios = () => {
 
   // Helper de cálculo Delta
   const calcDelta = (atual: number, passado: number, invertaBomERuim: boolean = false) => {
-    if (passado === 0 && atual === 0) return { pct: 0, text: '0%', trend: 'neutral', icon: Minus };
-    if (passado === 0) return { pct: 100, text: '+100%', trend: invertaBomERuim ? 'bad' : 'good', icon: ArrowUpRight };
+    // Retorna "Sem dados" em caso de ausência de informações no período anterior para evitar a exibição "travada" em 100% (Infinito Matemático).
+    if (passado === 0 && atual === 0) return { pct: 0, text: '0%', trend: 'neutral', icon: Minus, isNull: false };
+    if (passado === 0) return { pct: null, text: '', trend: 'neutral', icon: Minus, isNull: true };
 
     const diff = ((atual - passado) / passado) * 100;
     let trend = 'neutral';
@@ -195,7 +196,7 @@ const Relatorios = () => {
 
     const Icon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : Minus;
     const prefix = diff > 0 ? '+' : '';
-    return { pct: diff, text: `${prefix}${diff.toFixed(1)}%`, trend, icon: Icon };
+    return { pct: diff, text: `${prefix}${diff.toFixed(1)}%`, trend, icon: Icon, isNull: false };
   };
 
   // Aba 1: Filtros finos baseados na lista Global
@@ -534,10 +535,12 @@ const Relatorios = () => {
                 <p className="text-xs font-semibold text-muted-foreground">oportunidades</p>
               </div>
               <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
-              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaVolume.trend === 'good' ? 'text-success' : deltaVolume.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <deltaVolume.icon className="w-3 h-3 mr-1 shrink-0" />
-                {deltaVolume.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
-              </p>
+              {!deltaVolume.isNull && (
+                <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaVolume.trend === 'good' ? 'text-success' : deltaVolume.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <deltaVolume.icon className="w-3 h-3 mr-1 shrink-0" />
+                  {deltaVolume.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+                </p>
+              )}
             </div>
 
             {/* Card 2 */}
@@ -548,10 +551,12 @@ const Relatorios = () => {
                 <p className="text-xs font-semibold text-muted-foreground">{filteredContratados} fechados</p>
               </div>
               <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
-              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaConversao.trend === 'good' ? 'text-success' : deltaConversao.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <deltaConversao.icon className="w-3 h-3 mr-1 shrink-0" />
-                {deltaConversao.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
-              </p>
+              {!deltaConversao.isNull && (
+                <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaConversao.trend === 'good' ? 'text-success' : deltaConversao.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <deltaConversao.icon className="w-3 h-3 mr-1 shrink-0" />
+                  {deltaConversao.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+                </p>
+              )}
             </div>
 
             {/* Card 3 */}
@@ -562,10 +567,12 @@ const Relatorios = () => {
                 <p className="text-xs font-semibold text-muted-foreground">{currencyFormatter.format(receitaFechada)}</p>
               </div>
               <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
-              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaReceita.trend === 'good' ? 'text-success' : deltaReceita.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <deltaReceita.icon className="w-3 h-3 mr-1 shrink-0" />
-                {deltaReceita.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
-              </p>
+              {!deltaReceita.isNull && (
+                <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaReceita.trend === 'good' ? 'text-success' : deltaReceita.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <deltaReceita.icon className="w-3 h-3 mr-1 shrink-0" />
+                  {deltaReceita.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+                </p>
+              )}
             </div>
 
             {/* Card 4 */}
@@ -578,10 +585,12 @@ const Relatorios = () => {
                 <p className="text-xs font-semibold text-muted-foreground">por contrato fechado</p>
               </div>
               <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
-              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaTicket.trend === 'good' ? 'text-success' : deltaTicket.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <deltaTicket.icon className="w-3 h-3 mr-1 shrink-0" />
-                {deltaTicket.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
-              </p>
+              {!deltaTicket.isNull && (
+                <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaTicket.trend === 'good' ? 'text-success' : deltaTicket.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <deltaTicket.icon className="w-3 h-3 mr-1 shrink-0" />
+                  {deltaTicket.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+                </p>
+              )}
             </div>
 
             {/* Card 5 */}
@@ -589,13 +598,15 @@ const Relatorios = () => {
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Vida Útil</h4>
               <div className="flex-1 flex flex-col justify-center">
                 <p className="text-5xl font-medium text-foreground leading-none mb-2">{cicloAprovacaoMedio}</p>
-                <p className="text-xs font-semibold text-muted-foreground">dias de aprovação</p>
+                <p className="text-xs font-semibold text-muted-foreground">dias até a contratação</p>
               </div>
               <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
-              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaCiclo.trend === 'good' ? 'text-success' : deltaCiclo.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <deltaCiclo.icon className="w-3 h-3 mr-1 shrink-0" />
-                {deltaCiclo.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
-              </p>
+              {!deltaCiclo.isNull && (
+                <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaCiclo.trend === 'good' ? 'text-success' : deltaCiclo.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <deltaCiclo.icon className="w-3 h-3 mr-1 shrink-0" />
+                  {deltaCiclo.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -917,7 +928,7 @@ const Relatorios = () => {
             </div>
             {pipelineStats.pendentes.qtd + pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd > 0 && (
               <p className="text-center text-xs text-muted-foreground mt-4">
-                Retenção Total de Ponta-a-Ponta: <span className="font-bold text-foreground">
+                Conversão em orçamentos contratados: <span className="font-bold text-foreground">
                   {((pipelineStats.ganhos.qtd / (pipelineStats.pendentes.qtd + pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd)) * 100).toFixed(1)}%
                 </span>
               </p>

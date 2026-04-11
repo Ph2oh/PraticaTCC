@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
@@ -39,12 +39,14 @@ const AppSidebar = () => {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center justify-center py-6 border-b border-sidebar-border min-h-[90px] px-4">
-        {collapsed ? (
-          <img src={LogoIcon} alt="SGO Logo" className="w-10 h-10 shrink-0" />
-        ) : (
-          <img src={LogoText} alt="SGO Gerenciamento de Orçamentos" className="w-48 h-auto max-h-16 object-contain" />
-        )}
+      <div className="flex items-center justify-center py-6 border-b border-sidebar-border min-h-[90px] px-4 transition-transform hover:scale-105 active:scale-95 duration-200">
+        <Link to="/">
+          {collapsed ? (
+            <img src={LogoIcon} alt="SGO Logo" className="w-10 h-10 shrink-0" />
+          ) : (
+            <img src={LogoText} alt="SGO Gerenciamento de Orçamentos" className="w-48 h-auto max-h-16 object-contain" />
+          )}
+        </Link>
       </div>
 
       {/* Nav */}

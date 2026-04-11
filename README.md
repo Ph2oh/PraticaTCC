@@ -385,3 +385,10 @@ O script de build já inclui `prisma db push` automaticamente. Para forçar manu
 npx prisma db push --accept-data-loss
 npx prisma generate
 ```
+
+---
+
+## Histórico de Atualizações (Changelog)
+
+- **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 leads, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
+- **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.

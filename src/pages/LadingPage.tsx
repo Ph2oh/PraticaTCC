@@ -8,6 +8,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import logoSgo from '@/assets/sgo_logo_crescimento_com_texto.svg';
 import logoSgoDark from '@/assets/sgo_logo_crescimento_darkmode.svg';
 
@@ -1140,7 +1141,14 @@ const globalStyles = `
 // ---------------------------------------------------------------------------
 export function LandingPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
