@@ -48,9 +48,10 @@ export const Register: React.FC = () => {
             // Ativa o Onboarding Tour apenas para esta sessão (novo usuário)
             localStorage.setItem('sgo_is_new_user', 'true');
 
-            // Login automático e redireciona
+            // Login automatico e redireciona para o painel
+            // Alteracao: redireciona para /dashboard pois '/' agora e a landing page publica
             login(data.token, data.usuario);
-            navigate('/');
+            navigate('/dashboard');
         } catch (error: any) {
             toast.error(error.message);
         } finally {

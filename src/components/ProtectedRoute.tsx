@@ -1,5 +1,6 @@
-// Alteração Estrutural: Componente responsável por proteger as rotas.
-// Se o usuário não tiver um token válido, ele será redirecionado para /login.
+// Alteracao Estrutural: Componente responsavel por proteger as rotas.
+// Se o usuario nao tiver um token valido, ele sera redirecionado para a landing page ('/').
+// A landing page serve como porta de entrada publica, com links para /login e /register.
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,8 +10,9 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     const location = useLocation();
 
     if (!isAuthenticated) {
-        // Redireciona para o login e salva a rota que o usuário tentou acessar
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        // Alteracao: Redireciona para '/' (landing page) em vez de '/login',
+        // pois a landing page e a porta de entrada correta para usuarios nao autenticados.
+        return <Navigate to="/" state={{ from: location }} replace />;
     }
 
     return <>{children}</>;

@@ -133,40 +133,68 @@ Todo orçamento possui um histórico de eventos imutável (append-only). Os segu
 ```text
 PraticaTCC/
 ├── server/
-│   └── index.ts              ← API REST Express (porta 3001)
+│   └── index.ts              <- API REST Express (porta 3001)
 ├── src/
-│   ├── api/                  ← Funções de fetch HTTP
+│   ├── api/                  <- Funcoes de fetch HTTP
 │   │   ├── orcamentos.ts
 │   │   └── clientes.ts
-│   ├── components/           ← Componentes reutilizáveis
-│   │   ├── KanbanBoard.tsx   ← Visualização em colunas de status com drag-and-drop
-│   │   ├── DetalhesDrawer.tsx ← Painel lateral de detalhes do orçamento
-│   │   ├── MotivoRecusaDialog.tsx ← Dialog de seleção de motivo ao recusar
-│   │   ├── NovoOrcamentoDialog.tsx ← Formulário de criação de orçamento
-│   │   ├── StatusBadge.tsx   ← Badge visual de status
-│   │   └── EmptyState.tsx    ← Componente de estado vazio
+│   ├── components/           <- Componentes reutilizaveis
+│   │   ├── KanbanBoard.tsx   <- Visualizacao em colunas de status com drag-and-drop
+│   │   ├── DetalhesDrawer.tsx <- Painel lateral de detalhes do orcamento
+│   │   ├── MotivoRecusaDialog.tsx <- Dialog de selecao de motivo ao recusar
+│   │   ├── NovoOrcamentoDialog.tsx <- Formulario de criacao de orcamento
+│   │   ├── StatusBadge.tsx   <- Badge visual de status
+│   │   ├── ProtectedRoute.tsx <- Guard de autenticacao (redireciona para '/' se nao autenticado)
+│   │   └── EmptyState.tsx    <- Componente de estado vazio
 │   ├── contexts/
-│   │   └── AuthContext.tsx   ← Contexto de autenticação JWT
-│   ├── hooks/                ← Custom hooks (React Query)
+│   │   └── AuthContext.tsx   <- Contexto de autenticacao JWT
+│   ├── hooks/                <- Custom hooks (React Query)
 │   │   ├── useOrcamentos.ts
 │   │   ├── useClientes.ts
 │   │   └── useConfig.ts
+│   ├── lib/
+│   │   └── exportUtils.ts    <- Motor de exportacao (CSV, Excel XLSX e PDF)
 │   ├── pages/
-│   │   ├── Dashboard.tsx     ← KPIs, gráficos e análises
-│   │   ├── Orcamentos.tsx    ← Listagem, Kanban e gestão de orçamentos
-│   │   ├── Clientes.tsx      ← Listagem de clientes
-│   │   ├── Configuracoes.tsx ← Metas, templates e preferências
-│   │   └── WhatsApp.tsx      ← Painel da integração (apenas Admin)
-│   ├── types.ts              ← Interfaces TypeScript globais
-│   └── index.css             ← Tokens de design e variáveis de tema
+│   │   ├── LadingPage.tsx    <- Landing page publica (ponto de entrada '/')
+│   │   ├── Dashboard.tsx     <- KPIs, graficos e analises (/dashboard)
+│   │   ├── Orcamentos.tsx    <- Listagem, Kanban e gestao de orcamentos
+│   │   ├── Clientes.tsx      <- Listagem de clientes
+│   │   ├── Configuracoes.tsx <- Metas, templates e preferencias
+│   │   ├── Relatorios.tsx    <- Deep Analytics com exportacao
+│   │   ├── Login.tsx         <- Pagina de login (/login)
+│   │   └── Register.tsx      <- Pagina de registro (/register)
+│   ├── types.ts              <- Interfaces TypeScript globais
+│   └── index.css             <- Tokens de design e variaveis de tema
 ├── prisma/
-│   ├── schema.prisma         ← Modelo de dados relacional
-│   ├── migrations/           ← Histórico de migrações SQL
-│   └── seed.ts               ← Dados iniciais e usuário admin
+│   ├── schema.prisma         <- Modelo de dados relacional
+│   ├── migrations/           <- Historico de migracoes SQL
+│   └── seed.ts               <- Dados iniciais e usuario admin
 └── package.json
 ```
 
 ---
+
+## Estrutura de Rotas
+
+O roteamento da aplicacao e dividido entre rotas publicas (acessiveis sem autenticacao) e rotas protegidas (exigem token JWT valido).
+
+| Rota | Tipo | Componente | Descricao |
+|:---|:---|:---|:---|
+| `/` | Publica | `LadingPage.tsx` | Landing page comercial para novos usuários (design inspirado em CRMs modernos) |
+| `/login` | Publica | `Login.tsx` | Formulario de autenticacao |
+| `/register` | Publica | `Register.tsx` | Formulario de criacao de conta |
+| `/dashboard` | Protegida | `Dashboard.tsx` | Painel principal com KPIs e graficos |
+| `/orcamentos` | Protegida | `Orcamentos.tsx` | Gestao do funil de orcamentos |
+| `/clientes` | Protegida | `Clientes.tsx` | Carteira de clientes com LTV |
+| `/relatorios` | Protegida | `Relatorios.tsx` | Deep Analytics com exportacao |
+| `/configuracoes` | Protegida | `Configuracoes.tsx` | Metas, temas e templates |
+
+**Fluxo de autenticacao:**
+1. Usuario nao autenticado acessa qualquer URL protegida -> redirecionado para `/`
+2. Usuario clica em "Login" na landing page -> vai para `/login`
+3. Apos login bem-sucedido -> redirecionado para `/dashboard`
+4. Ao fazer logout -> redirecionado para `/` (landing page)
+
 
 ## Modelo de Dados
 

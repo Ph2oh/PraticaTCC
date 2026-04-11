@@ -103,11 +103,18 @@ const Dashboard = () => {
     const volumeDecididoPassado = totalFechadosPassado + totalRecusadosPassado;
     const taxaPassada = volumeDecididoPassado > 0 ? (totalFechadosPassado / volumeDecididoPassado) * 100 : 0;
 
-    const diff = taxaAtual - taxaPassada;
+    let diffRelativa: number | null = 0;
+    if (taxaPassada > 0) {
+      diffRelativa = ((taxaAtual - taxaPassada) / taxaPassada) * 100;
+    } else if (taxaAtual > 0) {
+      diffRelativa = null; // Infinito matematicamente
+    }
+
     // O valor a ser mostrado é a taxa atual, progress against META_CONVERSAO
     const isAboveObjective = taxaAtual >= META_CONVERSAO;
+    const progressoMeta = META_CONVERSAO > 0 ? (taxaAtual / META_CONVERSAO) * 100 : 0;
 
-    return { taxaAtual, diff, isAboveObjective };
+    return { taxaAtual, diffRelativa, isAboveObjective, progressoMeta };
   }, [fechamentosMesAtual, recusasMesAtual, fechamentosMesPassado, recusasMesPassado, META_CONVERSAO]);
 
   // CARD 2: Receita Contratada (Mês Atual - Fechamentos)
@@ -115,14 +122,14 @@ const Dashboard = () => {
     const valorAtual = fechamentosMesAtual.reduce((acc, o) => acc + o.valor, 0);
     const valorPassado = fechamentosMesPassado.reduce((acc, o) => acc + o.valor, 0);
 
-    let diffPct = 0;
+    let diffPct: number | null = 0;
     if (valorPassado > 0) {
       diffPct = ((valorAtual - valorPassado) / valorPassado) * 100;
     } else if (valorAtual > 0) {
-      diffPct = 100;
+      diffPct = null; // Infinito matematicamente
     }
 
-    const progressoMeta = Math.min((valorAtual / META_RECEITA) * 100, 100);
+    const progressoMeta = META_RECEITA > 0 ? (valorAtual / META_RECEITA) * 100 : 0;
 
     return { valorAtual, diffPct, progressoMeta };
   }, [fechamentosMesAtual, fechamentosMesPassado, META_RECEITA]);
@@ -351,11 +358,20 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="mt-4 relative z-10 space-y-2">
-            <Progress value={(conversao.taxaAtual / META_CONVERSAO) * 100} className={cn("h-1.5", conversao.isAboveObjective && "[&>div]:bg-emerald-500")} />
+            <Progress value={Math.min(conversao.progressoMeta, 100)} className={cn("h-1.5", conversao.isAboveObjective && "[&>div]:bg-emerald-500")} />
             <p className="text-xs font-medium text-muted-foreground">
-              <span className={cn(conversao.diff >= 0 ? "text-emerald-500" : "text-red-500")}>
-                {conversao.diff >= 0 ? "+" : ""}{conversao.diff.toFixed(1)}%
-              </span> vs mês anterior
+              {conversao.diffRelativa === null ? (
+                <span className="text-emerald-500">Sem dados do mês anterior</span>
+              ) : conversao.diffRelativa === 0 ? (
+                "Igual ao mês anterior"
+              ) : (
+                <>
+                  <span className={cn(conversao.diffRelativa > 0 ? "text-emerald-500" : "text-red-500")}>
+                    {Math.abs(conversao.diffRelativa).toFixed(1)}%
+                  </span>{" "}
+                  {conversao.diffRelativa > 0 ? "acima" : "abaixo"} do mês anterior
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -373,14 +389,23 @@ const Dashboard = () => {
           </div>
           <div className="mt-4 relative z-10 space-y-2">
             <div className="flex justify-between items-center text-[10px] uppercase font-bold text-muted-foreground">
-              <span>Progresso ({receita.progressoMeta.toFixed(0)}%)</span>
+              <span>Progresso ({isNaN(receita.progressoMeta) ? 0 : receita.progressoMeta.toFixed(0)}%)</span>
               <span>Meta: {formatterSemDecimais.format(META_RECEITA)}</span>
             </div>
-            <Progress value={receita.progressoMeta} className="h-1.5" />
+            <Progress value={Math.min(isNaN(receita.progressoMeta) ? 0 : receita.progressoMeta, 100)} className="h-1.5" />
             <p className="text-[11px] font-medium text-muted-foreground pt-1">
-              <span className={cn(receita.diffPct >= 0 ? "text-emerald-500" : "text-red-500")}>
-                {receita.diffPct >= 0 ? "+" : ""}{receita.diffPct.toFixed(1)}%
-              </span> vs mês anterior
+              {receita.diffPct === null ? (
+                <span className="text-emerald-500">Sem dados do mês anterior</span>
+              ) : receita.diffPct === 0 ? (
+                "Igual ao mês anterior"
+              ) : (
+                <>
+                  <span className={cn(receita.diffPct > 0 ? "text-emerald-500" : "text-red-500")}>
+                    {Math.abs(receita.diffPct).toFixed(1)}%
+                  </span>{" "}
+                  {receita.diffPct > 0 ? "acima" : "abaixo"} do mês anterior
+                </>
+              )}
             </p>
           </div>
         </div>

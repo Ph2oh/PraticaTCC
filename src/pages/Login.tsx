@@ -37,7 +37,8 @@ export const Login: React.FC = () => {
 
             login(data.token, data.usuario);
             toast.success('Login realizado com sucesso!');
-            navigate('/');
+            // Alteracao: redireciona para /dashboard pois '/' agora e a landing page publica
+            navigate('/dashboard');
         } catch (error: any) {
             toast.error(error.message);
         } finally {

@@ -16,6 +16,9 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+// Alteracao Estrutural: Importacao da LandingPage adicionada para servir como
+// ponto de entrada publico da aplicacao para usuarios nao autenticados.
+import LandingPage from "./pages/LadingPage";
 
 const queryClient = new QueryClient();
 
@@ -29,11 +32,14 @@ const App = () => (
           <WhatsAppRequestsProvider>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <Routes>
+                {/* Rotas publicas - acessiveis sem autenticacao */}
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
+                {/* Rotas protegidas - requerem autenticacao */}
                 <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/orcamentos" element={<Orcamentos />} />
                   <Route path="/clientes" element={<Clientes />} />
                   <Route path="/relatorios" element={<Relatorios />} />

@@ -17,7 +17,8 @@ import LogoIcon from "@/assets/sgo_logo_crescimento_v2.svg";
 import LogoText from "@/assets/sgo_logo_crescimento_com_texto.svg";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  // Alteracao: rota do Dashboard atualizada de '/' para '/dashboard' (landing publica agora ocupa '/')
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/orcamentos", icon: FileText, label: "Orçamentos" },
   { to: "/clientes", icon: Users, label: "Clientes" },
   { to: "/relatorios", icon: BarChart3, label: "Relatórios" },

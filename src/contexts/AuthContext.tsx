@@ -69,7 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setToken(null);
                     setUsuario(null);
                     queryClient.clear();
-                    window.location.href = "/login"; // Força ir pro login, limpando refs de memória
+                    // Alteracao: redireciona para '/' (landing page) em vez de '/login'
+                    // pois a landing page e agora a porta de entrada para usuarios nao autenticados.
+                    window.location.href = "/"; // Forca ir para a landing, limpando refs de memoria
                 } else {
                     // Outra aba fez login. Ponto de Cuidado Crítico (Vazamento Multi-Tenant)
                     // Nós não podemos apenas dar setToken(). Os Hooks Query continuarão com refetch ativo
