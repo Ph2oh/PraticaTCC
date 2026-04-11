@@ -27,6 +27,8 @@ interface KanbanBoardProps {
     // Estendido: aceita motivoRecusa como terceiro argumento opcional quando newStatus='recusado'
     onStatusChange?: (orcamentoId: string, newStatus: Status, motivoRecusa?: string) => void;
     highlightedId?: string | null;
+    // Conjunto de IDs para destaque múltiplo — usado pelo banner de orçamentos antigos
+    highlightedIds?: Set<string>;
 }
 
 const STATUS_COLUMNS: { id: Status; label: string; colorClass: string; textColor: string }[] = [
@@ -50,7 +52,7 @@ const STATUS_AVATAR_COLORS: Record<Status, string> = {
     recusado: "bg-destructive/10 text-destructive",
 };
 
-export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, highlightedId }: KanbanBoardProps) => {
+export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, highlightedId, highlightedIds }: KanbanBoardProps) => {
     const { toast } = useToast();
     const deleteMutation = useDeleteOrcamento();
 
@@ -315,6 +317,8 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
                                                                     ? "shadow-[0_20px_40px_rgba(0,0,0,0.12)] scale-[1.03] rotate-1 ring-2 ring-primary/20 z-50 opacity-95 bg-card/90"
                                                                     : highlightedId === orc.id
                                                                     ? "ring-2 ring-primary bg-primary/20 animate-pulse shadow-lg"
+                                                                    : highlightedIds?.has(orc.id)
+                                                                    ? "ring-2 ring-amber-500 bg-amber-500/15 animate-pulse shadow-lg"
                                                                     : `shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${STATUS_CARD_COLORS[orc.status]}`
                                                                     }`}
                                                             >
@@ -360,11 +364,21 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
                                                                             <span className="font-semibold text-foreground text-[16px] tracking-tight">
                                                                                 {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                                                             </span>
-                                                                            <div className="flex items-center gap-1.5 opacity-60">
-                                                                                <Clock className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-                                                                                <span className="text-[11px] font-medium tracking-tight text-muted-foreground group-hover:text-foreground transition-colors">
-                                                                                    {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
-                                                                                </span>
+                                                                            {/* Datas: criação (Calendar) e última atualização (Clock) exibidas lado a lado */}
+                                                                            <div className="flex items-center gap-2 opacity-60">
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <Calendar className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
+                                                                                    <span className="text-[10px] font-medium text-muted-foreground">
+                                                                                        {new Date(orc.dataRecebido).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <span className="text-muted-foreground/40 text-[10px]">•</span>
+                                                                                <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
+                                                                                    <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                                                                                    <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                                                                                        {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                                    </span>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>

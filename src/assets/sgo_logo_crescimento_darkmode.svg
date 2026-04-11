@@ -1,0 +1,25 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Versão Dark Mode: fundo mais claro -->
+  <defs>
+    <linearGradient id="blueGradientDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E3A8A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <circle cx="32" cy="32" r="30" fill="url(#blueGradientDark)"/>
+  
+  <!-- Três barras de crescimento -->
+  <rect x="18" y="40" width="7" height="12" rx="1.5" fill="white" opacity="0.9"/>
+  <rect x="28" y="32" width="7" height="20" rx="1.5" fill="white"/>
+  <rect x="38" y="24" width="7" height="28" rx="1.5" fill="white" opacity="1"/>
+  
+  <!-- Linha de tendência em verde mais vibrante -->
+  <path d="M 21.5 39 Q 31.5 27 44.5 22" stroke="#34D399" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Ponto na linha -->
+  <circle cx="44.5" cy="22" r="2.5" fill="#34D399"/>
+  
+  <!-- Ponto de partida -->
+  <circle cx="21.5" cy="39" r="1.5" fill="white" opacity="0.7"/>
+</svg>

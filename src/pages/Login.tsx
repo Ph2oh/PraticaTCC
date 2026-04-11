@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import LogoText from "@/assets/sgo_logo_crescimento_com_texto.svg";
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -48,9 +49,12 @@ export const Login: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-sm">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">SGO Admin</CardTitle>
+                    <div className="flex justify-center mb-4">
+                        <img src={LogoText} alt="SGO - Sistema de Gestão" className="h-14" />
+                    </div>
+                    <CardTitle className="text-xl font-bold text-center mt-2">Acesso ao Painel</CardTitle>
                     <CardDescription className="text-center">
-                        Insira suas credenciais para acessar o painel
+                        Insira suas credenciais para acessar
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

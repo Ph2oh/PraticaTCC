@@ -258,32 +258,32 @@ const Configuracoes = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
                 <div className="space-y-2">
                   <Label>Meta de Receita Mensal (R$)</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="20000" 
-                    value={metaReceita} 
-                    onChange={(e) => setMetaReceita(Number(e.target.value))} 
+                  <Input
+                    type="number"
+                    placeholder="20000"
+                    value={metaReceita}
+                    onChange={(e) => setMetaReceita(Number(e.target.value))}
                   />
                   <p className="text-[11px] text-muted-foreground">Valor em reais (ex: 20000 para R$ 20.000).</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Meta de Conversão (%)</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="45" 
-                    value={metaConversao} 
-                    onChange={(e) => setMetaConversao(Number(e.target.value))} 
+                  <Input
+                    type="number"
+                    placeholder="45"
+                    value={metaConversao}
+                    onChange={(e) => setMetaConversao(Number(e.target.value))}
                   />
                   <p className="text-[11px] text-muted-foreground">Porcentagem (ex: 45 para 45%).</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Meta de Contratos por Semana</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="3" 
+                  <Input
+                    type="number"
+                    placeholder="3"
                     min={1}
-                    value={metaContratosSemana} 
-                    onChange={(e) => setMetaContratosSemana(Number(e.target.value))} 
+                    value={metaContratosSemana}
+                    onChange={(e) => setMetaContratosSemana(Number(e.target.value))}
                   />
                   <p className="text-[11px] text-muted-foreground">Número inteiro (ex: 3 contratos/semana). Usada como linha de referência no gráfico semanal do Dashboard.</p>
                 </div>

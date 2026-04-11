@@ -7,8 +7,10 @@ import { useClientes } from "@/hooks/useClientes";
 import StatusBadge, { type Status } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { startOfMonth, subMonths, endOfDay, isAfter, isBefore } from "date-fns";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { startOfMonth, subMonths, endOfDay, subDays } from "date-fns";
+import { ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, MousePointerClick, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -35,8 +37,10 @@ const Relatorios = () => {
   // Filtro Global de Período
   const [periodoGlobal, setPeriodoGlobal] = useState("todos"); // 'mes_atual', 'ultimos_3_meses', 'ultimos_6_meses', 'todos'
 
-  // Filtros Globais Adicionais 
+  // Filtros Globais Adicionais
   const [searchTerm, setSearchTerm] = useState("");
+  // Controla qual alerta está com o painel de explicação expandido
+  const [alertExpandido, setAlertExpandido] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("todos");
 
   const [dateFrom, setDateFrom] = useState("");
@@ -50,37 +54,147 @@ const Relatorios = () => {
   }>({ key: "receitaGanha", direction: "desc" }); // Padrão: Maior receita real ganha primeiro
 
   // Define time bounds based on the global filter
-  const { startDate, endDate } = useMemo(() => {
+  const { startDate, endDate, pastStartDate, pastEndDate } = useMemo(() => {
     const hoje = new Date();
     let start = new Date(0);
     let end = new Date(8640000000000000); // Distant future
+    let pastStart = new Date(0);
+    let pastEnd = new Date(0);
 
     if (periodoGlobal === "mes_atual") {
       start = startOfMonth(hoje);
+      pastEnd = subDays(start, 1);
+      pastStart = startOfMonth(pastEnd);
     } else if (periodoGlobal === "ultimos_3_meses") {
       start = subMonths(hoje, 3);
+      pastEnd = subDays(start, 1);
+      pastStart = subMonths(start, 3);
     } else if (periodoGlobal === "ultimos_6_meses") {
       start = subMonths(hoje, 6);
+      pastEnd = subDays(start, 1);
+      pastStart = subMonths(start, 6);
     } else if (periodoGlobal === "custom") {
       start = dateFrom ? new Date(dateFrom) : new Date(0);
       end = dateTo ? endOfDay(new Date(dateTo)) : new Date(8640000000000000);
+      if (dateFrom && dateTo) {
+        const span = differenceInDays(end, start);
+        pastEnd = subDays(start, 1);
+        pastStart = subDays(pastEnd, span);
+      }
     }
-    return { startDate: start, endDate: end };
+    return { startDate: start, endDate: end, pastStartDate: pastStart, pastEndDate: pastEnd };
   }, [periodoGlobal, dateFrom, dateTo]);
 
-  const orcamentosFiltradosGlobalmente = useMemo(() => {
-    return orcamentos.filter((orc) => {
+  const { filtGlobais, statsAtuais, statsPassadas, alerts, rankingServicos } = useMemo(() => {
+    const filtGlobais: typeof orcamentos = [];
+    const statsA = { volume: 0, contratos: 0, recusas: 0, receita: 0, somaCiclos: 0 };
+    const statsP = { volume: 0, contratos: 0, recusas: 0, receita: 0, somaCiclos: 0 };
+
+    // Heuristica de análise — avalia a descricao do orcamento para categorizar o tipo de servico.
+    // O ranking conta todos os orcamentos do periodo (nao so fechados) para refletir a demanda real.
+    const servicosCount: Record<string, { qtd: number, receita: number }> = {};
+    const extractCategory = (desc: string) => {
+      if (!desc) return "Outros";
+      const b = desc.toLowerCase()
+        // Normaliza acentos para facilitar o match sem depender de encoding
+        .replace(/[áàâã]/g, "a").replace(/[éèê]/g, "e").replace(/[íì]/g, "i")
+        .replace(/[óòôõ]/g, "o").replace(/[úù]/g, "u").replace(/ç/g, "c");
+      if (/pre.?wed|prewedd|pre wedding/.test(b)) return "Pre Wedding";
+      if (/casamento|noiva|noivo|bodas|civil/.test(b)) return "Casamentos";
+      if (/15|debutante|quinze/.test(b)) return "15 Anos";
+      if (/formatura|baile|colacao/.test(b)) return "Formaturas";
+      if (/ensaio|book|gestante|bebe|newborn|infantil/.test(b)) return "Ensaios Diversos";
+      if (/corp|marca|produt|comercial|empresa|instituc/.test(b)) return "Corporativo";
+      return "Outros";
+    };
+
+    orcamentos.forEach((orc) => {
       const dataOrc = new Date(orc.dataRecebido);
       const dataFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
       const dataCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
 
-      const recebidoIn = dataOrc >= startDate && dataOrc <= endDate;
-      const fechadoIn = dataFechamento && (dataFechamento >= startDate && dataFechamento <= endDate);
-      const recusaIn = dataCancelamento && (dataCancelamento >= startDate && dataCancelamento <= endDate) && orc.status === "recusado";
+      // Classifica Atuais
+      const recIn = dataOrc >= startDate && dataOrc <= endDate;
+      const fecIn = dataFechamento && (dataFechamento >= startDate && dataFechamento <= endDate);
+      const canIn = dataCancelamento && (dataCancelamento >= startDate && dataCancelamento <= endDate) && orc.status === "recusado";
 
-      return recebidoIn || fechadoIn || recusaIn;
+      if (recIn || fecIn || canIn) {
+        filtGlobais.push(orc);
+      }
+
+      if (recIn) {
+        statsA.volume++;
+        // Alimenta Ranking Heuristico: conta todo orcamento recebido no periodo (independente de status)
+        const cat = extractCategory(orc.descricao);
+        if (!servicosCount[cat]) servicosCount[cat] = { qtd: 0, receita: 0 };
+        servicosCount[cat].qtd++;
+        servicosCount[cat].receita += orc.valor;
+      }
+      if (fecIn && orc.status === "contratado") {
+        statsA.contratos++;
+        statsA.receita += orc.valor;
+        statsA.somaCiclos += Math.max(differenceInDays(dataFechamento!, dataOrc), 0);
+      }
+      if (canIn) statsA.recusas++;
+
+      // Classifica Passados (Deltas)
+      const recPast = dataOrc >= pastStartDate && dataOrc <= pastEndDate;
+      const fecPast = dataFechamento && (dataFechamento >= pastStartDate && dataFechamento <= pastEndDate);
+      const canPast = dataCancelamento && (dataCancelamento >= pastStartDate && dataCancelamento <= pastEndDate) && orc.status === "recusado";
+
+      if (recPast) statsP.volume++;
+      if (fecPast && orc.status === "contratado") {
+        statsP.contratos++;
+        statsP.receita += orc.valor;
+        statsP.somaCiclos += Math.max(differenceInDays(dataFechamento!, dataOrc), 0);
+      }
+      if (canPast) statsP.recusas++;
     });
-  }, [orcamentos, startDate, endDate]);
+
+    const decisoesA = statsA.contratos + statsA.recusas;
+    const conversaoA = decisoesA > 0 ? (statsA.contratos / decisoesA) * 100 : 0;
+
+    // Alertas de Inteligência — campo 'detail' sustenta o painel explicativo do botão "O que isso significa?"
+    const alertas: { id: string; type: string; msg: string; detail: string }[] = [];
+    if (statsA.recusas > statsA.contratos * 1.5 && statsA.recusas > 5) {
+      alertas.push({
+        id: 'alta-recusa',
+        type: 'destructive',
+        msg: 'Aten\u00e7\u00e3o: O volume de or\u00e7amentos perdidos est\u00e1 bem maior que ganhos neste ciclo. Pode haver desalinhamento nos pre\u00e7os ou obje\u00e7\u00e3o.',
+        detail: 'Este alerta \u00e9 disparado quando o n\u00famero de recusas ultrapassa 1,5\u00d7 o total de contratos fechados e h\u00e1 mais de 5 recusas no per\u00edodo. Para cada proposta aceita, mais de uma e meia est\u00e1 sendo rejeitada \u2014 uma taxa que compromete a sa\u00fade comercial. Poss\u00edveis causas: precifica\u00e7\u00e3o acima da expectativa do mercado, proposta pouco convincente ou aus\u00eancia de follow-up. Recomenda\u00e7\u00e3o: revise os motivos de recusa cadastrados na aba Funil e identifique padr\u00f5es recorrentes.'
+      });
+    } else if (statsA.receita > 0 && statsP.receita > 0 && statsA.receita < statsP.receita * 0.5) {
+      alertas.push({
+        id: 'queda-receita',
+        type: 'warning',
+        msg: 'Aviso Temporal: Faturamento do per\u00edodo atual est\u00e1 despencando comparado ao espelho passado.',
+        detail: 'Este alerta aparece quando a receita apurada no per\u00edodo atual \u00e9 inferior a 50% da receita do per\u00edodo anterior equivalente. Isso sugere uma queda expressiva no volume de fechamentos ou no ticket m\u00e9dio. Verifique se houve redu\u00e7\u00e3o no volume de entradas, aumento na taxa de perda ou mudan\u00e7a no perfil de clientes atendidos neste ciclo.'
+      });
+    }
+
+    const rankingServicos = Object.entries(servicosCount)
+      .map(([k, v]) => ({ cat: k, ...v }))
+      .sort((a, b) => b.receita - a.receita);
+
+    return { filtGlobais, statsAtuais: statsA, statsPassadas: statsP, alerts: alertas, rankingServicos };
+  }, [orcamentos, startDate, endDate, pastStartDate, pastEndDate]);
+
+  const orcamentosFiltradosGlobalmente = filtGlobais;
+
+  // Helper de cálculo Delta
+  const calcDelta = (atual: number, passado: number, invertaBomERuim: boolean = false) => {
+    if (passado === 0 && atual === 0) return { pct: 0, text: '0%', trend: 'neutral', icon: Minus };
+    if (passado === 0) return { pct: 100, text: '+100%', trend: invertaBomERuim ? 'bad' : 'good', icon: ArrowUpRight };
+
+    const diff = ((atual - passado) / passado) * 100;
+    let trend = 'neutral';
+    if (diff > 0) trend = invertaBomERuim ? 'bad' : 'good';
+    else if (diff < 0) trend = invertaBomERuim ? 'good' : 'bad';
+
+    const Icon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : Minus;
+    const prefix = diff > 0 ? '+' : '';
+    return { pct: diff, text: `${prefix}${diff.toFixed(1)}%`, trend, icon: Icon };
+  };
 
   // Aba 1: Filtros finos baseados na lista Global
   const filteredOrcamentos = useMemo(() => {
@@ -94,31 +208,17 @@ const Relatorios = () => {
     }).sort((a, b) => new Date(b.dataRecebido).getTime() - new Date(a.dataRecebido).getTime());
   }, [orcamentosFiltradosGlobalmente, searchTerm, statusFilter]);
 
-  const totalPeriodo = filteredOrcamentos.length;
-  // Apenas contratos FECHADOS NESTE PERIODO especifico
-  const filteredContratados = filteredOrcamentos.filter(o => o.status === "contratado" && o.dataFechamento && new Date(o.dataFechamento) >= startDate && new Date(o.dataFechamento) <= endDate).length;
-  // E apenas recusas REALIZADAS NESTE PERIODO para a matematica da Win-Rate pura
-  const filteredRecusados = filteredOrcamentos.filter(o => o.status === "recusado" && o.dataCancelamento && new Date(o.dataCancelamento) >= startDate && new Date(o.dataCancelamento) <= endDate).length;
+  const totalPeriodo = statsAtuais.volume;
+  const filteredContratados = statsAtuais.contratos;
+  const decisoes = statsAtuais.contratos + statsAtuais.recusas;
+  const taxaConversao = decisoes > 0 ? (statsAtuais.contratos / decisoes) * 100 : 0;
+  const receitaFechada = statsAtuais.receita;
 
-  const decisoes = filteredContratados + filteredRecusados;
-  const taxaConversao = decisoes > 0 ? (filteredContratados / decisoes) * 100 : 0;
+  const ticketMedioReal = statsAtuais.contratos > 0 ? statsAtuais.receita / statsAtuais.contratos : 0;
+  const ticketMedioP = statsPassadas.contratos > 0 ? statsPassadas.receita / statsPassadas.contratos : 0;
 
-  // Metricas Quantitativas e Temporais Restritas ao Período
-  const orcamentosFechadosNoPeriodo = filteredOrcamentos.filter(o => o.status === "contratado" && o.dataFechamento && new Date(o.dataFechamento) >= startDate && new Date(o.dataFechamento) <= endDate);
-
-  const receitaFechada = orcamentosFechadosNoPeriodo.reduce((total, orc) => total + orc.valor, 0);
-
-  const ticketMedioReal = orcamentosFechadosNoPeriodo.length > 0
-    ? receitaFechada / orcamentosFechadosNoPeriodo.length
-    : 0;
-
-  // Sales Velocity (Pilar 1: Análise Temporal)
-  const somaCicloVendas = orcamentosFechadosNoPeriodo.reduce((acc, orc) => {
-    const inicio = new Date(orc.dataRecebido);
-    const fim = new Date(orc.dataFechamento!);
-    return acc + Math.max(differenceInDays(fim, inicio), 0);
-  }, 0);
-  const cicloAprovacaoMedio = orcamentosFechadosNoPeriodo.length > 0 ? (somaCicloVendas / orcamentosFechadosNoPeriodo.length).toFixed(1) : "0";
+  const cicloAprovacaoMedio = statsAtuais.contratos > 0 ? (statsAtuais.somaCiclos / statsAtuais.contratos) : 0;
+  const cicloAprovacaoMedioP = statsPassadas.contratos > 0 ? (statsPassadas.somaCiclos / statsPassadas.contratos) : 0;
 
   const getDiasNegociacao = (dataRecebido: string | Date, dataAtualizado: string | Date, status: string) => {
     if (status === "pendente" || status === "enviado") {
@@ -270,7 +370,7 @@ const Relatorios = () => {
     });
 
     return funil;
-  }, [orcamentosFiltradosGlobalmente]);
+  }, [orcamentosFiltradosGlobalmente, startDate, endDate]);
 
 
   if (isLoading) {
@@ -283,6 +383,12 @@ const Relatorios = () => {
       </div>
     );
   }
+
+  const deltaVolume = calcDelta(totalPeriodo, statsPassadas.volume);
+  const deltaConversao = calcDelta(Math.round(taxaConversao), (statsPassadas.contratos + statsPassadas.recusas) > 0 ? Math.round((statsPassadas.contratos / (statsPassadas.contratos + statsPassadas.recusas)) * 100) : 0);
+  const deltaReceita = calcDelta(receitaFechada, statsPassadas.receita);
+  const deltaTicket = calcDelta(ticketMedioReal, ticketMedioP);
+  const deltaCiclo = calcDelta(Number(cicloAprovacaoMedio), Math.round(cicloAprovacaoMedioP), true);
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -329,35 +435,124 @@ const Relatorios = () => {
 
         {/* ======================= ABA 1: BASE GERAL ======================= */}
         <TabsContent value="geral" className="space-y-6 animate-in fade-in-50">
-          {/* Summary Cards */}
+
+          {alerts.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {alerts.map((a) => (
+                <Alert key={a.id} variant={a.type as "default" | "destructive" | null | undefined} className="bg-background/80 backdrop-blur-sm shadow-sm py-3">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1 ml-1">
+                    <AlertTitle className="text-sm font-semibold mb-0.5">Insight Automatizado</AlertTitle>
+                    <AlertDescription className="text-xs opacity-90">{a.msg}</AlertDescription>
+                    <button
+                      onClick={() => setAlertExpandido(alertExpandido === a.id ? null : a.id)}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <HelpCircle className="w-3 h-3" />
+                      O que isso significa?
+                      {alertExpandido === a.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                    {alertExpandido === a.id && (
+                      <div className="mt-2 p-3 rounded-md bg-background/60 border border-border/60 text-[12px] text-foreground/80 leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
+                        {a.detail}
+                      </div>
+                    )}
+                  </div>
+                </Alert>
+              ))}
+            </div>
+          )}
+
+          {/* Block 1: Analise Estratégica Híbrida */}
+          {rankingServicos.length > 0 && (
+            <div className="bg-card rounded-xl border border-border/50 shadow-sm p-4 animate-in fade-in">
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Orçamentos por seguimento</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {rankingServicos.slice(0, 4).map((srv, idx) => (
+                  <div key={idx} className="bg-muted/30 p-3 rounded-lg border border-border/50">
+                    <p className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider truncate mb-1">{srv.cat}</p>
+                    <p className="text-lg font-bold text-foreground">{currencyFormatter.format(srv.receita)}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs bg-success/10 text-success px-1.5 py-0.5 rounded font-medium">{srv.qtd} fechados</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary Cards - Atualizados com Deltas Temporais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Volume Geral</p>
-              <p className="text-3xl font-bold text-card-foreground mt-1">{totalPeriodo}</p>
-              <p className="text-xs text-muted-foreground mt-1">orçamentos</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
-              <p className="text-3xl font-bold text-card-foreground mt-1">{taxaConversao.toFixed(1)}%</p>
-              <p className="text-xs text-success mt-1">{filteredContratados} contratos fechados</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Receita Fechada</p>
-              <p className="text-3xl font-bold text-success mt-1">{currencyFormatter.format(receitaFechada)}</p>
-              <p className="text-xs text-muted-foreground mt-1">faturamento apurado</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center">
-              <p className="text-sm text-muted-foreground">Ticket Médio</p>
-              <p className="text-3xl font-bold text-card-foreground mt-1">{currencyFormatter.format(ticketMedioReal)}</p>
-              <p className="text-xs text-muted-foreground mt-1">por contrato fechado</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center flex flex-col justify-center relative overflow-hidden group">
-              <div className="absolute inset-x-0 -bottom-1 h-1 bg-primary/20"></div>
-              <p className="text-sm text-muted-foreground">Vida útil do orçamento </p>
-              <p className="text-3xl font-bold text-card-foreground mt-1 flex items-center justify-center gap-2">
-                {cicloAprovacaoMedio} <span className="text-base font-normal text-muted-foreground">dias</span>
+            {/* Card 1 */}
+            <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Volume Geral</h4>
+              <div className="flex-1 flex flex-col justify-center">
+                <p className="text-5xl font-medium text-foreground leading-none mb-2">{totalPeriodo}</p>
+                <p className="text-xs font-semibold text-muted-foreground">oportunidades</p>
+              </div>
+              <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
+              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaVolume.trend === 'good' ? 'text-success' : deltaVolume.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <deltaVolume.icon className="w-3 h-3 mr-1 shrink-0" />
+                {deltaVolume.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1 truncate">ciclo médio de aprovação</p>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Conversão</h4>
+              <div className="flex-1 flex flex-col justify-center">
+                <p className="text-5xl font-medium text-foreground leading-none mb-2">{taxaConversao.toFixed(1)}<span className="text-2xl text-foreground/70">%</span></p>
+                <p className="text-xs font-semibold text-muted-foreground">{filteredContratados} fechados</p>
+              </div>
+              <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
+              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaConversao.trend === 'good' ? 'text-success' : deltaConversao.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <deltaConversao.icon className="w-3 h-3 mr-1 shrink-0" />
+                {deltaConversao.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+              </p>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Receita Fechada</h4>
+              <div className="flex-1 flex flex-col justify-center">
+                <p className="text-5xl font-medium text-primary leading-none mb-2">{filteredContratados}</p>
+                <p className="text-xs font-semibold text-muted-foreground">{currencyFormatter.format(receitaFechada)}</p>
+              </div>
+              <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
+              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaReceita.trend === 'good' ? 'text-success' : deltaReceita.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <deltaReceita.icon className="w-3 h-3 mr-1 shrink-0" />
+                {deltaReceita.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+              </p>
+            </div>
+
+            {/* Card 4 */}
+            <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Ticket Médio</h4>
+              <div className="flex-1 flex flex-col justify-center mt-2">
+                <p className="text-[26px] font-medium text-primary leading-none mb-2 truncate" title={currencyFormatter.format(ticketMedioReal)}>
+                  {currencyFormatter.format(ticketMedioReal)}
+                </p>
+                <p className="text-xs font-semibold text-muted-foreground">por contrato fechado</p>
+              </div>
+              <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
+              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaTicket.trend === 'good' ? 'text-success' : deltaTicket.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <deltaTicket.icon className="w-3 h-3 mr-1 shrink-0" />
+                {deltaTicket.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+              </p>
+            </div>
+
+            {/* Card 5 */}
+            <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Vida Útil</h4>
+              <div className="flex-1 flex flex-col justify-center">
+                <p className="text-5xl font-medium text-foreground leading-none mb-2">{cicloAprovacaoMedio}</p>
+                <p className="text-xs font-semibold text-muted-foreground">dias de aprovação</p>
+              </div>
+              <div className="mt-4 mb-3 h-px bg-border w-3/4"></div>
+              <p className={`text-[10px] flex items-center shrink-0 uppercase tracking-wide font-black ${deltaCiclo.trend === 'good' ? 'text-success' : deltaCiclo.trend === 'bad' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <deltaCiclo.icon className="w-3 h-3 mr-1 shrink-0" />
+                {deltaCiclo.text} <span className="text-muted-foreground/80 font-medium ml-1 lowercase">últ. pe.</span>
+              </p>
             </div>
           </div>
 
@@ -430,29 +625,39 @@ const Relatorios = () => {
                   {filteredOrcamentos.length === 0 ? (
                     <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">Nenhum orçamento corresponde aos filtros.</td></tr>
                   ) : (
-                    filteredOrcamentos.map((orc) => (
-                      <tr key={orc.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4 font-medium text-card-foreground">
-                          <span className="block text-foreground">{format(new Date(orc.dataRecebido), "dd/MM/yy", { locale: ptBR })}</span>
-                          <span className="block text-[10px] uppercase font-mono text-muted-foreground mt-0.5">{orc.id.split('-')[0]}</span>
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-card-foreground whitespace-nowrap">
-                          {orc.cliente?.nome || "Desconhecido"}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground truncate max-w-[200px]" title={orc.descricao}>
-                          {orc.descricao}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-card-foreground whitespace-nowrap">
-                          {currencyFormatter.format(orc.valor)}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <StatusBadge status={orc.status as Status} />
-                        </td>
-                        <td className="py-3 px-4 text-center text-muted-foreground text-[12px] font-medium whitespace-nowrap">
-                          <span className="bg-muted px-2 py-1 rounded-md">{getDiasNegociacao(orc.dataRecebido, orc.dataAtualizado, orc.status)}</span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredOrcamentos.map((orc) => {
+                      const isAging = (orc.status === "pendente" || orc.status === "enviado") && differenceInDays(new Date(), new Date(orc.dataRecebido)) >= 20;
+                      const isRecemFechado = orc.status === "contratado" && orc.valor > 0 && differenceInDays(new Date(), new Date(orc.dataFechamento || orc.dataAtualizado)) <= 5;
+
+                      let trClass = "border-b border-border/50 transition-colors ";
+                      if (isAging) trClass += "bg-warning/5 hover:bg-warning/15";
+                      else if (isRecemFechado) trClass += "bg-success/5 hover:bg-success/10";
+                      else trClass += "hover:bg-muted/20";
+
+                      return (
+                        <tr key={orc.id} className={trClass}>
+                          <td className="py-3 px-4 font-medium text-card-foreground">
+                            <span className="block text-foreground">{format(new Date(orc.dataRecebido), "dd/MM/yy", { locale: ptBR })}</span>
+                            <span className="block text-[10px] uppercase font-mono text-muted-foreground mt-0.5">{orc.id.split('-')[0]}</span>
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-card-foreground whitespace-nowrap">
+                            {orc.cliente?.nome || "Desconhecido"}
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground truncate max-w-[200px]" title={orc.descricao}>
+                            {orc.descricao}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-card-foreground whitespace-nowrap">
+                            {currencyFormatter.format(orc.valor)}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <StatusBadge status={orc.status as Status} />
+                          </td>
+                          <td className="py-3 px-4 text-center text-muted-foreground text-[12px] font-medium whitespace-nowrap">
+                            <span className="bg-muted px-2 py-1 rounded-md">{getDiasNegociacao(orc.dataRecebido, orc.dataAtualizado, orc.status)}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -630,6 +835,50 @@ const Relatorios = () => {
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-success"></div> Ganho</span>
               <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-destructive/60"></div> Recusado</span>
             </div>
+          </div>
+
+          {/* Gráfico do Funil 3 Steps (Recharts) */}
+          <div className="mt-8 rounded-xl border border-border p-6 bg-card shadow-sm animate-in fade-in">
+            <h3 className="text-sm font-semibold mb-6 uppercase text-muted-foreground tracking-wide flex items-center gap-2">
+              <MousePointerClick className="w-4 h-4" /> Conversão de orçamentos (Recebido {`>`} Enviado {`>`} Fechado)
+            </h3>
+
+            <div className="w-full h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { step: "Orçamentos recebidos", qtd: pipelineStats.pendentes.qtd + pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd, color: "hsl(var(--muted-foreground))" },
+                    { step: "Orçamentos enviados", qtd: pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd, color: "#3b82f6" },
+                    { step: "Orçamentos fechados", qtd: pipelineStats.ganhos.qtd, color: "hsl(var(--success))" }
+                  ]}
+                  layout="vertical"
+                  margin={{ top: 10, right: 30, left: 40, bottom: 5 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="step" type="category" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }} width={170} />
+                  <RechartsTooltip
+                    cursor={{ fill: 'transparent' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    itemStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
+                  />
+                  <Bar dataKey="qtd" barSize={40} radius={[0, 4, 4, 0]}>
+                    {
+                      [0, 1, 2].map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={["hsl(var(--muted-foreground))", "#3b82f6", "hsl(var(--success))"][index]} />
+                      ))
+                    }
+                    <LabelList dataKey="qtd" position="right" style={{ fill: "hsl(var(--foreground))", fontWeight: "bold", fontSize: 16 }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {pipelineStats.pendentes.qtd + pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd > 0 && (
+              <p className="text-center text-xs text-muted-foreground mt-4">
+                Retenção Total de Ponta-a-Ponta: <span className="font-bold text-foreground">
+                  {((pipelineStats.ganhos.qtd / (pipelineStats.pendentes.qtd + pipelineStats.emNegociacao.qtd + pipelineStats.ganhos.qtd + pipelineStats.perdidos.qtd)) * 100).toFixed(1)}%
+                </span>
+              </p>
+            )}
           </div>
 
           {/* Breakdown de Motivos de Recusa */}

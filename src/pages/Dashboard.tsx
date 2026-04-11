@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FileText, Users, TrendingUp, DollarSign, ArrowUpRight, Loader, Coins, CheckCircle2, XCircle, ArrowRight, PieChart as PieChartIcon } from "lucide-react";
+import { FileText, Users, TrendingUp, DollarSign, Banknote, ArrowUpRight, Loader, Coins, CheckCircle2, XCircle, ArrowRight, PieChart as PieChartIcon } from "lucide-react";
 import { eachDayOfInterval, subDays, format, isSameDay, startOfMonth, endOfMonth, subMonths, addMonths, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import StatusBadge, { type Status } from "@/components/StatusBadge";
@@ -161,11 +161,11 @@ const Dashboard = () => {
     const weeksInMonth = Math.ceil(currentMonthEnd.getDate() / 7);
     return Array.from({ length: weeksInMonth }, (_, i) => {
       const week = i + 1;
-      
+
       const recebidosNaSemana = captacoesMesAtual.filter(o => Math.ceil(new Date(o.dataRecebido).getDate() / 7) === week).length;
       const fechadosNaSemana = fechamentosMesAtual.filter(o => Math.ceil(new Date(o.dataFechamento!).getDate() / 7) === week).length;
       const recusadosNaSemana = recusasMesAtual.filter(o => Math.ceil(new Date(o.dataCancelamento!).getDate() / 7) === week).length;
-      
+
       return {
         semana: `Sem ${week}`,
         enviados: recebidosNaSemana,
@@ -176,22 +176,86 @@ const Dashboard = () => {
     });
   }, [captacoesMesAtual, fechamentosMesAtual, recusasMesAtual, currentMonthEnd, META_CONTRATOS_SEMANA]);
 
-  // CHART 2: Status Distribuição Pizza (Projeção da Safra do Mês)
-  const statusDistributionData = useMemo(() => {
-    const pieOrder: Status[] = ["contratado", "enviado", "pendente", "recusado"];
-    const total = captacoesMesAtual.length;
+  const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-    return pieOrder.map(status => {
-      const count = captacoesMesAtual.filter(o => o.status === status).length;
-      return {
-        id: status,
-        name: STATUS_META[status].label,
-        value: count,
-        fill: STATUS_META[status].fill,
-        pct: total > 0 ? ((count / total) * 100).toFixed(1) : "0.0"
-      };
-    }).filter(d => d.value > 0);
+  // Heurística de análise — identifica o tipo de serviço pela descrição
+  const extractCategory = (desc: string) => {
+    if (!desc) return "Outros";
+    const b = desc.toLowerCase()
+      .replace(/[áàâã]/g, "a").replace(/[éèê]/g, "e").replace(/[íì]/g, "i")
+      .replace(/[óòôõ]/g, "o").replace(/[úù]/g, "u").replace(/ç/g, "c");
+    if (/pre.?wed|prewedd|pre wedding/.test(b)) return "Pre Wedding";
+    if (/casamento|noiva|noivo|bodas|civil/.test(b)) return "Casamentos";
+    if (/15|debutante|quinze/.test(b)) return "15 Anos";
+    if (/formatura|baile|colacao/.test(b)) return "Formaturas";
+    if (/ensaio|book|gestante|bebe|newborn|infantil/.test(b)) return "Ensaios Diversos";
+    if (/corp|marca|produt|comercial|empresa|instituc/.test(b)) return "Corporativo";
+    return "Outros";
+  };
+
+  // Receita Potencial e Ticket Médio por Tipo de Serviço (Mês Atual)
+  const servicosData = useMemo(() => {
+    const categories: Record<string, { total: number, count: number }> = {};
+
+    captacoesMesAtual.forEach(orc => {
+      const cat = extractCategory(orc.descricao);
+      if (!categories[cat]) categories[cat] = { total: 0, count: 0 };
+      categories[cat].total += orc.valor;
+      categories[cat].count += 1;
+    });
+
+    // Paleta de cores vibrantes modernas para o gráfico de pizza
+    const COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6", "#64748b"];
+
+    return Object.entries(categories)
+      .map(([name, data], i) => ({
+        name,
+        value: data.total, // O tamanho da fatia será o volume financeiro
+        ticket: data.count > 0 ? data.total / data.count : 0,
+        count: data.count,
+        fill: COLORS[i % COLORS.length]
+      }))
+      .filter(d => d.value > 0)
+      .sort((a, b) => b.value - a.value);
   }, [captacoesMesAtual]);
+
+  const ServicosLegend = (props: { payload?: { color: string; value: string; payload: { count: number; ticket: number } }[] }) => {
+    const { payload } = props;
+    if (!payload) return null;
+    return (
+      <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 text-xs font-medium text-muted-foreground w-full">
+        {payload.map((entry, index) => (
+          <li key={`item-${index}`} className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-md" style={{ backgroundColor: entry.color }} />
+            <span className="text-card-foreground font-semibold">{entry.value}</span>
+            <span className="opacity-60 text-[10px]">({entry.payload.count}x)</span>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  const ServicosTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: { name: string; value: number; ticket: number; count: number } }[] }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-card px-4 py-3 border border-border shadow-xl rounded-xl text-sm min-w-[200px] ring-1 ring-border/50">
+          <p className="font-bold text-card-foreground mb-2 flex items-center justify-between">
+            {data.name} <span className="bg-muted px-2 py-0.5 rounded-full text-[10px] uppercase">{data.count} leads</span>
+          </p>
+          <div className="flex justify-between items-center text-xs mt-1">
+            <span className="text-muted-foreground">Vol. Total:</span>
+            <span className="font-semibold text-primary">{currencyFormatter.format(data.value)}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs mt-1 pt-1 border-t border-border/40">
+            <span className="text-muted-foreground">Ticket Médio:</span>
+            <span className="font-semibold text-emerald-500">{currencyFormatter.format(data.ticket)}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // Histórico Mensal (6 meses) para a Accordeon de longo prazo - Completamente Desacoplado
   const monthlySeries = useMemo(() => {
@@ -201,22 +265,21 @@ const Dashboard = () => {
       const mesAtual = addMonths(inicioJanela, index);
       const chaveMes = `${mesAtual.getFullYear()}-${mesAtual.getMonth()}`;
 
-      // Volumes baseados independentemente na linha do tempo de cada entidade
       const recebidosMes = orcamentos.filter(o => {
-          const d = new Date(o.dataRecebido);
-          return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
+        const d = new Date(o.dataRecebido);
+        return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
       }).length;
 
       const contratadosMes = orcamentos.filter(o => {
-          if(!o.dataFechamento) return false;
-          const d = new Date(o.dataFechamento);
-          return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
+        if (!o.dataFechamento) return false;
+        const d = new Date(o.dataFechamento);
+        return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
       }).length;
 
       const recusadosMes = orcamentos.filter(o => {
-          if(!o.dataCancelamento || o.status !== "recusado") return false;
-          const d = new Date(o.dataCancelamento);
-          return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
+        if (!o.dataCancelamento || o.status !== "recusado") return false;
+        const d = new Date(o.dataCancelamento);
+        return `${d.getFullYear()}-${d.getMonth()}` === chaveMes;
       }).length;
 
       const pctNaoFechados = recebidosMes > 0 ? Math.round((recusadosMes / recebidosMes) * 100) : 0;
@@ -239,36 +302,6 @@ const Dashboard = () => {
         .slice(0, 5),
     [orcamentos]
   );
-
-  // Custom Legends for Pie
-  const customLegend = (props: any) => {
-    const { payload } = props;
-    return (
-      <ul className="flex flex-wrap justify-center gap-4 text-xs font-medium text-muted-foreground mt-4">
-        {payload.map((entry: any, index: number) => (
-          <li key={`item-${index}`} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-            <span className="text-card-foreground">{entry.value}</span>
-            <span className="opacity-60">({entry.payload.pct}%)</span>
-          </li>
-        ))}
-      </ul>
-    );
-  };
-
-  const customTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-card px-3 py-2 border border-border shadow-md rounded-lg text-sm">
-          <p className="font-semibold text-card-foreground">{data.name}</p>
-          <p className="text-muted-foreground mt-1">Total: <span className="font-medium text-foreground">{data.value}</span> ({data.pct}%)</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
 
   if (isLoading) {
     return (
@@ -330,10 +363,10 @@ const Dashboard = () => {
         {/* CARD 2: Receita Contratada */}
         <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-5 opacity-5 group-hover:scale-110 transition-transform">
-            <DollarSign className="w-16 h-16 text-foreground" />
+            <Banknote className="w-16 h-16 text-foreground" />
           </div>
           <div className="space-y-1 relative z-10">
-            <p className="text-sm font-medium text-muted-foreground">Receita contratada</p>
+            <p className="text-sm font-medium text-muted-foreground">Orçamentos fechados (em reais) </p>
             <p className="text-3xl font-bold tracking-tight text-card-foreground">
               {currencyFormatter.format(receita.valorAtual)}
             </p>
@@ -358,7 +391,7 @@ const Dashboard = () => {
             <Coins className="w-24 h-24" />
           </div>
           <div className="space-y-1 relative z-10">
-            <p className="text-[14px] font-bold text-white">Receita projetada</p>
+            <p className="text-[14px] font-bold text-white">Orçamentos pendentes (em reais)</p>
             <p className="text-[32px] font-bold tracking-tight text-white drop-shadow-md pb-1">
               {currencyFormatter.format(projetada)}
             </p>
@@ -435,8 +468,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* Charts Row — dois gráficos lado a lado */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bar Chart (Orçamentos do Mês) */}
         <div className="rounded-2xl bg-card p-6 shadow-sm border border-transparent">
           <h3 className="text-sm font-semibold text-card-foreground mb-4">Meta semanal de orçamentos contratados</h3>
@@ -489,8 +522,57 @@ const Dashboard = () => {
               <Bar dataKey="recusados" fill="#ef4444" radius={[4, 4, 0, 0]} name="Recusados">
                 <LabelList dataKey="recusados" position="top" fill="#ef4444" fontSize={11} fontWeight={600} formatter={(v: number) => v > 0 ? v : ""} />
               </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+        {/* Pie Chart: Distribuição financeira por Serviço */}
+        <div className="rounded-2xl bg-card p-6 shadow-sm border border-transparent">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-card-foreground lowercase first-letter:uppercase">Distribuição por serviço (mês atual)</h3>
+          </div>
+          
+          {servicosData.length > 0 ? (
+            <div className="flex flex-col items-center justify-center">
+              <div className="relative w-full h-[240px] flex items-center justify-center mt-2 group">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={servicosData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={90}
+                      paddingAngle={4}
+                      dataKey="value"
+                      stroke="none"
+                      cornerRadius={6}
+                    >
+                      {servicosData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} className="transition-all duration-300 hover:opacity-80" />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip content={<ServicosTooltip />} cursor={false} />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center metric */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">Vol. Total</span>
+                  <span className="text-lg font-bold text-foreground">
+                    {currencyFormatter.format(servicosData.reduce((acc, crr) => acc + crr.value, 0))}
+                  </span>
+                </div>
+              </div>
+              <div className="w-full">
+                <ServicosLegend payload={servicosData.map(d => ({ color: d.fill, value: d.name, payload: { count: d.count, ticket: d.ticket } }))} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center space-y-2 opacity-50 py-10">
+              <XCircle className="w-6 h-6 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground leading-tight">Nenhum orçamento valorizado identificado.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -535,7 +617,7 @@ const Dashboard = () => {
                     <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <RechartsTooltip
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "none", borderRadius: "12px", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", fontSize: 12 }}
-                      formatter={(value: number, name: string, props: any) => {
+                      formatter={(value: number, name: string, props: { payload: { pctNaoFechados: number } }) => {
                         if (name === "Recusados") {
                           return [`${value} (${props.payload.pctNaoFechados}%)`, name];
                         }

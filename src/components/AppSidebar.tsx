@@ -13,6 +13,8 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../contexts/AuthContext";
+import LogoIcon from "@/assets/sgo_logo_crescimento_v2.svg";
+import LogoText from "@/assets/sgo_logo_crescimento_com_texto.svg";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -36,15 +38,11 @@ const AppSidebar = () => {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-6 border-b border-sidebar-border">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <MessageSquare className="w-5 h-5 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">SGO</h1>
-            <p className="text-xs text-sidebar-muted truncate">Gerenciamento de Orçamentos</p>
-          </div>
+      <div className="flex items-center justify-center py-6 border-b border-sidebar-border min-h-[90px] px-4">
+        {collapsed ? (
+          <img src={LogoIcon} alt="SGO Logo" className="w-10 h-10 shrink-0" />
+        ) : (
+          <img src={LogoText} alt="SGO Gerenciamento de Orçamentos" className="w-48 h-auto max-h-16 object-contain" />
         )}
       </div>
 

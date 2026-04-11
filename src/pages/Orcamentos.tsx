@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
-import { Search, Download, Plus, LayoutGrid, List, Inbox, Loader, Copy, Send, Trash2, Calendar } from "lucide-react";
-import { startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Search, Plus, LayoutGrid, List, Inbox, Copy, Send, Trash2, AlertTriangle, Info } from "lucide-react";
+import { isWithinInterval, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useSearchParams } from "react-router-dom";
+import { PeriodoPicker, calcularRangeParaPreset } from "@/components/PeriodoPicker";
+import type { PeriodoPreset, PeriodoRange } from "@/components/PeriodoPicker";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -35,7 +38,12 @@ import { ConfirmacaoReversaoDialog } from "@/components/ConfirmacaoReversaoDialo
 
 const Orcamentos = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterPeriodo, setFilterPeriodo] = useState<string>("mes_atual");
+  // Preset de período selecionado (default: este mês)
+  const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>("mes_atual");
+  // Range de datas efetivo calculado a partir do preset (ou customizado pelo usuário)
+  const [periodoRange, setPeriodoRange] = useState<PeriodoRange | null>(
+    calcularRangeParaPreset("mes_atual")
+  );
   const [filterStatus, setFilterStatus] = useState<Status | "todos">("todos");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
   const [selectedOrcamentoId, setSelectedOrcamentoId] = useState<string | null>(null);
@@ -47,6 +55,10 @@ const Orcamentos = () => {
   // Estado do dialog de reversao: guarda orcamento que vai reverter o "ganho"
   const [reversaoPendente, setReversaoPendente] = useState<{ id: string; novoStatus: Status } | null>(null);
 
+  // IDs destacados ao clicar no banner de orçamentos antigos — auto-limpo após 3.5s
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -55,7 +67,8 @@ const Orcamentos = () => {
   const deleteMutation = useDeleteOrcamento();
   const { toast } = useToast();
 
-  const filtered = orcamentos.filter((orc) => {
+  // Filtragem principal — usa periodoRange já calculado pelo PeriodoPicker
+  const filtered = useMemo(() => orcamentos.filter((orc) => {
     const clienteNome = orc.cliente?.nome?.toLowerCase() ?? "";
     const matchesSearch =
       clienteNome.includes(searchTerm.toLowerCase()) ||
@@ -63,46 +76,42 @@ const Orcamentos = () => {
       orc.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "todos" || orc.status === filterStatus;
 
-    // Filtro Temporal baseado na dataRecebido, dataFechamento e dataCancelamento
-    const dataOrc = new Date(orc.dataRecebido);
-    const dataFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
-    const dataCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
-
-    const now = new Date();
     let matchesPeriod = true;
 
-    if (filterPeriodo !== "todos") {
-      const isMesAtual = isWithinInterval(dataOrc, { start: startOfMonth(now), end: endOfMonth(now) });
-      const fechadoMesAtual = dataFechamento ? isWithinInterval(dataFechamento, { start: startOfMonth(now), end: endOfMonth(now) }) : false;
-      const canceladoMesAtual = dataCancelamento ? isWithinInterval(dataCancelamento, { start: startOfMonth(now), end: endOfMonth(now) }) : false;
+    if (periodoRange) {
+      const dataOrc = new Date(orc.dataRecebido);
+      const dataFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
+      const dataCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
 
-      if (filterPeriodo === "mes_atual") {
-        // Mostra mês atual OU orçamentos antigos vivos no pipeline OU antigos finalizados neste mês!
+      const intervalo = { start: periodoRange.start, end: periodoRange.end };
+      const esteIntervalo = isWithinInterval(dataOrc, intervalo);
+      const fechadoNoIntervalo = dataFechamento ? isWithinInterval(dataFechamento, intervalo) : false;
+      const canceladoNoIntervalo = dataCancelamento ? isWithinInterval(dataCancelamento, intervalo) : false;
+
+      if (periodoPreset === "mes_atual") {
+        // No mês atual, também inclui orçamentos em aberto de meses anteriores
+        // para que o pipeline nunca perca visibilidade dos leads ativos
         const isFunilAtivo = orc.status === "pendente" || orc.status === "enviado";
-        matchesPeriod = isMesAtual || isFunilAtivo || fechadoMesAtual || canceladoMesAtual;
-      } else if (filterPeriodo === "mes_passado") {
-        const lastMonth = subMonths(now, 1);
-        const start = startOfMonth(lastMonth);
-        const end = endOfMonth(lastMonth);
-        const isMesPassado = isWithinInterval(dataOrc, { start, end });
-        const fechadoMesPassado = dataFechamento ? isWithinInterval(dataFechamento, { start, end }) : false;
-        const canceladoMesPassado = dataCancelamento ? isWithinInterval(dataCancelamento, { start, end }) : false;
-
-        matchesPeriod = isMesPassado || fechadoMesPassado || canceladoMesPassado;
-      } else if (filterPeriodo === "ultimos_3_meses") {
-        const trimesAgo = subMonths(now, 2);
-        const start = startOfMonth(trimesAgo);
-        const end = endOfMonth(now);
-        const isUltimos3 = isWithinInterval(dataOrc, { start, end });
-        const fechadoUltimos3 = dataFechamento ? isWithinInterval(dataFechamento, { start, end }) : false;
-        const canceladoUltimos3 = dataCancelamento ? isWithinInterval(dataCancelamento, { start, end }) : false;
-
-        matchesPeriod = isUltimos3 || fechadoUltimos3 || canceladoUltimos3;
+        matchesPeriod = esteIntervalo || isFunilAtivo || fechadoNoIntervalo || canceladoNoIntervalo;
+      } else {
+        matchesPeriod = esteIntervalo || fechadoNoIntervalo || canceladoNoIntervalo;
       }
     }
 
     return matchesSearch && matchesStatus && matchesPeriod;
-  });
+  }), [orcamentos, searchTerm, filterStatus, periodoRange, periodoPreset]);
+
+  // Orçamentos em aberto (pendente/enviado) que foram criados FORA do período selecionado,
+  // mas aparecem no Mês Atual por serem leads ativos — usados para exibir o banner de alerta
+  const orcamentosAbertosForaDoPeriodo = useMemo(() => {
+    if (periodoPreset !== "mes_atual" || !periodoRange) return [];
+    return orcamentos.filter((orc) => {
+      const isFunilAtivo = orc.status === "pendente" || orc.status === "enviado";
+      const dataOrc = new Date(orc.dataRecebido);
+      const esteIntervalo = isWithinInterval(dataOrc, { start: periodoRange.start, end: periodoRange.end });
+      return isFunilAtivo && !esteIntervalo;
+    });
+  }, [orcamentos, periodoPreset, periodoRange]);
 
   // Intercepta mudancas de status na tabela: valida reversão de contrato e motivo de recusa
   const handleStatusChange = (orcamentoId: string, newStatus: Status, motivoRecusa?: string, bypassReversao?: boolean) => {
@@ -193,12 +202,6 @@ const Orcamentos = () => {
           <h1 className="text-2xl font-bold text-foreground">Orçamentos</h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie todos os orçamentos recebidos</p>
         </div>
-        <button
-          onClick={() => setIsNovoOrcamentoOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" /> Novo Orçamento
-        </button>
       </div>
 
       {isLoading ? (
@@ -228,8 +231,8 @@ const Orcamentos = () => {
       ) : (
         <>
           {/* View Toggles & Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="flex bg-muted/50 p-1 rounded-lg border border-border self-start">
               <button
                 onClick={() => setViewMode("table")}
                 title="Visualização em Tabela"
@@ -247,7 +250,7 @@ const Orcamentos = () => {
                 <LayoutGrid className="w-4 h-4" />
               </button>
             </div>
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
@@ -257,34 +260,78 @@ const Orcamentos = () => {
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-              <Select value={filterPeriodo} onValueChange={setFilterPeriodo}>
-                <SelectTrigger className="w-[200px] h-10 bg-card">
-                  <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mes_atual">Mês Atual</SelectItem>
-                  <SelectItem value="mes_passado">Mês Passado</SelectItem>
-                  <SelectItem value="ultimos_3_meses">Últimos 3 Meses</SelectItem>
-                  <SelectItem value="todos">Todo Histórico</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val as Status | "todos")}>
-                <SelectTrigger className="w-[180px] h-10 bg-card">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="enviado">Em Negociação</SelectItem>
-                  <SelectItem value="contratado">Contratado</SelectItem>
-                  <SelectItem value="recusado">Recusado / Não fechado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Filtro de período — substituído pelo PeriodoPicker para suportar presets adicionais e período personalizado */}
+            <PeriodoPicker
+              value={periodoPreset}
+              onValueChange={setPeriodoPreset}
+              onRangeChange={setPeriodoRange}
+            />
+            <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val as Status | "todos")}>
+              <SelectTrigger className="w-[180px] h-10 bg-card">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="enviado">Em Negociação</SelectItem>
+                <SelectItem value="contratado">Contratado</SelectItem>
+                <SelectItem value="recusado">Recusado / Não fechado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Banner de contexto: mostra o período ativo e a contagem de registros */}
+          {periodoRange && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground animate-in fade-in duration-300">
+              <Info className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>
+                Exibindo{" "}
+                <strong className="text-foreground font-medium">
+                  {format(periodoRange.start, "dd/MM/yyyy", { locale: ptBR })}
+                </strong>
+                {" "}até{" "}
+                <strong className="text-foreground font-medium">
+                  {format(periodoRange.end, "dd/MM/yyyy", { locale: ptBR })}
+                </strong>
+                {" • "}
+                <strong className="text-foreground font-medium">{filtered.length}</strong>
+                {" "}registro{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
+
+          {/* Banner de alerta: orçamentos pendente/enviado que foram criados antes do período atual */}
+          {orcamentosAbertosForaDoPeriodo.length > 0 && (
+            <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 animate-in fade-in duration-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  Você tem{" "}
+                  <strong>{orcamentosAbertosForaDoPeriodo.length}</strong>
+                  {" "}orçamento{orcamentosAbertosForaDoPeriodo.length !== 1 ? "s" : ""} em aberto de meses anteriores incluído{orcamentosAbertosForaDoPeriodo.length !== 1 ? "s" : ""} nesta visão.
+                </span>
+              </div>
+              {/* Destaca os orçamentos antigos em tela por 3.5s e rola até o primeiro */}
+              <button
+                onClick={() => {
+                  const ids = new Set(orcamentosAbertosForaDoPeriodo.map((o) => o.id));
+                  setHighlightedIds(ids);
+                  if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+                  highlightTimerRef.current = setTimeout(() => setHighlightedIds(new Set()), 3500);
+                  // Rola até o primeiro orçamento destacado
+                  const primeiroId = orcamentosAbertosForaDoPeriodo[0]?.id;
+                  if (primeiroId) {
+                    setTimeout(() => {
+                      document.getElementById(`orc-${primeiroId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }, 80);
+                  }
+                }}
+                className="flex-shrink-0 text-amber-700 dark:text-amber-400 font-medium underline underline-offset-2 hover:opacity-80 transition-opacity"
+              >
+                Ver na tela
+              </button>
+            </div>
+          )}
 
           {/* Content Area */}
           {viewMode === "kanban" ? (
@@ -294,6 +341,7 @@ const Orcamentos = () => {
                 onOrcamentoClick={(id) => setSelectedOrcamentoId(id)}
                 onStatusChange={handleStatusChange}
                 highlightedId={highlightId}
+                highlightedIds={highlightedIds}
               />
             </div>
           ) : (
@@ -324,7 +372,7 @@ const Orcamentos = () => {
                           <tr
                             id={`orc-${orc.id}`}
                             className={`border-b border-border/10 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group ${selectedItems.has(orc.id) ? "bg-primary/5" : ""
-                              } ${highlightId === orc.id ? "bg-primary/20 animate-pulse ring-2 ring-inset ring-primary/50" : ""}`}
+                              } ${highlightId === orc.id ? "bg-primary/20 animate-pulse ring-2 ring-inset ring-primary/50" : highlightedIds.has(orc.id) ? "bg-amber-500/15 animate-pulse ring-2 ring-inset ring-amber-500/50" : ""}`}
                           >
                             <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                               <Checkbox

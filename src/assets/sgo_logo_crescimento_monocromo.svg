@@ -1,0 +1,18 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Versão Monochrome: apenas tons de cinza -->
+  <circle cx="32" cy="32" r="30" fill="#2C2C2A" stroke="none"/>
+  
+  <!-- Três barras de crescimento em cinza claro -->
+  <rect x="18" y="40" width="7" height="12" rx="1.5" fill="#F3F4F6" opacity="0.8"/>
+  <rect x="28" y="32" width="7" height="20" rx="1.5" fill="#F3F4F6"/>
+  <rect x="38" y="24" width="7" height="28" rx="1.5" fill="#F3F4F6" opacity="0.95"/>
+  
+  <!-- Linha de tendência em cinza médio -->
+  <path d="M 21.5 39 Q 31.5 27 44.5 22" stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Ponto na linha em cinza claro -->
+  <circle cx="44.5" cy="22" r="2.5" fill="#E5E7EB"/>
+  
+  <!-- Ponto de partida -->
+  <circle cx="21.5" cy="39" r="1.5" fill="#F3F4F6" opacity="0.6"/>
+</svg>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import LogoText from "@/assets/sgo_logo_crescimento_com_texto.svg";
 
 export const Register: React.FC = () => {
     const [nome, setNome] = useState('');
@@ -61,7 +62,10 @@ export const Register: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center">Criar Conta</CardTitle>
+                    <div className="flex justify-center mb-4">
+                        <img src={LogoText} alt="SGO - Sistema de Gestão" className="h-14" />
+                    </div>
+                    <CardTitle className="text-xl font-bold text-center mt-2">Criar Conta</CardTitle>
                     <CardDescription className="text-center">
                         Crie de graça sua conta no SGO. Prometemos não encher sua caixa de entrada.
                     </CardDescription>
