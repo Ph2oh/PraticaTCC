@@ -724,11 +724,12 @@ app.get('/api/whatsapp/status', async (req: AuthRequest, res) => {
     }
 });
 
-app.post('/api/whatsapp/start', (req: AuthRequest, res) => {
+app.post('/api/whatsapp/start', async (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
     if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
     
-    startWhatsAppClient(req.usuarioId);
+    // Inicia cliente e aguarda sessão ser criada (não bloqueia na inicialização Chromium)
+    await startWhatsAppClient(req.usuarioId);
     res.json({ success: true, message: 'Iniciando contêiner do WhatsApp...' });
 });
 

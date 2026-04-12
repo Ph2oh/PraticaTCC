@@ -21,6 +21,7 @@ export interface WhatsAppStatus {
     activeSession?: boolean;
     pendingRequests?: PendingWhatsAppRequest[];
     mobileOffline?: boolean;
+    connectedNumber?: string | null;
 }
 
 const DEFAULT_STATUS: WhatsAppStatus = {

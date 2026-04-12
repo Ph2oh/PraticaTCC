@@ -145,6 +145,15 @@ export function WhatsAppWizardSetup() {
                                                 <CheckCircle2 className="w-12 h-12 text-green-500" />
                                             </div>
                                             <span className="font-semibold text-lg text-foreground">Conexão estabelecida</span>
+                                            
+                                            {status.connectedNumber && (
+                                                <div className="text-center">
+                                                    <p className="text-sm text-muted-foreground mb-1">Número conectado:</p>
+                                                    <p className="text-base font-mono font-semibold text-foreground">
+                                                        +{status.connectedNumber.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '$1 $2 $3-$4')}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                         
                                         <div className="bg-muted/50 rounded-lg p-4 text-xs text-center text-muted-foreground">

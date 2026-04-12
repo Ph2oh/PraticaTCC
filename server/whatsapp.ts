@@ -5,6 +5,7 @@ import * as QRCode from 'qrcode';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 export interface PendingRequest {
     id: string;
@@ -27,6 +28,12 @@ interface WhatsAppSession {
     // Utilizado para notificações ao usuário e logging
     isMobileOffline: boolean;
     lastOfflineTime: Date | null;
+    // Número de WhatsApp conectado (extraído de client.info.wid.user quando session fica ready)
+    // Útil para disambiguação quando múltiplas contas são usadas
+    connectedNumber: string | null;
+    // Rastreamento de reconexões para implementar backoff exponencial e evitar poluição de logs e tentativas infrutíferas quando Chromium está em estado ruim
+    reconnectAttempts: number;
+    lastReconnectAttemptTime: Date | null;
 }
 
 const prisma = new PrismaClient();
@@ -37,7 +44,8 @@ const activeSessions = new Map<string, WhatsAppSession>();
 // Mapeamento dinâmico do local de salvamento dos caches do whatsapp por Tenant
 const getSessionPath = (usuarioId: string) => path.join(process.cwd(), '.wwebjs_auth', `session-${usuarioId}`);
 
-// Limpeza de lockfiles que impedem o Chromium de abrir (Error: Browser is already running)
+// Limpeza de lockfiles e processos Chromium orfaos
+// Implementação: Força limpeza para evitar "Browser is already running" na VPS
 const cleanupLocks = (usuarioId: string) => {
     const sessionPath = getSessionPath(usuarioId);
     const lockFiles = [
@@ -48,10 +56,26 @@ const cleanupLocks = (usuarioId: string) => {
 
     try {
         lockFiles.forEach((lockFilePath) => {
-            if (fs.existsSync(lockFilePath)) fs.unlinkSync(lockFilePath);
+            if (fs.existsSync(lockFilePath)) {
+                try {
+                    fs.unlinkSync(lockFilePath);
+                } catch (err) {
+                    console.debug(`Erro ao deletar lockfile ${lockFilePath}:`, err);
+                }
+            }
         });
     } catch (err) {
-        console.error(`Não foi possível limpar lockfiles do tenant ${usuarioId}`, err);
+        console.error(`Erro ao limpar lockfiles do tenant ${usuarioId}:`, err);
+    }
+    
+    // Mata processos Chromium orfaos associados a esse tenant (backoff 10s em VPS)
+    // Necessário porque whatsapp-web.js pode deixar processos zumbis ao desconectar
+    try {
+        // Busca por processos chromium e chrome que possam estar orfaos
+        // Usa kill -9 para forçar término imediato
+        execSync(`pkill -9 -f "session-${usuarioId}"`, { stdio: 'ignore' });
+    } catch (err) {
+        console.debug(`Nenhum processo Chromium orfao encontrado para tenant ${usuarioId}`);
     }
 };
 
@@ -85,16 +109,29 @@ const loadPendingRequests = async (usuarioId: string): Promise<void> => {
     }
 };
 
-const scheduleReconnect = (usuarioId: string, delayMs = 10000) => {
+const scheduleReconnect = (usuarioId: string, delayMs?: number) => {
     const session = activeSessions.get(usuarioId);
     if (!session || session.reconnectTimeout) return;
 
+    // Usa backoff exponencial se não foi especificado delay
+    // Primeiro calcula tentativas do tipo: 2s, 4s, 8s, 16s, 32s, até 60s máximo
+    let delay = delayMs;
+    if (!delay) {
+        session.reconnectAttempts++;
+        // Backoff exponencial: 2^attempts segundos, mínimo 2s, máximo 60s
+        delay = Math.min(1000 * Math.pow(2, session.reconnectAttempts - 1), 60000);
+        console.log(`[Tenant: ${usuarioId}] Tentativa de reconexão ${session.reconnectAttempts} agendada em ${delay / 1000}s.`);
+    }
+
+    session.lastReconnectAttemptTime = new Date();
     session.reconnectTimeout = setTimeout(() => {
         if (activeSessions.has(usuarioId)) {
             activeSessions.get(usuarioId)!.reconnectTimeout = null;
-            safeInitializeWhatsAppClient(usuarioId);
+            safeInitializeWhatsAppClient(usuarioId).catch(err => {
+                console.error(`[Tenant: ${usuarioId}] Erro na reconexão:`, err.message);
+            });
         }
-    }, delayMs);
+    }, delay);
 };
 
 const setupWhatsAppListeners = (usuarioId: string) => {
@@ -108,6 +145,46 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         session.isReady = true;
         session.qrCode = '';
         session.statusMessage = 'WhatsApp conectado';
+        
+        // Reseta contador de reconexões (sucesso completo!)
+        // Próxima falha começará do backoff inicial (2 segundos)
+        if (session.reconnectAttempts > 0) {
+            console.log(`[Tenant: ${usuarioId}] Reconexão bem-sucedida após ${session.reconnectAttempts} tentativa(s).`);
+            session.reconnectAttempts = 0;
+        }
+        
+        // Extrai o número de WhatsApp conectado
+        // Tenta múltiplas formas de acessar: wid.user, wid._serialized, ou info completo
+        try {
+            let phoneNumber = null;
+            
+            // Tenta client.info.wid.user (formato: XX9XXXXXXXXXX)
+            if (client.info?.wid?.user) {
+                phoneNumber = client.info.wid.user;
+            }
+            // Tenta client.info.wid._serialized (formato: XX9XXXXXXXXXX@c.us)
+            else if (client.info?.wid?._serialized) {
+                phoneNumber = client.info.wid._serialized.replace('@c.us', '');
+            }
+            // Tenta client.info.me (objeto de ID do usuário)
+            else if (client.info?.me?._data?.user) {
+                phoneNumber = client.info.me._data.user;
+            }
+            // Fallback: tenta acessar propriedades diretamente
+            else if (client.info?.user) {
+                phoneNumber = client.info.user;
+            }
+            
+            if (phoneNumber) {
+                session.connectedNumber = phoneNumber;
+                console.log(`[Tenant: ${usuarioId}] Número de WhatsApp conectado: +${phoneNumber}`);
+            } else {
+                console.warn(`[Tenant: ${usuarioId}] Não foi possível extrair número. Disponível ao receber primeira mensagem.`);
+                console.debug(`[Tenant: ${usuarioId}] client.info:`, JSON.stringify(client.info, null, 2));
+            }
+        } catch (err) {
+            console.error(`[Tenant: ${usuarioId}] Erro ao extrair número de WhatsApp:`, err);
+        }
         
         // Reseta flag de offline quando reconecta
         // Indica que a sincronização foi restaurada após app móvel voltar online
@@ -142,7 +219,13 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         
         session.isReady = false;
         session.qrCode = '';
-        scheduleReconnect(usuarioId);
+        session.connectedNumber = null;
+        session.statusMessage = 'Reconectando... Aguarde o QR Code aparecer.';
+        
+        // Tenta reconectar imediatamente (em vez de esperar 10s)
+        // Isso garante que o usuário veja o QR rapidamente após desconexão
+        console.log(`[Tenant: ${usuarioId}] Iniciando reconexão imediata...`);
+        scheduleReconnect(usuarioId, 1000);
     });
 
     client.on('auth_failure', (message: any) => {
@@ -166,6 +249,18 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
     client.on('message_create', async (message: any) => {
         if (message.from.includes('@g.us') || message.isStatus || message.fromMe) return;
+
+        // Fallback: Se ainda não conseguimos extrair o número, tenta a partir da mensagem recebida
+        // message.to é o número para o qual a mensagem foi recebida (nosso número)
+        if (!session.connectedNumber && message.to) {
+            try {
+                const phoneNumber = message.to.replace('@c.us', '');
+                session.connectedNumber = phoneNumber;
+                console.log(`[Tenant: ${usuarioId}] Número de WhatsApp extraído da primeira mensagem: +${phoneNumber}`);
+            } catch (err) {
+                console.debug(`[Tenant: ${usuarioId}] Erro ao extrair número da mensagem:`, err);
+            }
+        }
 
         const body = message.body.toLowerCase();
         if (body.includes('orçamento') || body.includes('orcamento')) {
@@ -251,7 +346,10 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
             pendingRequests: [],
             reconnectTimeout: null,
             isMobileOffline: false,
-            lastOfflineTime: null
+            lastOfflineTime: null,
+            connectedNumber: null,
+            reconnectAttempts: 0,
+            lastReconnectAttemptTime: null
         };
         activeSessions.set(usuarioId, session);
 
@@ -282,13 +380,44 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
     setupWhatsAppListeners(usuarioId);
 };
 
-export const startWhatsAppClient = (usuarioId: string) => {
+export const startWhatsAppClient = async (usuarioId: string) => {
     console.log(`[Tenant: ${usuarioId}] Solicitada a ativação da integração WhatsApp.`);
-    // Inicializa de forma assincronizada sem bloquear a resposta ao cliente
-    // O frontend fará polling para monitorar o progresso
+    
+    // Cria a sessão IMEDIATAMENTE e a coloca em activeSessions
+    // Isso garante que getWhatsAppStatus() retorne activeSession:true rapidinho
+    // A inicialização do cliente continua em background sem bloquear
+    createWhatsAppSessionPlaceholder(usuarioId);
+    
+    // Inicializa o cliente em background (não aguarda)
+    // Polling do frontend vai monitorar o progresso
     safeInitializeWhatsAppClient(usuarioId).catch(err => {
         console.error(`[Tenant: ${usuarioId}] Erro durante inicialização assincronizada:`, err);
     });
+};
+
+// Cria uma sessão placeholder na RAM imediatamente
+// Sem bloquear na inicialização do Chromium
+const createWhatsAppSessionPlaceholder = (usuarioId: string) => {
+    if (activeSessions.has(usuarioId)) {
+        return; // Já existe sessão
+    }
+    
+    const session: WhatsAppSession = {
+        client: null,
+        isReady: false,
+        qrCode: '',
+        statusMessage: 'Iniciando container WhatsApp...',
+        pendingRequests: [],
+        reconnectTimeout: null,
+        isMobileOffline: false,
+        lastOfflineTime: null,
+        connectedNumber: null,
+        reconnectAttempts: 0,
+        lastReconnectAttemptTime: null
+    };
+    
+    activeSessions.set(usuarioId, session);
+    console.log(`[Tenant: ${usuarioId}] Sessão placeholder criada em RAM.`);
 };
 
 export const getWhatsAppStatus = async (usuarioId: string) => {
@@ -331,7 +460,8 @@ export const getWhatsAppStatus = async (usuarioId: string) => {
         message: session.statusMessage,
         pendingRequests: pendingRequests,
         activeSession: true,
-        mobileOffline: session.isMobileOffline
+        mobileOffline: session.isMobileOffline,
+        connectedNumber: session.connectedNumber
     };
 };
 
@@ -411,10 +541,18 @@ export const disconnectWhatsAppClient = async (usuarioId: string) => {
     }
     await session.client.destroy();
 
+    // Reseta sessão mas mantém em memória para permitir reconexão
+    // Não deleta a sessão completamente, apenas zera os valores de conexão
+    // Assim o frontend pode clicar em "Gerar QR Code" novamente
     session.isReady = false;
     session.qrCode = '';
+    session.connectedNumber = null;
     session.client = null;
-    activeSessions.delete(usuarioId); // Desliga e remove da RAM
+    session.statusMessage = 'Desconectado. Clique em "Gerar QR Code" para reconectar.';
+    session.pendingRequests = [];
+    session.reconnectAttempts = 0;
+    session.lastReconnectAttemptTime = null;
+    
     return true;
 };
 
