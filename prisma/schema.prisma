@@ -22,6 +22,7 @@ model Cliente {
   usuarioId       String
   usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   orcamentos      Orcamento[]
+  solicitacoesWhatsApp SolicitacaoWhatsApp[]
 }
 
 model Orcamento {
@@ -61,6 +62,20 @@ model OrcamentoEvento {
   @@index([orcamentoId])
 }
 
+model SolicitacaoWhatsApp {
+  id               String   @id @default(uuid())
+  usuarioId        String
+  usuario          Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  clienteId        String
+  cliente          Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  whatsappFrom     String
+  mensagemOriginal String
+  clienteNome      String
+  criadoEm         DateTime @default(now())
+  
+  @@index([usuarioId])
+}
+
 model Configuracao {
   id               String   @id @default(uuid())
   usuarioId        String   @unique
@@ -98,4 +113,5 @@ model Usuario {
   clientes         Cliente[]
   orcamentos       Orcamento[]
   configuracao     Configuracao?
+  solicitacoesWhatsApp SolicitacaoWhatsApp[]
 }

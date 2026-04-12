@@ -136,14 +136,23 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
                 if (hasPending) return;
 
-                const requestId = Date.now().toString() + Math.random().toString(36).substring(7);
+                const solicitacao = await prisma.solicitacaoWhatsApp.create({
+                    data: {
+                        usuarioId: usuarioId,
+                        clienteId: cliente.id,
+                        whatsappFrom: message.from,
+                        mensagemOriginal: message.body,
+                        clienteNome: cliente.nome,
+                    }
+                });
+
                 session.pendingRequests.push({
-                    id: requestId,
+                    id: solicitacao.id,
                     clienteId: cliente.id,
                     clienteNome: cliente.nome,
                     whatsappFrom: message.from,
                     mensagemOriginal: message.body,
-                    timestamp: new Date()
+                    timestamp: solicitacao.criadoEm
                 });
 
             } catch (error) {
@@ -170,6 +179,22 @@ const safeInitializeWhatsAppClient = (usuarioId: string) => {
             reconnectTimeout: null
         };
         activeSessions.set(usuarioId, session);
+
+        // Carrega requests pendentes do banco para a RAM
+        prisma.solicitacaoWhatsApp.findMany({
+            where: { usuarioId }
+        }).then(solicitacoes => {
+            if (activeSessions.has(usuarioId)) {
+                activeSessions.get(usuarioId)!.pendingRequests = solicitacoes.map(s => ({
+                    id: s.id,
+                    clienteId: s.clienteId,
+                    clienteNome: s.clienteNome,
+                    whatsappFrom: s.whatsappFrom,
+                    mensagemOriginal: s.mensagemOriginal,
+                    timestamp: s.criadoEm as any
+                }));
+            }
+        }).catch(err => console.error(`[Tenant: ${usuarioId}] Erro ao carregar solicitacoes pendentes:`, err));
     } else {
         session.statusMessage = 'Reconectando ao WhatsApp...';
         session.isReady = false;
@@ -245,19 +270,21 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
         });
 
         session.pendingRequests.splice(requestIndex, 1);
+        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => {});
         return novoOrcamento;
     } catch (e) {
         throw e;
     }
 };
 
-export const rejectWhatsAppRequest = (usuarioId: string, requestId: string) => {
+export const rejectWhatsAppRequest = async (usuarioId: string, requestId: string) => {
     const session = activeSessions.get(usuarioId);
     if (!session) return false;
 
     const requestIndex = session.pendingRequests.findIndex(r => r.id === requestId);
     if (requestIndex !== -1) {
         session.pendingRequests.splice(requestIndex, 1);
+        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => {});
         return true;
     }
     return false;

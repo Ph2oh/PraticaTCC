@@ -238,6 +238,22 @@ totalOrcamentos (Int)
 usuarioId       (UUID, FK → Usuario)
 ```
 
+### SolicitacaoWhatsApp (Fila Temporária)
+
+```sql
+id               (UUID, PK)
+usuarioId        (UUID, FK → Usuario)
+clienteId        (UUID, FK → Cliente)
+whatsappFrom     (String — número do remetente)
+mensagemOriginal (String — mensagem enviada pelo lead)
+clienteNome      (String)
+criadoEm         (DateTime)
+```
+
+**Regra:** Registros nesta tabela funcionam apenas como uma *fila de staging* (temporária). Uma vez que o usuário decide "Criar Orçamento" ou "Ignorar" o pedido gerado via WhatsApp no painel, a linha correspondente é **deletada** instantaneamente. Esta tabela atua como blindagem passiva: garante que os leads não lidos (ex. enviados de madrugada ou no fim de semana) não sejam permanentemente perdidos da memória caso a aplicação inteira seja reiniciada (`pm2 restart` / deploy automáticos / crashes).
+
+
+
 ### Configuracao
 
 ```sql

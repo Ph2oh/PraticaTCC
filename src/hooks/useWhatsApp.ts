@@ -87,9 +87,17 @@ export function useWhatsApp() {
         },
         // Só faz refetch se o usuário estiver autenticado
         enabled: isAuthenticated,
-        refetchInterval: isAuthenticated ? 5000 : false,
+        refetchInterval: (query) => {
+            if (!isAuthenticated) return false;
+            const data = query.state?.data as WhatsAppStatus | undefined;
+            // Se a sessão está ativa MAS não conectada (aguardando QR ou inicializando), polling agressivo
+            if (data && data.activeSession && !data.ready) return 1500;
+            // Caso contrário usa polling relaxado
+            return 5000;
+        },
+        refetchIntervalInBackground: true, // Garante que as notificações não atrasem quando minimizado
         refetchOnWindowFocus: false, // Prevents reset on tab switching
-        staleTime: 4000,
+        staleTime: 0, // Garante que background refs tragam fresh data
     });
 
     const disconnectMutation = useMutation({

@@ -731,13 +731,13 @@ app.post('/api/whatsapp/requests/:id/accept', async (req: AuthRequest, res) => {
     }
 });
 
-app.post('/api/whatsapp/requests/:id/reject', (req: AuthRequest, res) => {
+app.post('/api/whatsapp/requests/:id/reject', async (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
     if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
 
     try {
         const id = req.params.id as string;
-        const success = rejectWhatsAppRequest(req.usuarioId, id);
+        const success = await rejectWhatsAppRequest(req.usuarioId, id);
         if (success) {
             res.json({ success: true });
         } else {

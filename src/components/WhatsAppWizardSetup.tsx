@@ -1,17 +1,12 @@
 import React from 'react';
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, QrCode, Smartphone, Wifi, Loader2, AlertCircle, LogOut } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle2, QrCode, Loader2, AlertCircle, MessageCircle, ShieldCheck } from 'lucide-react';
 
 export function WhatsAppWizardSetup() {
     const { status, loading, startConnection, disconnect } = useWhatsApp();
 
-    // Fluxo simplificado em 3 etapas reais:
-    // Etapa 1: Aguardando início (sem sessão ativa)
-    // Etapa 2: Sessão iniciada — Chromium subindo (sem QR) ou QR disponível (aguardando escaneamento)
-    // Etapa 3: Conectado e pronto
     let currentStep = 1;
     if (status.activeSession && !status.ready) currentStep = 2;
     if (status.activeSession && status.ready) currentStep = 3;
@@ -20,44 +15,61 @@ export function WhatsAppWizardSetup() {
     const hasQrCode = currentStep === 2 && !!status.qrCode;
 
     return (
-        <div className="w-full max-w-4xl mx-auto space-y-8">
-            <div className="text-center space-y-3 pt-6 border-b pb-8">
-                <h2 className="text-3xl font-bold tracking-tight">Conecte seu WhatsApp</h2>
-                <p className="text-muted-foreground w-3/4 mx-auto">
-                    Integre seu WhatsApp Business ao sistema de gestão de orçamentos
-                </p>
-            </div>
+        <div className="w-full max-w-5xl mx-auto py-8">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+                
+                {/* Coluna Esquerda: Textos e Persuasão */}
+                <div className="space-y-8">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 text-primary font-semibold">
+                            <div className="bg-primary/10 p-2 rounded-lg">
+                                <MessageCircle className="w-6 h-6" />
+                            </div>
+                            <span className="tracking-wide">SGO WhatsApp API</span>
+                        </div>
+                        
+                        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
+                            {currentStep === 3 ? "Whatsapp conectado" : "Conecte seu whatsapp"}
+                        </h1>
 
-            <div className="grid md:grid-cols-4 gap-6">
-                {/* Lateral Esquerda - Steps */}
-                <div className="md:col-span-1 space-y-4 pt-6">
-                    <StepIndicator
-                        number={1}
-                        title="Inicialização"
-                        active={currentStep >= 1}
-                        completed={currentStep > 1}
-                    />
-                    <div className="h-6 border-l-2 border-dashed ml-4 border-muted" />
+                        <ul className="space-y-4 text-muted-foreground w-full">
+                            <li className="flex gap-3 items-center">
+                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                                <span>Gerencie conversas, leads e orçamentos em um único painel</span>
+                            </li>
+                            <li className="flex gap-3 items-center">
+                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                                <span>Captura passiva via espelhamento em tempo real</span>
+                            </li>
+                            <li className="flex gap-3 items-center">
+                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                                <span>Sem limite de leads puxados do seu celular</span>
+                            </li>
+                        </ul>
+                    </div>
 
-                    <StepIndicator
-                        number={2}
-                        title="Autenticação"
-                        active={currentStep >= 2}
-                        completed={currentStep > 2}
-                    />
-                    <div className="h-6 border-l-2 border-dashed ml-4 border-muted" />
-
-                    <StepIndicator
-                        number={3}
-                        title="Conectado"
-                        active={currentStep >= 3}
-                        completed={currentStep >= 3}
-                    />
+                    {/* Segurança Avançada Card */}
+                    <div className="bg-card border rounded-2xl p-6 space-y-4 shadow-sm">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-primary" />
+                            Segurança avançada
+                        </h3>
+                        <ul className="space-y-3 text-sm text-muted-foreground">
+                            <li className="flex gap-2 items-start">
+                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                                <span><strong>Criptografia local</strong> para o armazenamento seguro das chaves de sessão no servidor.</span>
+                            </li>
+                            <li className="flex gap-2 items-start">
+                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                                <span><strong>Comunicação isolada</strong> via espelhamento, dispensando intermédio da API Cloud de terceiros.</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
 
-                {/* Conteúdo Central */}
-                <div className="md:col-span-3">
-                    <Card className="shadow-lg border-primary/20">
+                {/* Coluna Direita: O Painel de Conexão */}
+                <div className="flex justify-center lg:justify-end">
+                    <Card className="w-full max-w-md shadow-2xl rounded-2xl border-primary/10 overflow-hidden bg-card/50 backdrop-blur-sm">
                         {status.disabled ? (
                             <CardContent className="p-12 text-center space-y-4">
                                 <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto" />
@@ -67,190 +79,100 @@ export function WhatsAppWizardSetup() {
                                 </p>
                             </CardContent>
                         ) : (
-                            <>
-                                {/* ETAPA 1: Botão com loading inline ao clicar */}
+                            <div className="p-8 space-y-8">
+                                {/* Cabeçalho do Card */}
+                                <div className="text-center space-y-2">
+                                    <h3 className="text-2xl font-semibold tracking-tight">Status da Conexão</h3>
+                                    <p className="text-sm text-muted-foreground">Autenticação Web Bridge</p>
+                                </div>
+
+                                {/* ETAPA 1: Botão Iniciar */}
                                 {currentStep === 1 && (
-                                    <div className="animate-in fade-in zoom-in duration-500">
-                                        <CardHeader className="text-center pb-0 space-y-3 mt-6">
-                                            <div className="mx-auto bg-primary/10 p-4 rounded-full w-20 h-20 flex items-center justify-center">
-                                                <Smartphone className="w-10 h-10 text-primary" />
-                                            </div>
-                                            <CardTitle className="text-2xl">Vamos começar</CardTitle>
-                                            <CardDescription className="text-base px-6">
-                                                Clique para estabelecer uma conexão segura com seu WhatsApp Business.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="pt-8 pb-10 flex justify-center">
-                                            <Button
-                                                size="lg"
-                                                onClick={startConnection}
-                                                disabled={loading}
-                                                className="w-full sm:w-1/2 h-14 text-lg"
-                                            >
-                                                {loading
-                                                    ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Iniciando...</>
-                                                    : "Iniciar autenticação"
-                                                }
-                                            </Button>
-                                        </CardContent>
+                                    <div className="animate-in fade-in zoom-in duration-500 space-y-6 pt-4">
+                                        <div className="bg-muted min-h-[220px] rounded-xl flex items-center justify-center p-6 border border-dashed border-primary/30">
+                                            <p className="text-muted-foreground text-center text-sm">
+                                                Aguardando inicialização da verificação de pareamento.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="lg"
+                                            onClick={startConnection}
+                                            disabled={loading}
+                                            className="w-full h-14 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors"
+                                        >
+                                            {loading
+                                                ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Gerando Token...</>
+                                                : "Gerar QR Code"
+                                            }
+                                        </Button>
                                     </div>
                                 )}
 
-                                {/* ETAPA 2a: Chromium ainda inicializando (sem QR) */}
-                                {isBootingUp && (
-                                    <div className="animate-in fade-in duration-500">
-                                        <CardContent className="flex flex-col items-center justify-center py-20 space-y-6">
-                                            <div className="mx-auto bg-primary/10 p-5 rounded-full w-24 h-24 flex items-center justify-center">
-                                                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                                {/* ETAPA 2: Loader ou QR Code */}
+                                {currentStep === 2 && (
+                                    <div className="animate-in fade-in duration-500 space-y-6">
+                                        {isBootingUp ? (
+                                            <div className="bg-muted min-h-[220px] rounded-xl flex flex-col items-center justify-center space-y-4 p-6">
+                                                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                                                <p className="text-sm text-muted-foreground text-center">Preparando sessão de criptografia...</p>
                                             </div>
-                                            <div className="text-center space-y-2">
-                                                <h3 className="text-xl font-semibold">Preparando sessão segura...</h3>
-                                                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                                                    Estamos iniciando o canal de conexão. O QR Code aparecerá em instantes.
-                                                </p>
-                                            </div>
-                                            <Button variant="ghost" size="sm" onClick={disconnect} disabled={loading} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                                Cancelar
-                                            </Button>
-                                        </CardContent>
-                                    </div>
-                                )}
-
-                                {/* ETAPA 2b: QR Code disponível */}
-                                {hasQrCode && (
-                                    <div className="animate-in slide-in-from-right-8 duration-500">
-                                        <CardHeader className="text-center">
-                                            <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                                                <QrCode className="w-6 h-6 text-primary" /> QR Code Pronto
-                                            </CardTitle>
-                                            <CardDescription>Escaneie o código abaixo com seu celular</CardDescription>
-                                        </CardHeader>
-
-                                        {/* CardContent com posicionamento relativo para suportar overflow */}
-                                        <CardContent className="py-8 px-4 sm:px-8 relative overflow-visible">
-                                            <div className="relative w-full">
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-
-                                                    {/* Coluna Esquerda - Instruções */}
-                                                    <div className="bg-muted/30 p-6 sm:p-8 rounded-xl border border-muted/50 z-0">
-                                                        <div className="space-y-4">
-                                                            <h4 className="font-semibold text-primary">Passo a passo:</h4>
-                                                            <ol className="text-sm space-y-4 text-muted-foreground w-full">
-                                                                <li className="flex gap-3 items-start">
-                                                                    <span className="bg-primary/20 text-primary px-2 rounded-md font-medium shrink-0">1</span>
-                                                                    <span className="flex-1 leading-relaxed mt-0.5">Abra o WhatsApp no seu smartphone</span>
-                                                                </li>
-                                                                <li className="flex gap-3 items-start">
-                                                                    <span className="bg-primary/20 text-primary px-2 rounded-md font-medium shrink-0">2</span>
-                                                                    <span className="flex-1 leading-relaxed mt-0.5">Toque em <b>Configurações</b> ou no Ícone de Três Pontinhos ⋮</span>
-                                                                </li>
-                                                                <li className="flex gap-3 items-start">
-                                                                    <span className="bg-primary/20 text-primary px-2 rounded-md font-medium shrink-0">3</span>
-                                                                    <span className="flex-1 leading-relaxed mt-0.5">Entre em <b>Aparelhos Conectados</b></span>
-                                                                </li>
-                                                                <li className="flex gap-3 items-start">
-                                                                    <span className="bg-primary/20 text-primary px-2 rounded-md font-medium shrink-0">4</span>
-                                                                    <span className="flex-1 leading-relaxed mt-0.5">Toque em <b>Conectar um Aparelho</b> e aponte</span>
-                                                                </li>
-                                                            </ol>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Coluna Direita - QR Code sobreposto (desktop) */}
-                                                    <div className="hidden lg:flex justify-center relative h-full">
-                                                        <div className="absolute -right-20 top-1/2 -translate-y-1/2 z-20">
-                                                            <div className="bg-white p-5 rounded-xl shadow-2xl border border-black/5 ring-1 ring-black/5 flex items-center justify-center animate-in slide-in-from-right-8 duration-500">
-                                                                <img
-                                                                    src={status.qrCode}
-                                                                    alt="WhatsApp QR Code"
-                                                                    className="w-72 h-72 object-contain"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Mobile - QR Code centralizado */}
-                                                    <div className="lg:hidden flex justify-center">
-                                                        <div className="bg-white p-5 rounded-xl shadow-xl border border-black/5 ring-1 ring-black/5 flex items-center justify-center">
-                                                            <img
-                                                                src={status.qrCode}
-                                                                alt="WhatsApp QR Code"
-                                                                className="w-64 h-64 object-contain"
-                                                            />
-                                                        </div>
-                                                    </div>
-
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="bg-white p-4 rounded-xl shadow-inner border mx-auto w-fit">
+                                                    <img
+                                                        src={status.qrCode}
+                                                        alt="WhatsApp QR Code"
+                                                        className="w-56 h-56 object-contain"
+                                                    />
+                                                </div>
+                                                <div className="bg-primary/5 rounded-lg p-3 text-sm text-center text-primary/80 font-medium">
+                                                    Abra o WhatsApp em seu celular e escaneie o código
                                                 </div>
                                             </div>
-                                        </CardContent>
-                                        <CardFooter className="bg-muted/30 border-t py-4 justify-between">
-                                            <p className="text-xs text-muted-foreground">* O código atualiza automaticamente a cada 30 segundos.</p>
-                                            <Button variant="ghost" size="sm" onClick={disconnect} disabled={loading} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                                Cancelar Sincronização
-                                            </Button>
-                                        </CardFooter>
+                                        )}
+                                        
+                                        <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" onClick={disconnect} disabled={loading}>
+                                            Cancelar 
+                                        </Button>
                                     </div>
                                 )}
 
                                 {/* ETAPA 3: Conectado */}
                                 {currentStep === 3 && (
-                                    <div className="animate-in fade-in zoom-in-95 duration-500">
-                                        <CardContent className="flex flex-col items-center justify-center py-16 space-y-6">
-                                            <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center">
-                                                <CheckCircle2 className="w-14 h-14 text-green-500" />
+                                    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-8 py-4">
+                                        <div className="flex flex-col items-center justify-center space-y-4">
+                                            <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center">
+                                                <CheckCircle2 className="w-12 h-12 text-green-500" />
                                             </div>
-                                            <div className="text-center space-y-2">
-                                                <h3 className="text-2xl font-bold bg-gradient-to-br from-green-500 to-green-700 bg-clip-text text-transparent">CONECTADO</h3>
-                                                <p className="text-muted-foreground text-sm max-w-[300px] mx-auto">
-                                                    Seu número está ativo e recebendo mensagens através do painel.
-                                                </p>
-                                            </div>
+                                            <span className="font-semibold text-lg text-foreground">Conexão estabelecida</span>
+                                        </div>
+                                        
+                                        <div className="bg-muted/50 rounded-lg p-4 text-xs text-center text-muted-foreground">
+                                            Identificador de espelhamento ativo e sincronizado. Você pode fechar esta tela.
+                                        </div>
 
-                                            <Alert className="max-w-md mx-auto bg-green-500/5 border-green-500/20">
-                                                <AlertDescription className="text-green-700/80 dark:text-green-500/80">
-                                                    Mantenha a aba de Orçamentos aberta para gerenciar os novos leads do seu WhatsApp.
-                                                </AlertDescription>
-                                            </Alert>
-
-                                            <Button
-                                                variant="outline"
-                                                onClick={disconnect}
-                                                disabled={loading}
-                                                className="mt-6 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                            >
-                                                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
-                                                Desconectar Dispositivo
-                                            </Button>
-                                        </CardContent>
+                                        <Button
+                                            variant="outline"
+                                            onClick={disconnect}
+                                            disabled={loading}
+                                            className="w-full h-12 border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                        >
+                                            Desconectar Sessão
+                                        </Button>
                                     </div>
                                 )}
-                            </>
+
+                                {/* Rodapé do Card */}
+                                <div className="pt-4 border-t border-border/50 text-center">
+                                    <span className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3 text-primary" /> API Server Bridge Online
+                                    </span>
+                                </div>
+                            </div>
                         )}
                     </Card>
                 </div>
             </div>
-        </div>
-    );
-}
-
-// Subcomponente lateral para steps
-function StepIndicator({ number, title, active, completed }: { number: number, title: string, active: boolean, completed: boolean }) {
-    return (
-        <div className={`flex items-center gap-3 transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-            <div className={`
-                flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm border-2
-                ${completed
-                    ? 'bg-primary border-primary text-primary-foreground'
-                    : active
-                        ? 'border-primary text-primary bg-background'
-                        : 'border-muted-foreground text-muted-foreground'
-                }
-            `}>
-                {completed ? <CheckCircle2 className="w-5 h-5" /> : number}
-            </div>
-            <span className={`font-semibold ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {title}
-            </span>
         </div>
     );
 }
