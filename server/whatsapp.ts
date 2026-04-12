@@ -23,6 +23,10 @@ interface WhatsAppSession {
     statusMessage: string;
     pendingRequests: PendingRequest[];
     reconnectTimeout: ReturnType<typeof setTimeout> | null;
+    // Rastreamento de sincronização pausada (quando app móvel fica offline)
+    // Utilizado para notificações ao usuário e logging
+    isMobileOffline: boolean;
+    lastOfflineTime: Date | null;
 }
 
 const prisma = new PrismaClient();
@@ -104,13 +108,40 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         session.isReady = true;
         session.qrCode = '';
         session.statusMessage = 'WhatsApp conectado';
+        
+        // Reseta flag de offline quando reconecta
+        // Indica que a sincronização foi restaurada após app móvel voltar online
+        if (session.isMobileOffline) {
+            const offlineMinutes = Math.round((Date.now() - (session.lastOfflineTime?.getTime() || 0)) / 60000);
+            console.log(`[Tenant: ${usuarioId}] Sincronização restaurada! App móvel esteve offline por ~${offlineMinutes} minuto(s).`);
+            session.isMobileOffline = false;
+        }
     });
 
     client.on('disconnected', (reason: any) => {
-        console.warn(`[Tenant: ${usuarioId}] Cliente do WhatsApp desconectado:`, reason);
+        const reasonStr = String(reason).toUpperCase();
+        
+        // Detecção de desconexão por app móvel offline ou conflito de dispositivos
+        // Correlação com comportamento esperado: sincronização pausada quando app fica offline
+        const isMobileOffline = reasonStr.includes('CONFLICT') || 
+                                reasonStr.includes('OFFLINE') || 
+                                reasonStr.includes('MOBILE') ||
+                                reasonStr.includes('SYNC');
+        
+        if (isMobileOffline) {
+            session.isMobileOffline = true;
+            session.lastOfflineTime = new Date();
+            console.warn(`[Tenant: ${usuarioId}] AVISO: App WhatsApp no celular pode estar offline ou sincronização foi pausada.`);
+            console.warn(`[Tenant: ${usuarioId}] Razão da desconexão: ${reasonStr}`);
+            console.warn(`[Tenant: ${usuarioId}] Ação recomendada: Mantenha o app WhatsApp aberto no dispositivo móvel para restaurar a sincronização.`);
+            session.statusMessage = 'App móvel offline - Mantenha o WhatsApp aberto no celular';
+        } else {
+            console.warn(`[Tenant: ${usuarioId}] Cliente do WhatsApp desconectado: ${reasonStr}`);
+            session.statusMessage = `WhatsApp desconectado: ${reasonStr}`;
+        }
+        
         session.isReady = false;
         session.qrCode = '';
-        session.statusMessage = `WhatsApp desconectado: ${String(reason)}`;
         scheduleReconnect(usuarioId);
     });
 
@@ -218,7 +249,9 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
             qrCode: '',
             statusMessage: 'Iniciando container WhatsApp...',
             pendingRequests: [],
-            reconnectTimeout: null
+            reconnectTimeout: null,
+            isMobileOffline: false,
+            lastOfflineTime: null
         };
         activeSessions.set(usuarioId, session);
 
@@ -297,7 +330,8 @@ export const getWhatsAppStatus = async (usuarioId: string) => {
         qrCode: session.qrCode,
         message: session.statusMessage,
         pendingRequests: pendingRequests,
-        activeSession: true
+        activeSession: true,
+        mobileOffline: session.isMobileOffline
     };
 };
 

@@ -301,6 +301,55 @@ Apesar deste sistema possuir fortes aspirações para escalabilidade multi-tenan
 
 ---
 
+## Requisitos Operacionais: WhatsApp Web (Sincronização)
+
+A integração com WhatsApp utiliza a tecnologia de **espelhamento do WhatsApp Web** (whatsapp-web.js). Isso significa que o navegador web (rodando em sua VPS) espelha a sessão do seu aplicativo móvel.
+
+### Comportamento Esperado
+
+Quando você conecta seu WhatsApp ao SGO via QR Code:
+
+1. **App móvel é a "fonte de verdade"** — O telefone conectado é sempre o dispositivo principal. A VPS apenas espelha essa sessão.
+2. **Sincronização pausada em outros dispositivos** — Ao detectar uma nova simulação (seu servidor), o WhatsApp pausa a sincronização com tablets, computadores de mesa e outras conexões Web para proteger dados.
+3. **Notificação no mobile** — Você verá a mensagem "Mantenha o app aberto nos 2 dispositivos" com um ícone de atualização.
+
+### O que isso Significa na Prática
+
+| Cenário | Comportamento |
+|:---|:---|
+| App WhatsApp aberto no celular | Sincronização ativa, novas mensagens chegam em tempo real no SGO |
+| App WhatsApp fechado no celular | Sincronização **pausada**, novas mensagens só sincronizam quando reabre o app |
+| Outro dispositivo (tablet) conectado | Ver apenas a última sincronização quando estiver offline |
+| Mudar de WiFi / Dados Móveis | Reconexão automática, sem perda de sessão |
+
+### Requisitos para Funcionamento Óptimo
+
+Mantenha o app WhatsApp aberto no seu celular
+- Se fechar o app, o SGO perderá sincronização em tempo real
+- Mensagens recebidas enquanto offline serão sincronizadas ao reabrir
+
+Use a mesma conta WhatsApp que deseja integrar
+- Não é possível compartilhar uma sessão entre múltiplos usuários
+- Cada usuário do SGO deve conectar sua própria conta WhatsApp
+
+Evite desconectar a sessão no seu telefone
+- A opção "Desconectar todos os dispositivos" na tela de linked devices pode encerrar a integração
+- Se isso ocorrer, faça login novamente escaneando o QR Code
+
+### Monitoramento de Status
+
+O SGO monitora automaticamente a integridade da sessão WhatsApp:
+
+- Se o app móvel ficar offline por mais de 5 minutos, o sistema registra um aviso no log
+- Quando a sincronização é retomada, o status volta ao normal automaticamente
+- Você pode visualizar o status em tempo real na tela de configuração do WhatsApp
+
+### Plano de Melhoria Futuro
+
+No roadmap, está prevista uma migração para a **API Cloud Oficial da Meta** (Graph API), que eliminaria completamente a dependência do app móvel ficar aberto. Isso removeria a limitação de sincronização pausada e ofereceria maior escalabilidade. Porém, essa implementação será considerada apenas quando a base de clientes crescer significativamente.
+
+---
+
 ## Design System
 
 O sistema utiliza um tema baseado em CSS Custom Properties (HSL) com suporte a dark/light mode e modo automático por preferência do sistema.
@@ -364,10 +413,10 @@ Ao confirmar, a descrição do orçamento é gerada no formato:
 ```
 Criado via WhatsApp (Aprovado).
 
-💍 Casal: Maria e João
-📅 Data: 12/10/2026
-📸 Evento: Casamento
-📍 Local: Espaço Villa Real
+Casal: Maria e João
+Data: 12/10/2026
+Evento: Casamento
+Local: Espaço Villa Real
 
 Mensagem original:
 "Olá, gostaria de um orçamento para fotos do meu casamento dia 12/10 no Espaço Villa Real"
