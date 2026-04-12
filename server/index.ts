@@ -702,6 +702,11 @@ app.put('/api/config', async (req: any, res) => {
 
 // --- WHATSAPP ROUTES ---
 app.get('/api/whatsapp/status', (req: AuthRequest, res) => {
+    // Impedir cache robusto (prevenção de atrasos do Nginx/VPS)
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     if (!WHATSAPP_ENABLED) {
         return res.json({ ready: false, qrCode: '', pendingRequests: [], disabled: true });
     }
@@ -723,7 +728,8 @@ app.post('/api/whatsapp/requests/:id/accept', async (req: AuthRequest, res) => {
 
     try {
         const id = req.params.id as string;
-        const orcamento = await acceptWhatsAppRequest(req.usuarioId, id);
+        const detalhes = req.body?.detalhes;
+        const orcamento = await acceptWhatsAppRequest(req.usuarioId, id, detalhes);
         res.json({ success: true, orcamento });
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : 'Erro ao aprovar solicitação';

@@ -96,8 +96,10 @@ export function useWhatsApp() {
             return 5000;
         },
         refetchIntervalInBackground: true, // Garante que as notificações não atrasem quando minimizado
-        refetchOnWindowFocus: false, // Prevents reset on tab switching
-        staleTime: 0, // Garante que background refs tragam fresh data
+        // Reabilitar refetchOnWindowFocus: ao voltar para a aba após período longo,
+        // garante uma consulta imediata sem aguardar o próximo ciclo de 5s
+        refetchOnWindowFocus: true,
+        staleTime: 0, // Garante que todos os refetches tragam dados frescos
     });
 
     const disconnectMutation = useMutation({
@@ -113,10 +115,14 @@ export function useWhatsApp() {
     });
 
     const acceptMutation = useMutation({
-        mutationFn: async (id: string) => {
+        mutationFn: async ({ id, detalhes }: { id: string, detalhes?: any }) => {
             const res = await fetch(`${API_BASE}/requests/${id}/accept`, {
                 method: 'POST',
-                headers: getAuthHeaders()
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ detalhes })
             });
             const payload = await parseJsonSafe<{ success?: boolean; error?: string; orcamento?: unknown }>(res);
 
@@ -174,7 +180,7 @@ export function useWhatsApp() {
         loading: loading || disconnectMutation.isPending || startAuthMutation.isPending,
         startConnection: () => startAuthMutation.mutateAsync(),
         disconnect: () => disconnectMutation.mutateAsync(),
-        acceptRequest: (id: string) => acceptMutation.mutateAsync(id),
+        acceptRequest: (id: string, detalhes?: any) => acceptMutation.mutateAsync({ id, detalhes }),
         rejectRequest: (id: string) => rejectMutation.mutateAsync(id)
     };
 }

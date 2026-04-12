@@ -136,7 +136,19 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
                 if (hasPending) return;
 
+                // correcao deduplicacao: evita criar solicitacao duplicada
+                // caso o whatsapp-web.js re-entregue a mensagem apos reconexao
+                const jaTemSolicitacaoPendente = await prisma.solicitacaoWhatsApp.findFirst({
+                    where: { usuarioId: usuarioId, whatsappFrom: message.from }
+                });
+
+                if (jaTemSolicitacaoPendente) {
+                    console.log(`[Tenant: ${usuarioId}] Solicitação duplicada ignorada de: ${message.from}`);
+                    return;
+                }
+
                 const solicitacao = await prisma.solicitacaoWhatsApp.create({
+
                     data: {
                         usuarioId: usuarioId,
                         clienteId: cliente.id,
@@ -164,9 +176,9 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
 const safeInitializeWhatsAppClient = (usuarioId: string) => {
     let session = activeSessions.get(usuarioId);
-    
+
     if (session?.client) {
-        session.client.destroy().catch(() => {});
+        session.client.destroy().catch(() => { });
     }
 
     if (!session) {
@@ -238,7 +250,14 @@ export const getWhatsAppStatus = (usuarioId: string) => {
     };
 };
 
-export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string) => {
+export interface WhatsAppDetalhesOpcionais {
+    casal?: string;
+    dataEvento?: string;
+    tipoEvento?: string;
+    local?: string;
+}
+
+export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string, detalhes?: WhatsAppDetalhesOpcionais) => {
     const session = activeSessions.get(usuarioId);
     if (!session) throw new Error("Sessão do WhatsApp não encontrada");
 
@@ -248,11 +267,16 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
     const request = session.pendingRequests[requestIndex];
 
     try {
+        let textoDetalhes = "";
+        if (detalhes && (detalhes.casal || detalhes.dataEvento || detalhes.tipoEvento || detalhes.local)) {
+            textoDetalhes = `💍 Casal: ${detalhes.casal || 'Não informado'}\n📅 Data: ${detalhes.dataEvento || 'Não informada'}\n📸 Evento: ${detalhes.tipoEvento || 'Outro'}\n📍 Local: ${detalhes.local || 'Não informado'}\n\n`;
+        }
+
         const novoOrcamento = await prisma.orcamento.create({
             data: {
                 clienteId: request.clienteId,
                 usuarioId: usuarioId,
-                descricao: `Criado via WhatsApp (Aprovado).\n\nMensagem original:\n"${request.mensagemOriginal}"`,
+                descricao: `Criado via WhatsApp (Aprovado).\n\n${textoDetalhes}Mensagem original:\n"${request.mensagemOriginal}"`,
                 valor: 0,
                 status: 'pendente',
                 eventos: {
@@ -270,7 +294,7 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
         });
 
         session.pendingRequests.splice(requestIndex, 1);
-        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => {});
+        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => { });
         return novoOrcamento;
     } catch (e) {
         throw e;
@@ -284,7 +308,7 @@ export const rejectWhatsAppRequest = async (usuarioId: string, requestId: string
     const requestIndex = session.pendingRequests.findIndex(r => r.id === requestId);
     if (requestIndex !== -1) {
         session.pendingRequests.splice(requestIndex, 1);
-        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => {});
+        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => { });
         return true;
     }
     return false;
@@ -301,7 +325,7 @@ export const disconnectWhatsAppClient = async (usuarioId: string) => {
         console.log("Erro no logout, forçando destroy...", e);
     }
     await session.client.destroy();
-    
+
     session.isReady = false;
     session.qrCode = '';
     session.client = null;
@@ -316,7 +340,7 @@ const shutdownWhatsApp = async () => {
             try {
                 await session.client.destroy();
                 console.log(`Session ${id} destruída.`);
-            } catch (e) {}
+            } catch (e) { }
         }
     }
 };

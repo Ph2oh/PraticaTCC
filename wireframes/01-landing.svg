@@ -1,0 +1,72 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg" stroke="#000" fill="none">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" stroke="none" />
+  </marker>
+</defs>
+
+<!-- BACKGROUND -->
+<rect x="0" y="0" width="1440" height="900" fill="#ffffff" stroke="none"/>
+
+<!-- TOP BAR (Nav) -->
+<rect x="0" y="0" width="1440" height="88"/>
+<circle cx="200" cy="44" r="18"/> <!-- Logo Icon -->
+<rect x="235" y="34" width="120" height="20"/> <!-- Logo Text -->
+
+<rect x="1050" y="34" width="80" height="20"/> <!-- Ghost Button -->
+<rect x="1160" y="24" width="120" height="40" rx="8"/> <!-- Primary Button -->
+
+<!-- FLOW NAVIGATION (Login) -->
+<path d="M 1220 64 C 1220 120 1350 400 1350 600" stroke="#000" stroke-width="3" stroke-dasharray="8,4" marker-end="url(#arrow)"/>
+
+
+<!-- HERO SPLIT LAYOUT -->
+<!-- Left Side (Text & CTA) -->
+<rect x="200" y="200" width="120" height="24" rx="12"/> <!-- Badge -->
+
+<rect x="200" y="250" width="500" height="40"/> <!-- H1 line 1 -->
+<rect x="200" y="305" width="400" height="40"/> <!-- H1 line 2 -->
+
+<rect x="200" y="370" width="480" height="12"/> <!-- Sub 1 -->
+<rect x="200" y="395" width="380" height="12"/> <!-- Sub 2 -->
+
+<rect x="200" y="450" width="160" height="48" rx="8"/> <!-- Primary CTA -->
+<rect x="380" y="450" width="140" height="48" rx="8"/> <!-- Outline CTA -->
+
+
+<!-- Right Side (Dashboard Mockup 3D effect abstraction) -->
+<!-- Mockup Outline -->
+<rect x="750" y="180" width="500" height="450" rx="16"/>
+
+<!-- Mockup Header -->
+<rect x="750" y="180" width="500" height="40"/> <!-- Header Bg -->
+<circle cx="770" cy="200" r="5"/>
+<circle cx="785" cy="200" r="5"/>
+<circle cx="800" cy="200" r="5"/>
+
+<!-- Mockup Content Grid KPI -->
+<rect x="780" y="240" width="130" height="80" rx="8"/>
+<rect x="800" y="260" width="60" height="10"/>
+<rect x="800" y="280" width="80" height="20"/>
+
+<rect x="930" y="240" width="130" height="80" rx="8"/>
+<rect x="950" y="260" width="60" height="10"/>
+<rect x="950" y="280" width="80" height="20"/>
+
+<rect x="1080" y="240" width="130" height="80" rx="8"/>
+<rect x="1100" y="260" width="60" height="10"/>
+<rect x="1100" y="280" width="80" height="20"/>
+
+<!-- Mockup Funnel Section -->
+<rect x="780" y="350" width="430" height="120" rx="8"/>
+<rect x="800" y="370" width="100" height="10"/>
+<rect x="800" y="395" width="300" height="15" rx="7"/>
+<rect x="800" y="425" width="220" height="15" rx="7"/>
+
+
+<!-- SECTION 2: PROBLEMS/FEATURES BACKGROUND -->
+<rect x="0" y="750" width="1440" height="150" fill="#f8fafc" stroke="none"/> <!-- Just indicating a background change -->
+<rect x="0" y="750" width="1440" height="1" stroke="#e2e8f0"/>
+<rect x="520" y="810" width="400" height="20"/> <!-- Section 2 Title -->
+
+</svg>

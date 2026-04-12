@@ -49,7 +49,7 @@ Os motivos são padronizados para possibilitar análise agregada:
 | Motivo | Descrição |
 |:---|:---|
 | Acima do orçamento | O cliente considerou o valor fora do seu planejamento financeiro |
-| Cliente desqualificado | Lead fora do escopo ou serviço incompatível |
+| Cliente desqualificado | Orçamento fora do escopo ou serviço incompatível |
 | Data indisponível | A data solicitada não está disponível na agenda |
 | Sem retorno do cliente | Proposta enviada, sem resposta após follow-up |
 
@@ -59,7 +59,7 @@ Os motivos são padronizados para possibilitar análise agregada:
 
 ### Regras de Negócio (Lógica e Funcionamento)
 
-O sistema rastreia os valores financeiros e previne "vazamentos" de métricas ou ambiguidades durante as trocas de colunas do Kanban. A lógica se baseia em separar rigidamente as etapas de conquista (contratos), captação (leads) e perda (rejeições), delegando cada uma a uma coluna temporal fixa no banco de dados, parando de depender unicamente do nome do seu status flutuante.
+O sistema rastreia os valores financeiros e previne "vazamentos" de métricas ou ambiguidades durante as trocas de colunas do Kanban. A lógica se baseia em separar rigidamente as etapas de conquista (contratos), captação (clientes) e perda (rejeições), delegando cada uma a uma coluna temporal fixa no banco de dados, parando de depender unicamente do nome do seu status flutuante.
 
 **Exemplos práticos:**
 
@@ -245,12 +245,12 @@ id               (UUID, PK)
 usuarioId        (UUID, FK → Usuario)
 clienteId        (UUID, FK → Cliente)
 whatsappFrom     (String — número do remetente)
-mensagemOriginal (String — mensagem enviada pelo lead)
+mensagemOriginal (String — mensagem enviada pelo cliente)
 clienteNome      (String)
 criadoEm         (DateTime)
 ```
 
-**Regra:** Registros nesta tabela funcionam apenas como uma *fila de staging* (temporária). Uma vez que o usuário decide "Criar Orçamento" ou "Ignorar" o pedido gerado via WhatsApp no painel, a linha correspondente é **deletada** instantaneamente. Esta tabela atua como blindagem passiva: garante que os leads não lidos (ex. enviados de madrugada ou no fim de semana) não sejam permanentemente perdidos da memória caso a aplicação inteira seja reiniciada (`pm2 restart` / deploy automáticos / crashes).
+**Regra:** Registros nesta tabela funcionam apenas como uma *fila de staging* (temporária). Uma vez que o usuário decide "Criar Orçamento" ou "Ignorar" o pedido gerado via WhatsApp no painel, a linha correspondente é **deletada** instantaneamente. Esta tabela atua como blindagem passiva: garante que os orçamentos não lidos (ex. enviados de madrugada ou no fim de semana) não sejam permanentemente perdidos da memória caso a aplicação inteira seja reiniciada (`pm2 restart` / deploy automáticos / crashes).
 
 
 
@@ -326,7 +326,56 @@ Para evitar re-renderizações e a proliferação visual de carregamentos longos
 1. **`useOrcamentos.ts`**: Delega as buscas e agrega métodos que efetuam adições pontuais e exclusões otimistas nas linhas (`optimistic updates`) na tabela e no fluxo _Kanban_ sem esperá-las persistirem no MySQL antes do encerramento das requisições REST; devolvendo uma experiência veloz e à prova de travamentos. Em caso da requisição falhar no servidor, recua imediatamente o fluxo retornando _Toasts_ notificados.
 2. **`useClientes.ts`**: Opera o cadastro massivo ou edição de carteira de contatos baseados também nas ferramentas do Query.
 3. **`useConfig.ts`**: Mantém a coesão guardando metas configuráveis e visuais e repassando isso do Banco diretamente a memória _cache_ React.
-4. **`useWhatsApp.ts`**: Mantém os gatilhos dedicados às interações REST específicas exigidas ao aprovar _leads_ escaneados no WhatsApp e lidar com os status remotos em conjunto do Bot rodado via Node.
+4. **`useWhatsApp.ts`**: Mantém os gatilhos dedicados às interações REST específicas exigidas ao aprovar orçamentos escaneados no WhatsApp e lidar com os status remotos em conjunto do Bot rodado via Node.
+
+---
+
+## Integração WhatsApp: Fluxo de Aceitação de orçamentos
+
+Quando uma mensagem chega no número do WhatsApp conectado, o sistema executa o seguinte pipeline:
+
+### 1. Detecção e Notificação em Tempo Real
+
+O endpoint `GET /api/whatsapp/status` é consultado pelo frontend a cada 5 segundos (1.5s durante pareamento). Para garantir que intermediários de rede (Nginx, Cloudflare) não atrasem a entrega da notificação, o servidor injeta headers anti-cache:
+
+```
+Cache-Control: no-cache, no-store, must-revalidate
+Pragma: no-cache
+Expires: 0
+```
+
+### 2. Parsing Inteligente da Mensagem
+
+Ao exibir o modal de aceitação, o componente `WhatsAppRequestsProvider.tsx` analisa automaticamente o texto da mensagem usando heurísticas baseadas em Regex para extrair:
+
+| Campo | Exemplo de Detecção | Fallback |
+|:---|:---|:---|
+| Tipo de Evento | "casamento", "pré wedding", "civil", "formatura" | "Outro" |
+| Nomes do Casal | "Maria e João", "sou Maria" | Campo vazio (preenchimento manual) |
+| Data do Evento | "12/10/2026", "dia 15/03" | Campo vazio |
+| Local | "em São Paulo", "no Espaço X" | Campo vazio |
+
+Os valores pré-preenchidos podem ser corrigidos manualmente antes da confirmação.
+
+### 3. Formatação da Descrição
+
+Ao confirmar, a descrição do orçamento é gerada no formato:
+
+```
+Criado via WhatsApp (Aprovado).
+
+💍 Casal: Maria e João
+📅 Data: 12/10/2026
+📸 Evento: Casamento
+📍 Local: Espaço Villa Real
+
+Mensagem original:
+"Olá, gostaria de um orçamento para fotos do meu casamento dia 12/10 no Espaço Villa Real"
+```
+
+### 4. Persistência
+
+Os dados do modal são enviados via `POST /api/whatsapp/requests/:id/accept` com o corpo JSON `{ detalhes: { casal, dataEvento, tipoEvento, local } }`. O backend monta a string formatada e persiste no campo `descricao` do orçamento criado.
 
 ---
 
@@ -431,7 +480,7 @@ npx prisma migrate deploy
 
 ## Histórico de Atualizações (Changelog)
 
-- **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 leads, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
+- **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 orçamentos, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
 - **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.
 
 ---
@@ -476,12 +525,12 @@ npx prisma migrate deploy
 5. Compile o projeto executando: `npm run build`.
 
 ### 3. Rodando os Serviços
-- **Frontend**: A resposta ao rodar o comando *build* é uma compilação veloz do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx). **Nota**: A API Express agora implementa compressão Gzip automaticamente, acelerando entregas.
+- **Frontend**: A resposta ao rodar o comando *build* é uma compilação do Vite enviada para a pasta `/dist`. As regras do **NGINX** local devem expor e servir esta pasta `/dist` na porta web principal. Todo o controle de rotas será do React (configuração `try_files $uri /index.html` no Nginx). **Nota**: A API Express agora implementa compressão Gzip automaticamente, acelerando entregas.
 - **Backend (API)**: A API baseada em Express fará as regras de negócio em segundo plano. Para não expor seu terminal, você pode rodá-la usando o PM2: 
   ```bash
   pm2 start ecosystem.config.cjs
   ```
-  Isso garantirá que o Express e o Bot do WhatsApp subam e monitorem os leads.
+  Isso garantirá que o Express e o Bot do WhatsApp subam e monitorem os orçamentos.
 - **Monitoramento / Graceful Shutdown**: O servidor Node detém tratamento automático de `SIGINT`/`SIGTERM` para fechamento sem vazamento de memória (DB connections desconectados com segurança) e uma rota simples de pings `/api/health` para verificações de uptime.
 
 ### 4. Integração Contínua Automatizada
