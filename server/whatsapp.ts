@@ -51,6 +51,36 @@ const cleanupLocks = (usuarioId: string) => {
     }
 };
 
+// Carrega solicitações pendentes do banco para a RAM de forma sincronizada
+// Evita race condition onde solicitações chegam enquanto o carregamento está em progresso
+const loadPendingRequests = async (usuarioId: string): Promise<void> => {
+    const session = activeSessions.get(usuarioId);
+    if (!session) return;
+
+    try {
+        const solicitacoes = await prisma.solicitacaoWhatsApp.findMany({
+            where: { usuarioId }
+        });
+        
+        if (activeSessions.has(usuarioId)) {
+            activeSessions.get(usuarioId)!.pendingRequests = solicitacoes.map(s => ({
+                id: s.id,
+                clienteId: s.clienteId,
+                clienteNome: s.clienteNome,
+                whatsappFrom: s.whatsappFrom,
+                mensagemOriginal: s.mensagemOriginal,
+                timestamp: s.criadoEm as any
+            }));
+            
+            if (solicitacoes.length > 0) {
+                console.log(`[Tenant: ${usuarioId}] Carregadas ${solicitacoes.length} solicitações pendentes do banco.`);
+            }
+        }
+    } catch (err) {
+        console.error(`[Tenant: ${usuarioId}] Erro ao carregar solicitações pendentes:`, err);
+    }
+};
+
 const scheduleReconnect = (usuarioId: string, delayMs = 10000) => {
     const session = activeSessions.get(usuarioId);
     if (!session || session.reconnectTimeout) return;
@@ -174,7 +204,7 @@ const setupWhatsAppListeners = (usuarioId: string) => {
     });
 };
 
-const safeInitializeWhatsAppClient = (usuarioId: string) => {
+const safeInitializeWhatsAppClient = async (usuarioId: string) => {
     let session = activeSessions.get(usuarioId);
 
     if (session?.client) {
@@ -192,21 +222,9 @@ const safeInitializeWhatsAppClient = (usuarioId: string) => {
         };
         activeSessions.set(usuarioId, session);
 
-        // Carrega requests pendentes do banco para a RAM
-        prisma.solicitacaoWhatsApp.findMany({
-            where: { usuarioId }
-        }).then(solicitacoes => {
-            if (activeSessions.has(usuarioId)) {
-                activeSessions.get(usuarioId)!.pendingRequests = solicitacoes.map(s => ({
-                    id: s.id,
-                    clienteId: s.clienteId,
-                    clienteNome: s.clienteNome,
-                    whatsappFrom: s.whatsappFrom,
-                    mensagemOriginal: s.mensagemOriginal,
-                    timestamp: s.criadoEm as any
-                }));
-            }
-        }).catch(err => console.error(`[Tenant: ${usuarioId}] Erro ao carregar solicitacoes pendentes:`, err));
+        // Carrega solicitações pendentes do banco de forma sincronizada (com await)
+        // Isso garante que não há race condition entre o carregamento e novas mensagens
+        await loadPendingRequests(usuarioId);
     } else {
         session.statusMessage = 'Reconectando ao WhatsApp...';
         session.isReady = false;
@@ -233,20 +251,53 @@ const safeInitializeWhatsAppClient = (usuarioId: string) => {
 
 export const startWhatsAppClient = (usuarioId: string) => {
     console.log(`[Tenant: ${usuarioId}] Solicitada a ativação da integração WhatsApp.`);
-    safeInitializeWhatsAppClient(usuarioId);
+    // Inicializa de forma assincronizada sem bloquear a resposta ao cliente
+    // O frontend fará polling para monitorar o progresso
+    safeInitializeWhatsAppClient(usuarioId).catch(err => {
+        console.error(`[Tenant: ${usuarioId}] Erro durante inicialização assincronizada:`, err);
+    });
 };
 
-export const getWhatsAppStatus = (usuarioId: string) => {
+export const getWhatsAppStatus = async (usuarioId: string) => {
     const session = activeSessions.get(usuarioId);
+    
+    // Se não tem sessão ativa, retorna status vazio
     if (!session) {
         return { ready: false, qrCode: '', message: 'Aguardando inicialização manual...', pendingRequests: [], activeSession: false };
     }
+    
+    // Se tem sessão mas o array de pending está vazio, faz fallback ao banco
+    // Isso evita que solicitações fiquem órfãs se houver descompasso entre RAM e BD
+    let pendingRequests = session.pendingRequests;
+    if (session.client && pendingRequests.length === 0) {
+        try {
+            const solicitacoesNoBanco = await prisma.solicitacaoWhatsApp.findMany({
+                where: { usuarioId }
+            });
+            
+            if (solicitacoesNoBanco.length > 0) {
+                console.log(`[Tenant: ${usuarioId}] Sincronizando ${solicitacoesNoBanco.length} solicitações do banco para RAM.`);
+                pendingRequests = solicitacoesNoBanco.map(s => ({
+                    id: s.id,
+                    clienteId: s.clienteId,
+                    clienteNome: s.clienteNome,
+                    whatsappFrom: s.whatsappFrom,
+                    mensagemOriginal: s.mensagemOriginal,
+                    timestamp: s.criadoEm as any
+                }));
+                session.pendingRequests = pendingRequests;
+            }
+        } catch (err) {
+            console.error(`[Tenant: ${usuarioId}] Erro ao fazer fallback ao banco:`, err);
+        }
+    }
+    
     return {
         ready: session.isReady,
         qrCode: session.qrCode,
         message: session.statusMessage,
-        pendingRequests: session.pendingRequests,
-        activeSession: true // Flag pra saber se o array bot existe
+        pendingRequests: pendingRequests,
+        activeSession: true
     };
 };
 
@@ -269,7 +320,7 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
     try {
         let textoDetalhes = "";
         if (detalhes && (detalhes.casal || detalhes.dataEvento || detalhes.tipoEvento || detalhes.local)) {
-            textoDetalhes = `💍 Casal: ${detalhes.casal || 'Não informado'}\n📅 Data: ${detalhes.dataEvento || 'Não informada'}\n📸 Evento: ${detalhes.tipoEvento || 'Outro'}\n📍 Local: ${detalhes.local || 'Não informado'}\n\n`;
+            textoDetalhes = `Casal: ${detalhes.casal || 'Não informado'}\nData: ${detalhes.dataEvento || 'Não informada'}\nEvento: ${detalhes.tipoEvento || 'Outro'}\n Local: ${detalhes.local || 'Não informado'}\n\n`;
         }
 
         const novoOrcamento = await prisma.orcamento.create({

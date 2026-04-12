@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
 import path from 'path';
+import fs from 'fs';
 import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -701,7 +702,7 @@ app.put('/api/config', async (req: any, res) => {
 
 
 // --- WHATSAPP ROUTES ---
-app.get('/api/whatsapp/status', (req: AuthRequest, res) => {
+app.get('/api/whatsapp/status', async (req: AuthRequest, res) => {
     // Impedir cache robusto (prevenção de atrasos do Nginx/VPS)
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -711,7 +712,16 @@ app.get('/api/whatsapp/status', (req: AuthRequest, res) => {
         return res.json({ ready: false, qrCode: '', pendingRequests: [], disabled: true });
     }
     if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
-    res.json(getWhatsAppStatus(req.usuarioId));
+    
+    try {
+        // Agora getWhatsAppStatus é assincronizado com fallback ao banco
+        // Isso garante que solicitações não fiquem órfãs em caso de descompasso entre RAM e BD
+        const status = await getWhatsAppStatus(req.usuarioId);
+        res.json(status);
+    } catch (error) {
+        console.error(`Erro ao buscar status WhatsApp para ${req.usuarioId}:`, error);
+        res.status(500).json({ error: 'Erro ao buscar status do WhatsApp' });
+    }
 });
 
 app.post('/api/whatsapp/start', (req: AuthRequest, res) => {
@@ -776,8 +786,33 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
-    if (!WHATSAPP_ENABLED) console.log(' Integração com WhatsApp desabilitada.');
+    if (!WHATSAPP_ENABLED) {
+        console.log('Integração com WhatsApp desabilitada.');
+        return;
+    }
+
+    // Auto-reconect: ao subir o servidor, verifica se há sessões salvas do whatsapp-web.js
+    // e reinicia automaticamente sem exigir clique manual do usuário.
+    // O diretório padrão do LocalAuth é .wwebjs_auth/session-{clientId}
+    const authDir = path.join(process.cwd(), '.wwebjs_auth');
+    if (!fs.existsSync(authDir)) return;
+
+    const sessionDirs = fs.readdirSync(authDir, { withFileTypes: true })
+        .filter(e => e.isDirectory() && e.name.startsWith('session-'))
+        .map(e => e.name.replace('session-', ''));
+
+    if (sessionDirs.length === 0) return;
+
+    console.log(`[WhatsApp Auto-reconnect] ${sessionDirs.length} sessão(ões) salva(s) encontrada(s). Reconectando...`);
+    // Aguarda 3s para o servidor estar totalmente inicializado antes de subir o Puppeteer
+    setTimeout(() => {
+        sessionDirs.forEach(usuarioId => {
+            console.log(`[WhatsApp Auto-reconnect] Restaurando sessão para tenant: ${usuarioId}`);
+            startWhatsAppClient(usuarioId);
+        });
+    }, 3000);
 });
+
 
 // --- GRACEFUL SHUTDOWN ---
 const gracefulShutdown = async (signal: string) => {
