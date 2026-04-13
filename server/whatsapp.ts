@@ -468,12 +468,9 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
                 // Argumentos adicionais para evitar detecção de automação
                 '--disable-blink-features=AutomationControlled',
                 '--window-size=1920,1080',
-                '--disable-features=IsolateOrigins,site-per-process,CalculateNativeWinOcclusion',
-                '--disable-web-resources',
                 '--disable-client-side-phishing-detection',
                 '--disable-component-extensions-with-background-pages',
-                '--disable-component-extensions-with-warning-badge',
-                '--disable-sync'
+                '--disable-component-extensions-with-warning-badge'
             ],
             // Habilita execução de código para limpar flags de automação
             protocolTimeout: 180000,

@@ -520,6 +520,13 @@ npm run dev:server             # Rode só o backend para ver o erro detalhado
 node scripts/cleanup-chrome.js
 ```
 
+### WhatsApp: Loop Infinito (OPENING > PAIRING > CONNECTED) ou "Sincronização Pausada"
+Se o aplicativo do seu celular exibir "Sincronização Pausada" e o servidor entrar em um loop de reconexão infinita sem nunca disparar o evento `ready`, o cache da sessão local (`.wwebjs_auth`) foi corrompido ou web workers rodando no Puppeteer travaram.
+**Como resolver:**
+1. No Frontend do seu sistema, clique em **"Desconectar WhatsApp"** na tela de configurações (isso deletará a pasta da sessão e limpará a RAM).
+2. No seu aplicativo móvel (WhatsApp do celular), vá em "Aparelhos Conectados" e deslogue a sessão ativa com o sistema.
+3. Clique em **"Conectar WhatsApp"** novamente no seu sistema e escaneie um novo QR Code gerado, criando uma sessão zerada.
+
 ### Prisma Schema fora de sincronia após deploy
 
 Para atualizar a estrutura do banco em produção de forma segura:

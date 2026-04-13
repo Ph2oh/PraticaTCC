@@ -780,9 +780,16 @@ app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
 
 // Se estivermos em PRODUÇÃO (rodando no Render, ou vercel)
 if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(process.cwd(), 'dist')));
+    const distPath = path.join(process.cwd(), 'dist');
+    const indexPath = path.join(distPath, 'index.html');
+    
+    app.use(express.static(distPath));
     app.use((req, res) => {
-        res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(503).send('<h1>Frontend em Manutenção</h1><p>Os arquivos estáticos (dist) ainda não foram compilados na VPS. Aguarde o deploy ou rode npm run build.</p>');
+        }
     });
 }
 
