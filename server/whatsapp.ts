@@ -450,6 +450,10 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                // Otimizações ESSENCIAIS para Kernel Linux sem interface gráfica (VPS)
+                '--disable-gpu',
+                '--disable-software-rasterizer',
+                '--mute-audio',
                 // Argumentos VITAIS na VPS para o Chrome não 'dormir' a aba e pausar a sincronização
                 '--disable-background-timer-throttling',
                 '--disable-backgrounding-occluded-windows',
