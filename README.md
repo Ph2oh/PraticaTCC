@@ -529,6 +529,8 @@ npx prisma migrate deploy
 
 ## Histórico de Atualizações (Changelog)
 
+- **Estabilidade do WhatsApp Engine:** Unificação da instância do PrismaClient para otimização do banco de dados (prevenção de "Too many connections"); mitigação de concorrência (*Race Condition*) na criação simultânea de clientes; correção no descarte contínuo e recriação de sessões na leitura de QR-Code, e alinhamento rígido na comunicação do fluxo RAM/DB para que nenhuma solicitação cancelada no Frontend fique pendente fantasmalmente.
+- **Formatação de Extração de Orçamentos:** Ajuste na Expressão Regular (Regex) no Provider que interage com as propostas vindas do WhatsApp, assegurando que o case original fornecido pelo cliente prospect (letras Maiúsculas/Minúsculas) seja preservado integralmente, enquanto a captação heurística foca em ser Case-Insensitive aos gatilhos.
 - **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 orçamentos, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
 - **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.
 
@@ -582,7 +584,13 @@ npx prisma migrate deploy
   Isso garantirá que o Express e o Bot do WhatsApp subam e monitorem os orçamentos.
 - **Monitoramento / Graceful Shutdown**: O servidor Node detém tratamento automático de `SIGINT`/`SIGTERM` para fechamento sem vazamento de memória (DB connections desconectados com segurança) e uma rota simples de pings `/api/health` para verificações de uptime.
 
-### 4. Integração Contínua Automatizada
+### 4. Automações de Background (Node.js)
+Para garantir a integridade absoluta da memória RAM da sua VPS (limitada e valiosa) o Backend opera através das seguintes mecânicas invisíveis:
+- **Destruidor de Zumbis (Graceful Chromium Shutdown):** Quando o PM2 ou o servidor Node cai, o sistema engata um *blocker* que submete comandos automáticos de encerramento (`destroy()`) em todas as sessões abertas do Chromium na memória ANTES de matar o ciclo de eventos. Previne bloqueios (lockfiles) impenetráveis e processos fantasmas nas reconexões futuras.
+- **Race Condition Limiter:** Proteção contra disparos duplicados (`clientCreationLocks`). Entradas idênticas do Webhook em milissegundos não vão duplicar o mesmo orçamento visualmente no Kanban devido a esse filtro temporal em RAM.
+- **Auto-Destruição de Leitura Ociosa (Timeout QR):** Se um usuário solicitar um QR Code do sistema no navegador e abandonar o computador fechando a aba, ao passar de certa quantia de recargas ociosas sem pareamento (~3 minutos), o sistema destruirá aquele *Container Chrome* ativo e deletará o rastro na base, derrubando o QR Code para conter estagnação de 150MB~200MB de RAM na máquina para cada cliente distraído.
+
+### 5. Integração Contínua Automatizada
 Para facilitar envios de alterações em código local para sua máquina em produção sem derrubar a aplicação, um script automatizado (`update.sh`) está embutido no projeto.
 Sempre que desejar espelhar as alterações do GitHub para Nuvem, entre no terminal do seu Servidor VPS e chame o script:
 ```bash

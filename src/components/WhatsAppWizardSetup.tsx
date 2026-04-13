@@ -116,7 +116,7 @@ export function WhatsAppWizardSetup() {
                                                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
                                                 <p className="text-sm text-muted-foreground text-center">Preparando sessão de criptografia...</p>
                                             </div>
-                                        ) : (
+                                        ) : hasQrCode ? (
                                             <div className="space-y-4">
                                                 <div className="bg-white p-4 rounded-xl shadow-inner border mx-auto w-fit">
                                                     <img
@@ -127,6 +127,20 @@ export function WhatsAppWizardSetup() {
                                                 </div>
                                                 <div className="bg-primary/5 rounded-lg p-3 text-sm text-center text-primary/80 font-medium">
                                                     Abra o WhatsApp em seu celular e escaneie o código
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-6 space-y-3">
+                                                <div className="flex gap-3 items-start">
+                                                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                                                    <div className="space-y-2">
+                                                        <h4 className="font-semibold text-red-900">Não foi possível gerar QR Code</h4>
+                                                        <p className="text-sm text-red-800">
+                                                            {status.message && status.message.includes('conectar a novos')
+                                                                ? "O WhatsApp bloqueou novas conexões para este número. Isso pode ser temporário. Aguarde algumas horas entre as tentativas e evite múltiplas conexões simultâneas."
+                                                                : status.message || "Verifique sua conexão e tente novamente."}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}

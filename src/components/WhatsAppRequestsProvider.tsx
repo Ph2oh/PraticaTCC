@@ -38,7 +38,8 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
     // Parsing effect
     React.useEffect(() => {
         if (pendingRequest) {
-            const msg = pendingRequest.mensagemOriginal.toLowerCase();
+            const originalMsg = pendingRequest.mensagemOriginal || '';
+            const msg = originalMsg.toLowerCase();
 
             // Extract Tipo
             let tipo = 'Outro';
@@ -48,33 +49,36 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
             else if (msg.includes('formatura') || msg.includes('formando')) tipo = 'Formatura';
             setTipoEvento(tipo);
 
-            // Extract Casal heuristic
-            const casalMatch = msg.match(/(?:sou|me chamo)\s+([a-zA-ZÀ-ÿ]+(?:\s+e\s+[a-zA-ZÀ-ÿ]+)?)/i) ||
-                msg.match(/([a-zA-ZÀ-ÿ]+)\s+e\s+([a-zA-ZÀ-ÿ]+)/i);
+            // Extract Casal heuristic (usando a mensagem original para preservar capitalização, mas regex case-insensitive)
+            const casalMatch = originalMsg.match(/(?:sou|me chamo)\s+([a-zA-ZÀ-ÿ]+(?:\s+e\s+[a-zA-ZÀ-ÿ]+)?)/i) ||
+                originalMsg.match(/([a-zA-ZÀ-ÿ]+)\s+e\s+([a-zA-ZÀ-ÿ]+)/i);
 
             if (casalMatch && casalMatch[2]) {
-                setCasal(`${casalMatch[1]} e ${casalMatch[2]}`);
+                // Remove espaços extras e preserva como o usuário digitou
+                setCasal(`${casalMatch[1].trim()} e ${casalMatch[2].trim()}`);
             } else if (casalMatch && casalMatch[1]) {
-                setCasal(casalMatch[1]);
+                setCasal(casalMatch[1].trim());
             } else {
                 setCasal('');
             }
 
             // Extract Data
-            const numMatch = msg.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/);
+            const numMatch = originalMsg.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/);
             if (numMatch) {
                 setDataEvento(numMatch[1]);
             } else {
                 setDataEvento('');
             }
 
-            // Extract Local
-            // Regex ajustado: msg esta em lowercase, aceitar minusculas no grupo capturado
-            const localMatch = msg.match(/(?:em|local|no|na)\s+([a-zà-ÿ][a-zà-ÿ\s]+?)(?:[.,!?\n]|$)/);
+            // Extract Local usando a mensagem original
+            const localMatch = originalMsg.match(/(?:em|local|no|na)\s+([a-zA-ZÀ-ÿ0-9\s]+?)(?:[.,!?\n]|$)/i);
             if (localMatch && localMatch[1]) {
-                // Capitalizar primeira letra para exibição
-                const localRaw = localMatch[1].trim();
-                setLocal(localRaw.charAt(0).toUpperCase() + localRaw.slice(1));
+                let localRaw = localMatch[1].trim();
+                // Apenas garante que a primeira letra seja maiúscula, mantendo as demais da forma como foram digitadas
+                if (localRaw.length > 0) {
+                   localRaw = localRaw.charAt(0).toUpperCase() + localRaw.slice(1);
+                }
+                setLocal(localRaw);
             } else {
                 setLocal('');
             }

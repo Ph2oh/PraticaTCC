@@ -4,7 +4,8 @@ import cors from 'cors';
 import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
@@ -12,10 +13,10 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { sendVerificationEmail } from './utils/mailer';
 import { authenticateToken } from './middleware/auth';
-import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest } from './whatsapp';
+import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, acceptWhatsAppRequest, rejectWhatsAppRequest, shutdownWhatsApp } from './whatsapp';
 
 const app = express();
-const prisma = new PrismaClient();
+
 const PORT = process.env.PORT || 3001;
 // Mudança estrutural: Garante que as credenciais críticas de segurança (.env) foram carregadas para o backend inicializar, caso contrário trava o server com erro claro
 if (!process.env.JWT_SECRET) {
@@ -88,9 +89,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         }
 
         if (!usuario.emailVerificado) {
-            return res.status(403).json({ 
-                error: 'Por favor, confirme seu e-mail antes de acessar o sistema.', 
-                requireVerification: true 
+            return res.status(403).json({
+                error: 'Por favor, confirme seu e-mail antes de acessar o sistema.',
+                requireVerification: true
             });
         }
 
@@ -156,9 +157,9 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             .catch(err => console.error("[MAILER] Falha ao enviar email disparado no registro", err));
 
         // Retorna avisando que precisa de verificação em vez de logar automaticamente
-        res.status(201).json({ 
+        res.status(201).json({
             requireVerification: true,
-            message: 'Conta criada! Um link de verificação foi enviado para o seu e-mail.' 
+            message: 'Conta criada! Um link de verificação foi enviado para o seu e-mail.'
         });
 
     } catch (error) {
@@ -183,9 +184,9 @@ app.post('/api/auth/verify-email', async (req, res) => {
 
         await prisma.usuario.update({
             where: { id: usuario.id },
-            data: { 
-                emailVerificado: true, 
-                tokenVerificacaoEmail: null 
+            data: {
+                emailVerificado: true,
+                tokenVerificacaoEmail: null
             }
         });
 
@@ -203,7 +204,7 @@ app.post('/api/auth/resend-verification', authLimiter, async (req, res) => {
         if (!email) return res.status(400).json({ error: 'E-mail não fornecido' });
 
         const usuario = await prisma.usuario.findUnique({ where: { email } });
-        
+
         // Camufla se não existir por segurança contra enumeração
         if (!usuario) return res.json({ success: true });
 
@@ -576,7 +577,7 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
             dataAtualizacao.status = status;
             // Se mudando para recusado, persiste o motivo; caso contrário limpa o campo
             dataAtualizacao.motivoRecusa = status === 'recusado' ? (motivoRecusa ?? null) : null;
-            
+
             if (status === 'contratado' && orcamentoAtigo.status !== 'contratado') {
                 dataAtualizacao.dataFechamento = new Date();
                 dataAtualizacao.dataCancelamento = null;
@@ -712,7 +713,7 @@ app.get('/api/whatsapp/status', async (req: AuthRequest, res) => {
         return res.json({ ready: false, qrCode: '', pendingRequests: [], disabled: true });
     }
     if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
-    
+
     try {
         // Agora getWhatsAppStatus é assincronizado com fallback ao banco
         // Isso garante que solicitações não fiquem órfãs em caso de descompasso entre RAM e BD
@@ -727,7 +728,7 @@ app.get('/api/whatsapp/status', async (req: AuthRequest, res) => {
 app.post('/api/whatsapp/start', async (req: AuthRequest, res) => {
     if (!WHATSAPP_ENABLED) return res.status(503).json({ error: 'Desabilitado' });
     if (!req.usuarioId) return res.status(401).json({ error: 'Acesso negado' });
-    
+
     // Inicia cliente e aguarda sessão ser criada (não bloqueia na inicialização Chromium)
     await startWhatsAppClient(req.usuarioId);
     res.json({ success: true, message: 'Iniciando contêiner do WhatsApp...' });
@@ -818,13 +819,16 @@ app.listen(Number(PORT), '0.0.0.0', () => {
 // --- GRACEFUL SHUTDOWN ---
 const gracefulShutdown = async (signal: string) => {
     console.log(`\n[${signal}] Iniciando desligamento seguro do servidor...`);
+
+    // Mata as instâncias orfãs (zumbis) do Chromium segurando as pastas na memória ANTES de matar a main thread
+    await shutdownWhatsApp();
+
     try {
         await prisma.$disconnect();
-        console.log('✅ Conexão com o banco de dados (Prisma) encerrada.');
+        console.log('Conexão com o banco de dados (Prisma) encerrada.');
     } catch (err) {
-        console.error('❌ Erro ao desconectar o Prisma:', err);
+        console.error(' Erro ao desconectar o Prisma:', err);
     }
-    // O shutdown do whatsapp já é tratado independentemente em whatsapp.ts
     process.exit(0);
 };
 

@@ -2,7 +2,6 @@ import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import * as QRCode from 'qrcode';
-import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -34,12 +33,17 @@ interface WhatsAppSession {
     // Rastreamento de reconexões para implementar backoff exponencial e evitar poluição de logs e tentativas infrutíferas quando Chromium está em estado ruim
     reconnectAttempts: number;
     lastReconnectAttemptTime: Date | null;
+    // Timeout para auto-destruição se o cliente pedir o QR e abandonar a tela
+    qrAttempts: number;
 }
 
-const prisma = new PrismaClient();
+import { prisma } from './prisma';
 
 // Onde as múltiplas conexões ficarão em memória RAM
 const activeSessions = new Map<string, WhatsAppSession>();
+
+// Prevenção de race-condition nas criações de cliente (evita duplicação)
+const clientCreationLocks = new Set<string>();
 
 // Mapeamento dinâmico do local de salvamento dos caches do whatsapp por Tenant
 const getSessionPath = (usuarioId: string) => path.join(process.cwd(), '.wwebjs_auth', `session-${usuarioId}`);
@@ -144,6 +148,7 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         console.log(`[Tenant: ${usuarioId}] Cliente do WhatsApp pronto e conectado!`);
         session.isReady = true;
         session.qrCode = '';
+        session.qrAttempts = 0;
         session.statusMessage = 'WhatsApp conectado';
         
         // Reseta contador de reconexões (sucesso completo!)
@@ -237,8 +242,26 @@ const setupWhatsAppListeners = (usuarioId: string) => {
     });
 
     client.on('qr', async (qr: any) => {
-        console.log(`[Tenant: ${usuarioId}] Novo QR Code gerado!`);
-        session.statusMessage = 'QR Code gerado. Aguardando leitura pelo celular.';
+        session.qrAttempts++;
+        if (session.qrAttempts > 10) {
+            console.log(`[Tenant: ${usuarioId}] Timeout de QR Code! Usuário abandonou a tela. Destruindo container local para salvar RAM.`);
+            await disconnectWhatsAppClient(usuarioId);
+            return;
+        }
+
+        if (!session.qrCode) {
+            // Consulta o BD assincronicamente apenas no PRIMEIRO QR Code para logar quem é humano
+            prisma.usuario.findUnique({ where: { id: usuarioId }, select: { nome: true, email: true } })
+                .then(user => {
+                    const info = user ? `${user.nome} | ${user.email}` : usuarioId;
+                    console.log(`[Tenant: ${info}] Aguardando leitura do primeiro QR Code gerado...`);
+                })
+                .catch(() => {
+                    console.log(`[Tenant: ${usuarioId}] Aguardando leitura do QR Code gerado...`);
+                });
+        }
+        
+        session.statusMessage = 'QR Code aguardando leitura. Aponte seu celular.';
         try {
             session.qrCode = await QRCode.toDataURL(qr);
         } catch (err) {
@@ -271,62 +294,113 @@ const setupWhatsAppListeners = (usuarioId: string) => {
                 const contactName = contact.name || contact.pushname || "Novo Cliente (WhatsApp)";
                 const phoneNumber = message.from.replace('@c.us', '');
 
-                let cliente = await prisma.cliente.findFirst({
-                    where: { telefone: phoneNumber, usuarioId: usuarioId }
-                });
-
-                if (!cliente) {
-                    cliente = await prisma.cliente.create({
-                        data: {
-                            nome: contactName,
-                            email: '',
-                            telefone: phoneNumber,
-                            usuarioId: usuarioId
-                        }
-                    });
-                }
-
-                const hasPending = await prisma.orcamento.findFirst({
-                    where: { clienteId: cliente.id, usuarioId: usuarioId, status: 'pendente' }
-                });
-
-                if (hasPending) return;
-
-                // correcao deduplicacao: evita criar solicitacao duplicada
-                // caso o whatsapp-web.js re-entregue a mensagem apos reconexao
-                const jaTemSolicitacaoPendente = await prisma.solicitacaoWhatsApp.findFirst({
-                    where: { usuarioId: usuarioId, whatsappFrom: message.from }
-                });
-
-                if (jaTemSolicitacaoPendente) {
-                    console.log(`[Tenant: ${usuarioId}] Solicitação duplicada ignorada de: ${message.from}`);
+                const lockKey = `${usuarioId}:${phoneNumber}`;
+                if (clientCreationLocks.has(lockKey)) {
+                    console.log(`[Tenant: ${usuarioId}] Race condition mitigada: solicitação sendo processada para ${phoneNumber}`);
                     return;
                 }
+                clientCreationLocks.add(lockKey);
 
-                const solicitacao = await prisma.solicitacaoWhatsApp.create({
+                try {
+                    let cliente = await prisma.cliente.findFirst({
+                        where: { telefone: phoneNumber, usuarioId: usuarioId }
+                    });
 
-                    data: {
-                        usuarioId: usuarioId,
+                    if (!cliente) {
+                        cliente = await prisma.cliente.create({
+                            data: {
+                                nome: contactName,
+                                email: '',
+                                telefone: phoneNumber,
+                                usuarioId: usuarioId
+                            }
+                        });
+                    }
+
+                    const hasPending = await prisma.orcamento.findFirst({
+                        where: { clienteId: cliente.id, usuarioId: usuarioId, status: 'pendente' }
+                    });
+
+                    if (hasPending) {
+                        console.log(`[Tenant: ${usuarioId}] Mensagem ignorada: O cliente ${phoneNumber} já possui um orçamento 'pendente' no Kanban de serviços.`);
+                        return;
+                    }
+
+                    // correcao deduplicacao: evita criar solicitacao duplicada,
+                    // mas se o cliente mandar várias mensagens seguidas ("Oi", "Quero orçamento", "Para casamento"),
+                    // nós JUNTAMOS as mensagens na mesma solicitação em vez de ignorar as secundárias.
+                    const jaTemSolicitacaoPendente = await prisma.solicitacaoWhatsApp.findFirst({
+                        where: { usuarioId: usuarioId, whatsappFrom: message.from }
+                    });
+
+                    if (jaTemSolicitacaoPendente) {
+                        console.log(`[Tenant: ${usuarioId}] Anexando nova mensagem à solicitação pendente de: ${message.from}`);
+                        
+                        const msgAgrupada = jaTemSolicitacaoPendente.mensagemOriginal + "\n" + message.body;
+                        
+                        await prisma.solicitacaoWhatsApp.update({
+                            where: { id: jaTemSolicitacaoPendente.id },
+                            data: { mensagemOriginal: msgAgrupada }
+                        });
+
+                        // Atualiza a RAM para o Frontend enxergar e rodar os Regex atualizados em tempo real!
+                        const reqInRAM = session.pendingRequests.find(r => r.id === jaTemSolicitacaoPendente.id);
+                        if (reqInRAM) {
+                            reqInRAM.mensagemOriginal = msgAgrupada;
+                        }
+                        return;
+                    }
+
+                    console.log(`[Tenant: ${usuarioId}] Criando nova solicitação para o frontend.`);
+                    const solicitacao = await prisma.solicitacaoWhatsApp.create({
+                        data: {
+                            usuarioId: usuarioId,
+                            clienteId: cliente.id,
+                            whatsappFrom: message.from,
+                            mensagemOriginal: message.body,
+                            clienteNome: cliente.nome,
+                        }
+                    });
+
+                    session.pendingRequests.push({
+                        id: solicitacao.id,
                         clienteId: cliente.id,
+                        clienteNome: cliente.nome,
                         whatsappFrom: message.from,
                         mensagemOriginal: message.body,
-                        clienteNome: cliente.nome,
-                    }
-                });
-
-                session.pendingRequests.push({
-                    id: solicitacao.id,
-                    clienteId: cliente.id,
-                    clienteNome: cliente.nome,
-                    whatsappFrom: message.from,
-                    mensagemOriginal: message.body,
-                    timestamp: solicitacao.criadoEm
-                });
+                        timestamp: solicitacao.criadoEm as any
+                    });
+                } finally {
+                    // Libera o lock após 3 segundos para cobrir flutuações de rede rápida
+                    setTimeout(() => clientCreationLocks.delete(lockKey), 3000);
+                }
 
             } catch (error) {
                 console.error(`[Tenant: ${usuarioId}] Erro ao processar mensagem do WhatsApp:`, error);
             }
         }
+    });
+
+    // Listener geral de erros para capturar bloqueios do WhatsApp
+    client.on('error', (error: any) => {
+        const errorStr = String(error).toLowerCase();
+        console.error(`[Tenant: ${usuarioId}] ERRO DO CLIENTE WHATSAPP:`, error);
+        
+        // Detecta mensagens específicas de bloqueio/restrição
+        if (errorStr.includes('connect') || 
+            errorStr.includes('device') || 
+            errorStr.includes('blocked') ||
+            errorStr.includes('fail') ||
+            errorStr.includes('offline')) {
+            session.statusMessage = `Erro: ${error.toString()}`;
+            session.isReady = false;
+            session.qrCode = '';
+        }
+    });
+
+    // Listener para mudanças de estado gerais
+    client.on('change_state', (state: any) => {
+        console.log(`[Tenant: ${usuarioId}] Mudança de estado do WhatsApp: ${state}`);
     });
 };
 
@@ -349,7 +423,8 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
             lastOfflineTime: null,
             connectedNumber: null,
             reconnectAttempts: 0,
-            lastReconnectAttemptTime: null
+            lastReconnectAttemptTime: null,
+            qrAttempts: 0
         };
         activeSessions.set(usuarioId, session);
 
@@ -365,8 +440,51 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
 
     session.client = new Client({
         authStrategy: new LocalAuth({ clientId: usuarioId }),
+        // Configuração otimizada do Puppeteer para evitar detecção como automação
+        // Mantém alguns flags para VPS/Linux, mas adiciona outros para parecer navegador real
         puppeteer: {
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                // Argumentos adicionais para evitar detecção de automação
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-web-resources',
+                '--disable-client-side-phishing-detection',
+                '--disable-component-extensions-with-background-pages',
+                '--disable-component-extensions-with-warning-badge',
+                '--disable-sync'
+            ],
+            // Habilita execução de código para limpar flags de automação
+            protocolTimeout: 180000,
+        }
+    });
+
+    // Listener para limpar flags de automação após a página carregar
+    // Isso é feito antes da autenticação para parecer um navegador real
+    session.client.once('page_created', async (page: any) => {
+        try {
+            console.log(`[Tenant: ${usuarioId}] Página criada. Aplicando stealth mode...`);
+            
+            // Remove flags de automação do Chromium
+            await page.evaluateOnNewDocument(() => {
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => false,
+                });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['pt-BR', 'pt', 'en-US', 'en'],
+                });
+                (window as any).chrome = {
+                    runtime: {}
+                };
+            });
+        } catch (err) {
+            console.warn(`[Tenant: ${usuarioId}] Aviso ao aplicar stealth mode:`, err);
         }
     });
 
@@ -381,6 +499,14 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
 };
 
 export const startWhatsAppClient = async (usuarioId: string) => {
+    let session = activeSessions.get(usuarioId);
+    
+    // Evita recriar ou destruir o container se já está ativo ou buscando QR code agressivamente
+    if (session?.client && (session.isReady || session.qrCode)) {
+        console.log(`[Tenant: ${usuarioId}] Tentativa de reiniciar ignorada: o WhatsApp já está rodando ou aguardando leitura.`);
+        return;
+    }
+
     console.log(`[Tenant: ${usuarioId}] Solicitada a ativação da integração WhatsApp.`);
     
     // Cria a sessão IMEDIATAMENTE e a coloca em activeSessions
@@ -413,7 +539,8 @@ const createWhatsAppSessionPlaceholder = (usuarioId: string) => {
         lastOfflineTime: null,
         connectedNumber: null,
         reconnectAttempts: 0,
-        lastReconnectAttemptTime: null
+        lastReconnectAttemptTime: null,
+        qrAttempts: 0
     };
     
     activeSessions.set(usuarioId, session);
@@ -476,10 +603,17 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
     const session = activeSessions.get(usuarioId);
     if (!session) throw new Error("Sessão do WhatsApp não encontrada");
 
+    let request;
     const requestIndex = session.pendingRequests.findIndex(r => r.id === requestId);
-    if (requestIndex === -1) throw new Error("Solicitação não encontrada");
-
-    const request = session.pendingRequests[requestIndex];
+    
+    if (requestIndex === -1) {
+        // Fallback robusto: se a RAM apagou a solicitação mas ela ainda está no BD (via poll, etc)
+        const reqBanco = await prisma.solicitacaoWhatsApp.findFirst({ where: { id: requestId, usuarioId } });
+        if (!reqBanco) throw new Error("Solicitação não encontrada");
+        request = { ...reqBanco, timestamp: reqBanco.criadoEm as any };
+    } else {
+        request = session.pendingRequests[requestIndex];
+    }
 
     try {
         let textoDetalhes = "";
@@ -508,7 +642,9 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
             data: { totalOrcamentos: { increment: 1 } },
         });
 
-        session.pendingRequests.splice(requestIndex, 1);
+        if (requestIndex !== -1) {
+            session.pendingRequests.splice(requestIndex, 1);
+        }
         await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => { });
         return novoOrcamento;
     } catch (e) {
@@ -523,10 +659,13 @@ export const rejectWhatsAppRequest = async (usuarioId: string, requestId: string
     const requestIndex = session.pendingRequests.findIndex(r => r.id === requestId);
     if (requestIndex !== -1) {
         session.pendingRequests.splice(requestIndex, 1);
-        await prisma.solicitacaoWhatsApp.delete({ where: { id: requestId } }).catch(() => { });
-        return true;
     }
-    return false;
+    // Força deleção no banco mesmo que já tinha sumido da RAM
+    const deleted = await prisma.solicitacaoWhatsApp.deleteMany({ 
+        where: { id: requestId, usuarioId } 
+    });
+    
+    return deleted.count > 0 || requestIndex !== -1;
 };
 
 export const disconnectWhatsAppClient = async (usuarioId: string) => {
@@ -541,6 +680,17 @@ export const disconnectWhatsAppClient = async (usuarioId: string) => {
     }
     await session.client.destroy();
 
+    // Remove a pasta local de autenticação na marra para não sobrar como zumbi vazio no auto-connect da VPS
+    try {
+        const sessionPath = getSessionPath(usuarioId);
+        if (fs.existsSync(sessionPath)) {
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+            console.log(`[Tenant: ${usuarioId}] Pasta de sessão local removida com sucesso.`);
+        }
+    } catch (e) {
+        console.error(`[Tenant: ${usuarioId}] Erro ao apagar pasta da sessão:`, e);
+    }
+
     // Reseta sessão mas mantém em memória para permitir reconexão
     // Não deleta a sessão completamente, apenas zera os valores de conexão
     // Assim o frontend pode clicar em "Gerar QR Code" novamente
@@ -548,26 +698,23 @@ export const disconnectWhatsAppClient = async (usuarioId: string) => {
     session.qrCode = '';
     session.connectedNumber = null;
     session.client = null;
-    session.statusMessage = 'Desconectado. Clique em "Gerar QR Code" para reconectar.';
+    session.statusMessage = 'Tempo limite esgotado ou Desconectado pelo usuário. Clique em "Gerar QR Code" para reconectar.';
     session.pendingRequests = [];
     session.reconnectAttempts = 0;
     session.lastReconnectAttemptTime = null;
+    session.qrAttempts = 0;
     
     return true;
 };
 
-const shutdownWhatsApp = async () => {
-    console.log('Desligando todas as instâncias ativas do WhatsApp...');
+export const shutdownWhatsApp = async () => {
+    console.log('Desligando todas as instâncias ativas do WhatsApp para evitar processos orfãos...');
     for (const [id, session] of activeSessions.entries()) {
         if (session.client) {
             try {
                 await session.client.destroy();
-                console.log(`Session ${id} destruída.`);
+                console.log(`Session do tenant ${id} destruída com segurança.`);
             } catch (e) { }
         }
     }
 };
-
-process.on('SIGINT', async () => { await shutdownWhatsApp(); process.exit(0); });
-process.on('SIGTERM', async () => { await shutdownWhatsApp(); process.exit(0); });
-process.on('uncaughtException', async (err) => { console.error(err); await shutdownWhatsApp(); process.exit(1); });
