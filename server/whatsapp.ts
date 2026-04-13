@@ -452,11 +452,14 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
         // Configuração otimizada do Puppeteer para evitar detecção como automação
         // Mantém alguns flags para VPS/Linux, mas adiciona outros para parecer navegador real
         puppeteer: {
-            headless: 'new',
+            headless: true, // Retornado para true clássico. 'new' causa pausamento de timer e workers no Linux
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--no-zygote',
+                // Força User-Agent de Windows para que o WhatsApp não detecte Headless Linux e bloqueie o Worker
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 // Otimizações ESSENCIAIS para Kernel Linux sem interface gráfica (VPS)
                 '--disable-gpu',
                 '--disable-software-rasterizer',
