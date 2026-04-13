@@ -428,6 +428,10 @@ Os dados do modal são enviados via `POST /api/whatsapp/requests/:id/accept` com
 
 ---
 
+## No GitHub tem duas branchs configuradas, Main e Develop.
+
+Main é a branch que está em produção, que irá rodar localmente.
+Develop é a branch que está em desenvolvimento, que irá rodar em uma VPS linux Ubuntu.
 
 ## Execução Local
 

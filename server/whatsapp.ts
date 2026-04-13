@@ -290,8 +290,10 @@ const setupWhatsAppListeners = (usuarioId: string) => {
             console.log(`[Tenant: ${usuarioId}] Nova solicitação de orçamento: ${message.from}`);
 
             try {
-                const contact = await message.getContact();
-                const contactName = contact.name || contact.pushname || "Novo Cliente (WhatsApp)";
+                // Bypass MASSIVO de velocidade: ignorar `message.getContact()` que trava na VPS
+                // e extrair o nome diretamente do payload crú da notificação (Pushname)
+                const rawName = message._data?.notifyName || message._data?.pushname;
+                const contactName = rawName || "Novo Cliente (WhatsApp)";
                 const phoneNumber = message.from.replace('@c.us', '');
 
                 const lockKey = `${usuarioId}:${phoneNumber}`;
@@ -448,6 +450,10 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                // Argumentos VITAIS na VPS para o Chrome não 'dormir' a aba e pausar a sincronização
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
                 // Argumentos adicionais para evitar detecção de automação
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process',
