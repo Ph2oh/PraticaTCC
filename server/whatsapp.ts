@@ -4,7 +4,23 @@ const { Client, LocalAuth } = pkg;
 import * as QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+// Helper function anti-travamento para proteger o motor principal 
+const destroyWithTimeout = async (client: any, timeoutMs = 3000) => {
+    if (!client) return;
+    try {
+        await Promise.race([
+            client.destroy(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('DestroyTimeout')), timeoutMs))
+        ]);
+    } catch (e) {
+        console.debug('Forçado encerramento do pupeteer (timeout/zumbi da VPS).');
+    }
+};
 
 export interface PendingRequest {
     id: string;
@@ -48,9 +64,8 @@ const clientCreationLocks = new Set<string>();
 // Mapeamento dinâmico do local de salvamento dos caches do whatsapp por Tenant
 const getSessionPath = (usuarioId: string) => path.join(process.cwd(), '.wwebjs_auth', `session-${usuarioId}`);
 
-// Limpeza de lockfiles e processos Chromium orfaos
-// Implementação: Força limpeza para evitar "Browser is already running" na VPS
-const cleanupLocks = (usuarioId: string) => {
+// Limpeza de lockfiles e processos Chromium orfaos (TOTALMENTE ASSÍNCRONO e NÃO BLOQUEANTE)
+const cleanupLocksAsync = async (usuarioId: string) => {
     const sessionPath = getSessionPath(usuarioId);
     const lockFiles = [
         path.join(sessionPath, 'SingletonLock'),
@@ -59,28 +74,18 @@ const cleanupLocks = (usuarioId: string) => {
     ];
 
     try {
-        lockFiles.forEach((lockFilePath) => {
-            if (fs.existsSync(lockFilePath)) {
-                try {
-                    fs.unlinkSync(lockFilePath);
-                } catch (err) {
-                    console.debug(`Erro ao deletar lockfile ${lockFilePath}:`, err);
-                }
-            }
-        });
-    } catch (err) {
-        console.error(`Erro ao limpar lockfiles do tenant ${usuarioId}:`, err);
-    }
-    
-    // Mata processos Chromium orfaos associados a esse tenant (backoff 10s em VPS)
-    // Necessário porque whatsapp-web.js pode deixar processos zumbis ao desconectar
+        await Promise.all(lockFiles.map(async (lockPath) => {
+            try {
+                const stat = await fs.promises.stat(lockPath).catch(() => null);
+                if (stat) await fs.promises.unlink(lockPath);
+            } catch (err) { }
+        }));
+    } catch (err) { }
+
+    // Mata processos zumbis rodando em background da VPS assincronamente sem bloquear a Thread
     try {
-        // Busca por processos chromium e chrome que possam estar orfaos
-        // Usa kill -9 para forçar término imediato
-        execSync(`pkill -9 -f "session-${usuarioId}"`, { stdio: 'ignore' });
-    } catch (err) {
-        console.debug(`Nenhum processo Chromium orfao encontrado para tenant ${usuarioId}`);
-    }
+        await execAsync(`pkill -9 -f "session-${usuarioId}"`).catch(() => {});
+    } catch (err) { }
 };
 
 // Carrega solicitações pendentes do banco para a RAM de forma sincronizada
@@ -93,7 +98,7 @@ const loadPendingRequests = async (usuarioId: string): Promise<void> => {
         const solicitacoes = await prisma.solicitacaoWhatsApp.findMany({
             where: { usuarioId }
         });
-        
+
         if (activeSessions.has(usuarioId)) {
             activeSessions.get(usuarioId)!.pendingRequests = solicitacoes.map(s => ({
                 id: s.id,
@@ -103,7 +108,7 @@ const loadPendingRequests = async (usuarioId: string): Promise<void> => {
                 mensagemOriginal: s.mensagemOriginal,
                 timestamp: s.criadoEm as any
             }));
-            
+
             if (solicitacoes.length > 0) {
                 console.log(`[Tenant: ${usuarioId}] Carregadas ${solicitacoes.length} solicitações pendentes do banco.`);
             }
@@ -150,19 +155,19 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         session.qrCode = '';
         session.qrAttempts = 0;
         session.statusMessage = 'WhatsApp conectado';
-        
+
         // Reseta contador de reconexões (sucesso completo!)
         // Próxima falha começará do backoff inicial (2 segundos)
         if (session.reconnectAttempts > 0) {
             console.log(`[Tenant: ${usuarioId}] Reconexão bem-sucedida após ${session.reconnectAttempts} tentativa(s).`);
             session.reconnectAttempts = 0;
         }
-        
+
         // Extrai o número de WhatsApp conectado
         // Tenta múltiplas formas de acessar: wid.user, wid._serialized, ou info completo
         try {
             let phoneNumber = null;
-            
+
             // Tenta client.info.wid.user (formato: XX9XXXXXXXXXX)
             if (client.info?.wid?.user) {
                 phoneNumber = client.info.wid.user;
@@ -179,7 +184,7 @@ const setupWhatsAppListeners = (usuarioId: string) => {
             else if (client.info?.user) {
                 phoneNumber = client.info.user;
             }
-            
+
             if (phoneNumber) {
                 session.connectedNumber = phoneNumber;
                 console.log(`[Tenant: ${usuarioId}] Número de WhatsApp conectado: +${phoneNumber}`);
@@ -190,7 +195,7 @@ const setupWhatsAppListeners = (usuarioId: string) => {
         } catch (err) {
             console.error(`[Tenant: ${usuarioId}] Erro ao extrair número de WhatsApp:`, err);
         }
-        
+
         // Reseta flag de offline quando reconecta
         // Indica que a sincronização foi restaurada após app móvel voltar online
         if (session.isMobileOffline) {
@@ -202,14 +207,14 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
     client.on('disconnected', (reason: any) => {
         const reasonStr = String(reason).toUpperCase();
-        
+
         // Detecção de desconexão por app móvel offline ou conflito de dispositivos
         // Correlação com comportamento esperado: sincronização pausada quando app fica offline
-        const isMobileOffline = reasonStr.includes('CONFLICT') || 
-                                reasonStr.includes('OFFLINE') || 
-                                reasonStr.includes('MOBILE') ||
-                                reasonStr.includes('SYNC');
-        
+        const isMobileOffline = reasonStr.includes('CONFLICT') ||
+            reasonStr.includes('OFFLINE') ||
+            reasonStr.includes('MOBILE') ||
+            reasonStr.includes('SYNC');
+
         if (isMobileOffline) {
             session.isMobileOffline = true;
             session.lastOfflineTime = new Date();
@@ -221,12 +226,12 @@ const setupWhatsAppListeners = (usuarioId: string) => {
             console.warn(`[Tenant: ${usuarioId}] Cliente do WhatsApp desconectado: ${reasonStr}`);
             session.statusMessage = `WhatsApp desconectado: ${reasonStr}`;
         }
-        
+
         session.isReady = false;
         session.qrCode = '';
         session.connectedNumber = null;
         session.statusMessage = 'Reconectando... Aguarde o QR Code aparecer.';
-        
+
         // Tenta reconectar imediatamente (em vez de esperar 10s)
         // Isso garante que o usuário veja o QR rapidamente após desconexão
         console.log(`[Tenant: ${usuarioId}] Iniciando reconexão imediata...`);
@@ -260,7 +265,7 @@ const setupWhatsAppListeners = (usuarioId: string) => {
                     console.log(`[Tenant: ${usuarioId}] Aguardando leitura do QR Code gerado...`);
                 });
         }
-        
+
         session.statusMessage = 'QR Code aguardando leitura. Aponte seu celular.';
         try {
             session.qrCode = await QRCode.toDataURL(qr);
@@ -337,9 +342,9 @@ const setupWhatsAppListeners = (usuarioId: string) => {
 
                     if (jaTemSolicitacaoPendente) {
                         console.log(`[Tenant: ${usuarioId}] Anexando nova mensagem à solicitação pendente de: ${message.from}`);
-                        
+
                         const msgAgrupada = jaTemSolicitacaoPendente.mensagemOriginal + "\n" + message.body;
-                        
+
                         await prisma.solicitacaoWhatsApp.update({
                             where: { id: jaTemSolicitacaoPendente.id },
                             data: { mensagemOriginal: msgAgrupada }
@@ -387,10 +392,10 @@ const setupWhatsAppListeners = (usuarioId: string) => {
     client.on('error', (error: any) => {
         const errorStr = String(error).toLowerCase();
         console.error(`[Tenant: ${usuarioId}] ERRO DO CLIENTE WHATSAPP:`, error);
-        
+
         // Detecta mensagens específicas de bloqueio/restrição
-        if (errorStr.includes('connect') || 
-            errorStr.includes('device') || 
+        if (errorStr.includes('connect') ||
+            errorStr.includes('device') ||
             errorStr.includes('blocked') ||
             errorStr.includes('fail') ||
             errorStr.includes('offline')) {
@@ -410,7 +415,9 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
     let session = activeSessions.get(usuarioId);
 
     if (session?.client) {
-        session.client.destroy().catch(() => { });
+        // Encerra a aba e o processo órfão com garantia de timeout
+        await destroyWithTimeout(session.client, 4000);
+        session.client = null;
     }
 
     if (!session) {
@@ -438,7 +445,7 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
         session.isReady = false;
     }
 
-    cleanupLocks(usuarioId);
+    await cleanupLocksAsync(usuarioId);
 
     session.client = new Client({
         authStrategy: new LocalAuth({ clientId: usuarioId }),
@@ -460,7 +467,8 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
                 '--disable-renderer-backgrounding',
                 // Argumentos adicionais para evitar detecção de automação
                 '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
+                '--window-size=1920,1080',
+                '--disable-features=IsolateOrigins,site-per-process,CalculateNativeWinOcclusion',
                 '--disable-web-resources',
                 '--disable-client-side-phishing-detection',
                 '--disable-component-extensions-with-background-pages',
@@ -477,7 +485,7 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
     session.client.once('page_created', async (page: any) => {
         try {
             console.log(`[Tenant: ${usuarioId}] Página criada. Aplicando stealth mode...`);
-            
+
             // Remove flags de automação do Chromium
             await page.evaluateOnNewDocument(() => {
                 Object.defineProperty(navigator, 'webdriver', {
@@ -510,7 +518,7 @@ const safeInitializeWhatsAppClient = async (usuarioId: string) => {
 
 export const startWhatsAppClient = async (usuarioId: string) => {
     let session = activeSessions.get(usuarioId);
-    
+
     // Evita recriar ou destruir o container se já está ativo ou buscando QR code agressivamente
     if (session?.client && (session.isReady || session.qrCode)) {
         console.log(`[Tenant: ${usuarioId}] Tentativa de reiniciar ignorada: o WhatsApp já está rodando ou aguardando leitura.`);
@@ -518,12 +526,12 @@ export const startWhatsAppClient = async (usuarioId: string) => {
     }
 
     console.log(`[Tenant: ${usuarioId}] Solicitada a ativação da integração WhatsApp.`);
-    
+
     // Cria a sessão IMEDIATAMENTE e a coloca em activeSessions
-    // Isso garante que getWhatsAppStatus() retorne activeSession:true rapidinho
+    // Isso garante que getWhatsAppStatus() retorne activeSession:true
     // A inicialização do cliente continua em background sem bloquear
     createWhatsAppSessionPlaceholder(usuarioId);
-    
+
     // Inicializa o cliente em background (não aguarda)
     // Polling do frontend vai monitorar o progresso
     safeInitializeWhatsAppClient(usuarioId).catch(err => {
@@ -537,7 +545,7 @@ const createWhatsAppSessionPlaceholder = (usuarioId: string) => {
     if (activeSessions.has(usuarioId)) {
         return; // Já existe sessão
     }
-    
+
     const session: WhatsAppSession = {
         client: null,
         isReady: false,
@@ -552,50 +560,29 @@ const createWhatsAppSessionPlaceholder = (usuarioId: string) => {
         lastReconnectAttemptTime: null,
         qrAttempts: 0
     };
-    
+
     activeSessions.set(usuarioId, session);
     console.log(`[Tenant: ${usuarioId}] Sessão placeholder criada em RAM.`);
 };
 
 export const getWhatsAppStatus = async (usuarioId: string) => {
     const session = activeSessions.get(usuarioId);
-    
+
     // Se não tem sessão ativa, retorna status vazio
     if (!session) {
         return { ready: false, qrCode: '', message: 'Aguardando inicialização manual...', pendingRequests: [], activeSession: false };
     }
-    
-    // Se tem sessão mas o array de pending está vazio, faz fallback ao banco
-    // Isso evita que solicitações fiquem órfãs se houver descompasso entre RAM e BD
-    let pendingRequests = session.pendingRequests;
-    if (session.client && pendingRequests.length === 0) {
-        try {
-            const solicitacoesNoBanco = await prisma.solicitacaoWhatsApp.findMany({
-                where: { usuarioId }
-            });
-            
-            if (solicitacoesNoBanco.length > 0) {
-                console.log(`[Tenant: ${usuarioId}] Sincronizando ${solicitacoesNoBanco.length} solicitações do banco para RAM.`);
-                pendingRequests = solicitacoesNoBanco.map(s => ({
-                    id: s.id,
-                    clienteId: s.clienteId,
-                    clienteNome: s.clienteNome,
-                    whatsappFrom: s.whatsappFrom,
-                    mensagemOriginal: s.mensagemOriginal,
-                    timestamp: s.criadoEm as any
-                }));
-                session.pendingRequests = pendingRequests;
-            }
-        } catch (err) {
-            console.error(`[Tenant: ${usuarioId}] Erro ao fazer fallback ao banco:`, err);
-        }
-    }
+
+    // Removemos o Fallback de findMany do Banco de Dados daqui de dentro!
+    // Ele estava causando um DDOS acidental de 1 query a cada 2 segundos no NeonDB se a lista estivesse vazia,
+    // o que derruba a API e desconecta banco serverless (P1001). 
+    // O banco já se sincroniza naturalmente uma única vez no loadPendingRequests() na inicialização.
     
     return {
         ready: session.isReady,
         qrCode: session.qrCode,
         message: session.statusMessage,
-        pendingRequests: pendingRequests,
+        pendingRequests: session.pendingRequests,
         activeSession: true,
         mobileOffline: session.isMobileOffline,
         connectedNumber: session.connectedNumber
@@ -615,7 +602,7 @@ export const acceptWhatsAppRequest = async (usuarioId: string, requestId: string
 
     let request;
     const requestIndex = session.pendingRequests.findIndex(r => r.id === requestId);
-    
+
     if (requestIndex === -1) {
         // Fallback robusto: se a RAM apagou a solicitação mas ela ainda está no BD (via poll, etc)
         const reqBanco = await prisma.solicitacaoWhatsApp.findFirst({ where: { id: requestId, usuarioId } });
@@ -671,10 +658,10 @@ export const rejectWhatsAppRequest = async (usuarioId: string, requestId: string
         session.pendingRequests.splice(requestIndex, 1);
     }
     // Força deleção no banco mesmo que já tinha sumido da RAM
-    const deleted = await prisma.solicitacaoWhatsApp.deleteMany({ 
-        where: { id: requestId, usuarioId } 
+    const deleted = await prisma.solicitacaoWhatsApp.deleteMany({
+        where: { id: requestId, usuarioId }
     });
-    
+
     return deleted.count > 0 || requestIndex !== -1;
 };
 
@@ -684,47 +671,48 @@ export const disconnectWhatsAppClient = async (usuarioId: string) => {
 
     console.log(`[Tenant: ${usuarioId}] Desconectando WhatsApp...`);
     try {
-        await session.client.logout();
+        await Promise.race([
+            session.client.logout(),
+            new Promise((_, r) => setTimeout(() => r(new Error('LogoutTimeout')), 4000))
+        ]);
     } catch (e) {
-        console.log("Erro no logout, forçando destroy...", e);
+        console.log("Erro/Timeout no logout, forçando destroy...", e);
     }
-    await session.client.destroy();
+    
+    await destroyWithTimeout(session.client, 4000);
 
-    // Remove a pasta local de autenticação na marra para não sobrar como zumbi vazio no auto-connect da VPS
+    // Remove a pasta local de forma ASSÍNCRONA para não parar todo o servidor
     try {
         const sessionPath = getSessionPath(usuarioId);
-        if (fs.existsSync(sessionPath)) {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-            console.log(`[Tenant: ${usuarioId}] Pasta de sessão local removida com sucesso.`);
+        const stat = await fs.promises.stat(sessionPath).catch(() => null);
+        if (stat) {
+            await fs.promises.rm(sessionPath, { recursive: true, force: true });
+            console.log(`[Tenant: ${usuarioId}] Pasta de sessão local blindada e removida com sucesso.`);
         }
     } catch (e) {
         console.error(`[Tenant: ${usuarioId}] Erro ao apagar pasta da sessão:`, e);
     }
 
-    // Reseta sessão mas mantém em memória para permitir reconexão
-    // Não deleta a sessão completamente, apenas zera os valores de conexão
-    // Assim o frontend pode clicar em "Gerar QR Code" novamente
-    session.isReady = false;
-    session.qrCode = '';
-    session.connectedNumber = null;
-    session.client = null;
-    session.statusMessage = 'Tempo limite esgotado ou Desconectado pelo usuário. Clique em "Gerar QR Code" para reconectar.';
-    session.pendingRequests = [];
-    session.reconnectAttempts = 0;
-    session.lastReconnectAttemptTime = null;
-    session.qrAttempts = 0;
-    
+    // SANGRIA DA MEMÓRIA RAM
+    // Limpa completamente todos os traços desse tenant da alocação de memória. Memory Leak extirpado.
+    activeSessions.delete(usuarioId);
+
     return true;
 };
 
 export const shutdownWhatsApp = async () => {
-    console.log('Desligando todas as instâncias ativas do WhatsApp para evitar processos orfãos...');
+    console.log('Desligando todas as instâncias ativas do WhatsApp para evitar processos orfaos...');
+    const destroyPromises = [];
+    
     for (const [id, session] of activeSessions.entries()) {
         if (session.client) {
-            try {
-                await session.client.destroy();
-                console.log(`Session do tenant ${id} destruída com segurança.`);
-            } catch (e) { }
+            destroyPromises.push(
+                destroyWithTimeout(session.client, 3000)
+                    .then(() => console.log(`Session do tenant ${id} limpa internamente.`))
+            );
         }
     }
+    
+    // Matamos todos em paralelo ao mesmo tempo durante o restart do PM2 
+    await Promise.all(destroyPromises);
 };
