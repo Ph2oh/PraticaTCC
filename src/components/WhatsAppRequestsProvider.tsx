@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Check, X, Loader2 } from 'lucide-react';
+import { MessageSquare, Check, X, Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +34,18 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
     const pendingRequest = status.pendingRequests && status.pendingRequests.length > 0
         ? status.pendingRequests[0]
         : null;
+
+    // Captura a hora exata em que a notificacao apareceu na tela do usuario
+    // Permite mensurar a latencia entre o recebimento da mensagem e a exibicao do dialog
+    const [horaNotificacao, setHoraNotificacao] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (pendingRequest) {
+            setHoraNotificacao(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        } else {
+            setHoraNotificacao(null);
+        }
+    }, [pendingRequest?.id]);
 
     // Parsing effect
     React.useEffect(() => {
@@ -152,7 +164,23 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
                                 <div className="bg-muted p-3 rounded-md text-sm italic border-l-4 border-primary/50 text-foreground">
                                     "{pendingRequest?.mensagemOriginal}"
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-2">Extraímos algumas informações automaticamente. Corrija o que for necessário antes de aceitar.</p>
+
+                                {/* Exibe horarios para mensurar latencia entre recebimento e notificacao */}
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2 flex-wrap">
+                                    <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        <strong>Mensagem:</strong>{' '}
+                                        {pendingRequest?.timestamp
+                                            ? new Date(pendingRequest.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                                            : '--:--:--'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        <strong>Notificacao:</strong> {horaNotificacao || '--:--:--'}
+                                    </span>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground mt-1">Extraimos algumas informacoes automaticamente. Corrija o que for necessario antes de aceitar.</p>
                             </DialogDescription>
                         </DialogHeader>
 
