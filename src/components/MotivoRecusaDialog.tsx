@@ -17,6 +17,7 @@ export const MOTIVOS_RECUSA = [
     { value: "Cliente desqualificado", label: "Cliente desqualificado", descricao: "Orçamento para serviço fora do escopo ou lead não qualificado" },
     { value: "Data indisponível", label: "Data indisponível", descricao: "A data solicitada pelo cliente não está disponível na agenda" },
     { value: "Sem retorno do cliente", label: "Sem retorno do cliente", descricao: "Não obtive retorno do cliente após o envio do orçamento" },
+    { value: "orcamento_de_teste", label: "Orçamento de teste", descricao: "Orçamento utilizado para testes ou demonstrações" },
 ] as const;
 
 export type MotivoRecusaValue = typeof MOTIVOS_RECUSA[number]["value"];

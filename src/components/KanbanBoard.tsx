@@ -180,6 +180,20 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
             return;
         }
 
+        // Regra de negocio: impede contratacao de orcamento com valor zerado
+        // O usuario deve editar o orcamento e definir um valor antes de mover para contratado
+        if (destColumn === "contratado" && sourceColumn !== "contratado") {
+            const orcMovido = columns[sourceColumn][source.index];
+            if (orcMovido && orcMovido.valor <= 0) {
+                toast({
+                    title: "Valor obrigatorio",
+                    description: "Defina um valor acima de R$ 0,00 antes de marcar como contratado. Clique no card para editar.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        }
+
         // Intercepta drag para 'recusado': guarda estado e abre dialog sem mover o card ainda
         if (destColumn === "recusado" && sourceColumn !== "recusado") {
             setRecusaPendente({
@@ -260,7 +274,20 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
             return;
         }
 
-        // Regra 2: Movimentação para "recusado" pede motivo de recusa
+        // Regra de negocio: impede contratacao com valor zerado via menu de contexto
+        if (novoStatus === "contratado" && sourceColumn !== "contratado") {
+            const orc = columns[sourceColumn][sourceIndex];
+            if (orc && orc.valor <= 0) {
+                toast({
+                    title: "Valor obrigatorio",
+                    description: "Defina um valor acima de R$ 0,00 antes de marcar como contratado. Clique no card para editar.",
+                    variant: "destructive",
+                });
+                return;
+            }
+        }
+
+        // Regra 2: Movimentacao para "recusado" pede motivo de recusa
         if (novoStatus === "recusado") {
             setRecusaPendente({
                 orcamentoId,
@@ -273,7 +300,7 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
             return;
         }
 
-        // Caso normal sem interceptações:
+        // Caso normal sem interceptacoes:
         aplicarMudancaColuna(sourceColumn, novoStatus, sourceIndex, destIndex);
     };
 

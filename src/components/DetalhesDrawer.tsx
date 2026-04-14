@@ -17,6 +17,7 @@ import { useUpdateOrcamento } from "@/hooks/useOrcamentos";
 import { useConfig } from "@/hooks/useConfig";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 interface DetalhesDrawerProps {
     orcamento: Orcamento | null;
@@ -37,22 +38,34 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
     const [editDescricao, setEditDescricao] = useState("");
     const [editValor, setEditValor] = useState("");
     const updateMutation = useUpdateOrcamento();
+    const { toast } = useToast();
 
-    // Configurações globais (Templates)
+    // Configuracoes globais (Templates)
     const { data: config } = useConfig();
 
-    // Sincroniza estado local quando orçamento muda
+    // Sincroniza estado local quando orcamento muda
     useEffect(() => {
         if (orcamento) {
             setEditDescricao(orcamento.descricao);
             setEditValor(orcamento.valor.toString());
-            setIsEditing(false); // reseta modo edição ao trocar orçamento
+            setIsEditing(false); // reseta modo edicao ao trocar orcamento
         }
     }, [orcamento]);
 
     if (!orcamento) return null;
 
     const handleStatusChange = (newStatus: Status) => {
+        // Regra de negocio: impede contratacao de orcamento com valor zerado
+        // Orienta o usuario a editar o valor antes de mover para contratado
+        if (newStatus === "contratado" && orcamento.valor <= 0) {
+            toast({
+                title: "Valor obrigatorio",
+                description: "Defina um valor acima de R$ 0,00 antes de marcar como contratado. Use o botao 'Editar Orcamento' abaixo.",
+                variant: "destructive",
+            });
+            return;
+        }
+
         updateMutation.mutate({
             id: orcamento.id,
             data: { status: newStatus },

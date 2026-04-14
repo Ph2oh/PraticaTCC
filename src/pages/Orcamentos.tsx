@@ -113,17 +113,28 @@ const Orcamentos = () => {
     });
   }, [orcamentos, periodoPreset, periodoRange]);
 
-  // Intercepta mudancas de status na tabela: valida reversão de contrato e motivo de recusa
+  // Intercepta mudancas de status na tabela: valida reversao de contrato, valor zerado e motivo de recusa
   const handleStatusChange = (orcamentoId: string, newStatus: Status, motivoRecusa?: string, bypassReversao?: boolean) => {
     const orc = orcamentos.find(o => o.id === orcamentoId);
 
-    // Regra 1: Reversão de "contratado" sempre pede confirmação
+    // Regra 1: Reversao de "contratado" sempre pede confirmacao
     if (orc && orc.status === "contratado" && newStatus !== "contratado" && !bypassReversao) {
       setReversaoPendente({ id: orcamentoId, novoStatus: newStatus });
       return;
     }
 
-    // Regra 2: Movimentação para "recusado" pede motivo de recusa
+    // Regra de negocio: impede contratacao de orcamento com valor zerado
+    // O usuario deve editar o orcamento e definir um valor antes de contratar
+    if (newStatus === "contratado" && orc && orc.valor <= 0) {
+      toast({
+        title: "Valor obrigatorio",
+        description: "Defina um valor acima de R$ 0,00 antes de marcar como contratado. Clique no orcamento para editar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Regra 2: Movimentacao para "recusado" pede motivo de recusa
     if (newStatus === "recusado" && !motivoRecusa) {
       setRecusaPendente({ id: orcamentoId, novoStatus: newStatus });
       return;

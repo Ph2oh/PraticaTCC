@@ -42,12 +42,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- RATE LIMITING ---
-// Allow 20 login/register attempts per 15 minutes per IP
+// permite 20 login/register tentativas por 15 minutes por IP
 // Pula as requisições que tiveram sucesso (status < 400), bloqueando apenas loops de falhas/brute force
 // Limite de 20 tentativas equilibra proteção contra brute force com usabilidade real de testes e usuários legítimos
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 10,
     skipSuccessfulRequests: true,
     message: { error: 'Muitas tentativas. Tente novamente mais tarde.' }
 });
@@ -508,7 +508,13 @@ app.patch('/api/orcamentos/:id/status', async (req: any, res) => {
         const orcamentoAtigo = await prisma.orcamento.findUnique({
             where: { id, usuarioId: req.usuarioId },
         });
-        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orçamento não encontrado.' });
+        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orcamento nao encontrado.' });
+
+        // Regra de negocio: impede contratacao de orcamento com valor zerado
+        // Um contrato precisa ter um valor monetario definido para ser valido no fluxo comercial
+        if (status === 'contratado' && orcamentoAtigo.valor <= 0) {
+            return res.status(400).json({ error: 'Nao e possivel contratar um orcamento com valor R$ 0,00. Defina um valor antes de mudar para contratado.' });
+        }
 
         let dataFechamentoUpdate: Date | null | undefined = undefined;
         let dataCancelamentoUpdate: Date | null | undefined = undefined;
@@ -568,7 +574,13 @@ app.put('/api/orcamentos/:id', async (req: any, res) => {
         const orcamentoAtigo = await prisma.orcamento.findUnique({
             where: { id, usuarioId: req.usuarioId },
         });
-        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orçamento não encontrado.' });
+        if (!orcamentoAtigo) return res.status(404).json({ error: 'Orcamento nao encontrado.' });
+
+        // Regra de negocio: impede contratacao com valor zerado (considera valor atualizado se enviado, senao usa o atual do banco)
+        const valorFinal = typeof valor !== 'undefined' ? Number(valor) : orcamentoAtigo.valor;
+        if (status === 'contratado' && valorFinal <= 0) {
+            return res.status(400).json({ error: 'Nao e possivel contratar um orcamento com valor R$ 0,00. Defina um valor antes de mudar para contratado.' });
+        }
 
         const dataAtualizacao: Prisma.OrcamentoUpdateInput = {};
         if (descricao) dataAtualizacao.descricao = descricao;
