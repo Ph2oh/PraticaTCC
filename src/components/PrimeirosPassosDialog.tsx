@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -48,16 +48,51 @@ export function PrimeirosPassosDialog() {
         containScroll: "trimSnaps"
     });
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [activeStatusDesc, setActiveStatusDesc] = useState<"pendente" | "enviado" | "contratado" | null>(null);
+    const [activeStatusDesc, setActiveStatusDesc] = useState<"pendente" | "enviado" | "contratado" | null>("pendente");
 
     // Estados animados para ilustrações dinâmicas
     const [animatedMetric, setAnimatedMetric] = useState(30);
     const [chatMessages, setChatMessages] = useState<number[]>([1]);
-    const [docPosition, setDocPosition] = useState<"pendente" | "enviado" | "contratado">("pendente");
+    const [isLaunching, setIsLaunching] = useState(false);
+    const [isFastForward, setIsFastForward] = useState(false);
+    const [documentStatusColor, setDocumentStatusColor] = useState<"pendente" | "enviado" | "contratado">("pendente");
+
+    const colorTimerRef = useRef<NodeJS.Timeout>();
+    const cycleIntervalRef = useRef<NodeJS.Timeout>();
+
+    const startCycle = useCallback(() => {
+        if (cycleIntervalRef.current) clearInterval(cycleIntervalRef.current);
+        cycleIntervalRef.current = setInterval(() => {
+            setActiveStatusDesc(prev => {
+                const next = prev === 'pendente' ? 'enviado' : prev === 'enviado' ? 'contratado' : 'pendente';
+                if (colorTimerRef.current) clearTimeout(colorTimerRef.current);
+                colorTimerRef.current = setTimeout(() => setDocumentStatusColor(next), 3800);
+                return next;
+            });
+        }, 7000);
+    }, []);
+
+    const handleStatusClick = useCallback((status: "pendente" | "enviado" | "contratado") => {
+        if (colorTimerRef.current) clearTimeout(colorTimerRef.current);
+        setIsFastForward(true);
+        setActiveStatusDesc(status);
+
+        colorTimerRef.current = setTimeout(() => {
+            setDocumentStatusColor(status);
+            setIsFastForward(false);
+        }, 1000);
+
+        startCycle(); // Reinicia o ciclo automático pra evitar colisão imediata com cliques
+    }, [startCycle]);
 
     // Lógica para variar as métricas, os chats caindo de cima, e o documento pulando
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            setIsLaunching(false);
+            if (cycleIntervalRef.current) clearInterval(cycleIntervalRef.current);
+            if (colorTimerRef.current) clearTimeout(colorTimerRef.current);
+            return;
+        }
 
         const metricInterval = setInterval(() => {
             setAnimatedMetric(prev => {
@@ -74,20 +109,15 @@ export function PrimeirosPassosDialog() {
             });
         }, 1600);
 
-        const docInterval = setInterval(() => {
-            setDocPosition(prev => {
-                if (prev === 'pendente') return 'enviado';
-                if (prev === 'enviado') return 'contratado';
-                return 'pendente';
-            });
-        }, 3000);
+        startCycle(); // Inicia auto-cycle seguro
 
         return () => {
             clearInterval(metricInterval);
             clearInterval(chatInterval);
-            clearInterval(docInterval);
+            if (cycleIntervalRef.current) clearInterval(cycleIntervalRef.current);
+            if (colorTimerRef.current) clearTimeout(colorTimerRef.current);
         };
-    }, [open]);
+    }, [open, startCycle]);
 
     const onSelect = useCallback(() => {
         if (!emblaApi) return;
@@ -167,24 +197,21 @@ export function PrimeirosPassosDialog() {
             description: "Crie orçamentos manualmente, ou plugue a integração com WhatsApp. Ao conectar, novos pedidos entram como rascunhos direto na fila central.",
             content: (
                 <div className="flex justify-center py-6">
-                    <div className="relative w-64 md:w-72 h-44 bg-emerald-50 dark:bg-emerald-950/20 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center shadow-sm">
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 bg-white dark:bg-background p-3 rounded-2xl shadow-lg border z-20 animate-pulse" style={{ animationDuration: '2s' }}>
+                    <div className="relative w-64 md:w-72 h-44 bg-emerald-50 dark:bg-emerald-950/20 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center shadow-sm gap-2 sm:gap-4 px-4 overflow-hidden">
+                        <div className="bg-white dark:bg-background p-3 rounded-2xl shadow-lg border z-20 animate-bounce shrink-0" style={{ animationDuration: '2s' }}>
                             <MessageCircle className="w-8 h-8 text-emerald-500" />
                         </div>
-                        <ArrowRight className="w-6 h-6 text-emerald-400 absolute left-24 top-1/2 -translate-y-1/2 animate-pulse" style={{ animationDuration: '1.5s' }} />
-                        <div className="absolute right-6 top-8 bottom-8 w-32 bg-white dark:bg-muted rounded-xl shadow-inner border flex flex-col gap-2 p-2 pt-4 overflow-hidden relative">
-                            <div className="flex flex-col gap-2 w-full transition-transform duration-500 ease-in-out">
+                        <ArrowRight className="w-6 h-6 text-emerald-400 animate-pulse shrink-0" style={{ animationDuration: '1.5s' }} />
+                        <div className="w-28 h-32 bg-white dark:bg-muted rounded-xl shadow-inner border flex flex-col p-2 overflow-hidden relative shrink-0">
+                            {/* Static overlay styling to mask entries cleanly */}
+                            <div className="absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-white dark:from-muted z-10 pointer-events-none" />
+                            <div className="flex flex-col gap-2 w-full justify-end flex-1 pb-1">
                                 {chatMessages.map((msg, i) => (
-                                    <div key={`${msg}-${i}`} className="w-full shrink-0 h-8 bg-emerald-100/50 dark:bg-emerald-900/20 rounded border border-emerald-200/50 flex items-center px-2 relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div key={`${msg}-${i}`} className="w-full shrink-0 h-7 bg-emerald-100/50 dark:bg-emerald-900/20 rounded border border-emerald-200/50 flex items-center px-2 relative animate-in fade-in slide-in-from-top-4 duration-300 shadow-sm">
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
-                                        <div className="w-12 h-2 bg-emerald-600/30 rounded-full ml-2" />
+                                        <div className="w-10 h-1.5 bg-emerald-600/30 rounded-full ml-2" />
                                     </div>
                                 ))}
-                                {chatMessages.length < 3 && (
-                                    <div className="w-full shrink-0 h-8 bg-muted-foreground/5 rounded flex items-center px-2 opacity-30">
-                                        <div className="w-16 h-2 bg-muted-foreground/20 rounded-full" />
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -198,7 +225,6 @@ export function PrimeirosPassosDialog() {
                 <div className="flex flex-col items-center justify-start w-full min-h-[300px]">
                     {/* Título dinâmico posicionado ACIMA do conteúdo apenas para este slide */}
                     <div className="text-center mb-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
-
                         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
                             O ciclo de vida do Orçamento
                         </h2>
@@ -210,32 +236,45 @@ export function PrimeirosPassosDialog() {
                         </p>
                     </div>
 
-                    {/* Container superior para o cursor (evita clipping de position absolute) */}
-                    <div className="h-8 flex items-end justify-center w-full mb-1">
-                        {!activeStatusDesc && (
-                            <div className="animate-bounce">
-                                <MousePointerClick className="w-6 h-6 text-amber-500 drop-shadow-md" />
-                            </div>
-                        )}
-                    </div>
+                    <div className="flex items-center justify-center gap-3 sm:gap-6 relative z-10 mb-4 w-fit mx-auto mt-10 px-2">
 
-                    <div className="flex items-center justify-center gap-3 sm:gap-6 relative z-10 mb-4 w-fit mx-auto">
+                        {/* Rastro tracejado SVG em arco */}
+                        <div className="absolute top-0 left-0 w-full h-[60px] -translate-y-[15px] pointer-events-none z-0">
+                            <svg className="w-full h-full text-muted-foreground/50 opacity-60" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                <path d="M 16,80 Q 33,-20 50,80" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" vectorEffect="non-scaling-stroke"
+                                    className="transition-all ease-in-out"
+                                    style={{
+                                        transitionDuration: isFastForward ? '1s' : '4s',
+                                        opacity: (activeStatusDesc === 'enviado' || activeStatusDesc === 'pendente') ? 1 : 0,
+                                        clipPath: activeStatusDesc === 'pendente' ? 'polygon(0% -50%, 0% -50%, 0% 150%, 0% 150%)' : 'polygon(0% -50%, 100% -50%, 100% 150%, 0% 150%)'
+                                    }}
+                                />
+                                <path d="M 50,80 Q 67,-20 84,80" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" vectorEffect="non-scaling-stroke"
+                                    className="transition-all ease-in-out"
+                                    style={{
+                                        transitionDuration: isFastForward ? '1s' : '4s',
+                                        opacity: activeStatusDesc === 'contratado' ? 1 : 0,
+                                        clipPath: activeStatusDesc === 'contratado' ? 'polygon(0% -50%, 100% -50%, 100% 150%, 0% 150%)' : 'polygon(0% -50%, 0% -50%, 0% 150%, 0% 150%)'
+                                    }}
+                                />
+                            </svg>
+                        </div>
 
-                        {/* Ícone flutuante do Documento Pulando sobre as colunas */}
+                        {/* Ícone flutuante do Documento Pulando sobre as colunas DE FORMA LENTA */}
                         <div className={cn(
-                            "absolute -top-7 z-30 transition-all duration-[800ms] ease-in-out pointer-events-none drop-shadow-lg",
-                            docPosition === 'pendente' && "left-0 translate-x-4 sm:translate-x-6 translate-y-2",
-                            docPosition === 'enviado' && "left-1/2 -translate-x-1/2 -translate-y-3 scale-110 -rotate-3",
-                            docPosition === 'contratado' && "left-[100%] -translate-x-[40px] sm:-translate-x-[48px] translate-y-2 scale-95"
-                        )}>
-                            <div className="bg-background rounded-lg p-2 border border-primary/30 bg-primary/5 shadow-md">
-                                <FileText className="w-5 h-5 text-primary" />
+                            "absolute z-30 transition-all ease-in-out pointer-events-none drop-shadow-xl",
+                            activeStatusDesc === 'pendente' && "left-[14%] sm:left-[16%] -top-8 -translate-x-1/2 scale-100",
+                            activeStatusDesc === 'enviado' && "left-1/2 -top-12 -translate-x-1/2 scale-110",
+                            activeStatusDesc === 'contratado' && "left-[86%] sm:left-[84%] -top-8 -translate-x-1/2 scale-95"
+                        )} style={{ transitionDuration: isFastForward ? '1s' : '4s' }}>
+                            <div className={cn("bg-background/90 backdrop-blur-sm rounded-lg p-2 border shadow-lg transition-colors duration-200", documentStatusColor === 'pendente' ? "border-amber-400/40" : documentStatusColor === 'enviado' ? "border-blue-400/40" : "border-success/40")}>
+                                <FileText className={cn("w-5 h-5 transition-colors duration-200", documentStatusColor === 'pendente' ? "text-amber-500" : documentStatusColor === 'enviado' ? "text-blue-500" : "text-success")} />
                             </div>
                         </div>
 
                         <div
                             className="flex flex-col items-center gap-2 cursor-pointer group"
-                            onClick={() => setActiveStatusDesc('pendente')}
+                            onClick={() => handleStatusClick('pendente')}
                         >
                             <div className={cn("w-14 h-14 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center shadow-sm relative transition-all", activeStatusDesc === 'pendente' ? "bg-amber-100 dark:bg-amber-950/50 border-amber-400 ring-4 ring-amber-500/20 scale-110" : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 hover:-translate-y-1")}>
                                 <ClipboardList className={cn("w-5 h-5 sm:w-6 sm:h-6 text-amber-500")} />
@@ -245,7 +284,7 @@ export function PrimeirosPassosDialog() {
                         <ArrowRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />
                         <div
                             className="flex flex-col items-center gap-2 cursor-pointer group"
-                            onClick={() => setActiveStatusDesc('enviado')}
+                            onClick={() => handleStatusClick('enviado')}
                         >
                             <div className={cn("w-14 h-14 sm:w-20 sm:h-20 border rounded-2xl flex items-center justify-center shadow-sm relative transition-all", activeStatusDesc === 'enviado' ? "bg-blue-100 dark:bg-blue-900/50 border-blue-400 ring-4 ring-blue-500/20 scale-110" : "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900 hover:-translate-y-1")}>
                                 <Send className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
@@ -255,7 +294,7 @@ export function PrimeirosPassosDialog() {
                         <ArrowRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />
                         <div
                             className="flex flex-col items-center gap-2 cursor-pointer group"
-                            onClick={() => setActiveStatusDesc('contratado')}
+                            onClick={() => handleStatusClick('contratado')}
                         >
                             <div className={cn("w-14 h-14 sm:w-20 sm:h-20 border rounded-2xl flex items-center justify-center shadow-sm relative transition-all", activeStatusDesc === 'contratado' ? "bg-success/20 border-success/50 ring-4 ring-success/20 scale-110" : "bg-success/10 border-success/20 hover:-translate-y-1")}>
                                 <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
@@ -333,20 +372,31 @@ export function PrimeirosPassosDialog() {
                 <div className="flex justify-center py-4">
                     <div className="relative w-64 md:w-72 h-48 bg-purple-50 dark:bg-purple-950/20 rounded-[2rem] border border-purple-100 dark:border-purple-900/50 flex items-center justify-center shadow-sm">
                         <div className="flex items-end gap-3 md:gap-4 h-24 mt-6">
-                            <div className="w-8 md:w-10 bg-purple-200 dark:bg-purple-900/50 rounded-t-xl transition-all duration-[1500ms] ease-in-out" style={{ height: `${animatedMetric - 12}%` }} />
-                            <div className="w-8 md:w-10 bg-purple-300 dark:bg-purple-700/50 rounded-t-xl transition-all duration-[1500ms] ease-in-out" style={{ height: `${animatedMetric - 5}%` }} />
-                            <div className="w-8 md:w-10 bg-purple-500 dark:bg-purple-500 rounded-t-xl shadow-lg relative transition-all duration-[1500ms] ease-in-out" style={{ height: `${animatedMetric + 5}%` }}>
+                            <div className="w-8 md:w-10 bg-purple-200 dark:bg-purple-900/50 rounded-t-xl transition-all ease-in-out" style={{ height: `${animatedMetric - 12}%`, transitionDuration: '1.5s' }} />
+                            <div className="w-8 md:w-10 bg-purple-300 dark:bg-purple-700/50 rounded-t-xl transition-all ease-in-out" style={{ height: `${animatedMetric - 5}%`, transitionDuration: '1.5s' }} />
+                            <div className="w-8 md:w-10 bg-purple-500 dark:bg-purple-500 rounded-t-xl shadow-lg relative transition-all ease-in-out" style={{ height: `${animatedMetric + 5}%`, transitionDuration: '1.5s' }}>
                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 bg-success rounded-full border-2 border-background animate-pulse" />
                                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-background text-xs font-bold px-2 py-1 rounded-md shadow-md border border-purple-100 dark:border-purple-800 text-purple-600 dark:text-purple-300 transition-all duration-300">
                                     {animatedMetric}%
                                 </div>
                             </div>
                         </div>
-                        <div className="absolute top-4 right-4 bg-background rounded-full p-3 shadow-lg border animate-[spin_8s_linear_infinite] relative group">
-                            <PieChart className="w-5 h-5 text-purple-500" />
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-purple-500 opacity-90 transition-all duration-700">{animatedMetric + 20}%</div>
+                        <div className="absolute top-6 right-6 bg-background rounded-full p-2.5 shadow-lg border group flex items-center justify-center">
+                            {/* Gráfico Donut de Pizza Suave */}
+                            <div className="relative flex items-center justify-center w-8 h-8">
+                                <svg className="w-full h-full -rotate-90 drop-shadow-sm" viewBox="0 0 36 36">
+                                    {/* Fundo do Donut */}
+                                    <path className="text-purple-100 dark:text-purple-900/50" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    {/* Preenchimento Dinâmico do Donut */}
+                                    <path className="text-purple-500 transition-all ease-in-out" style={{ transitionDuration: '1.5s' }} strokeDasharray={`${animatedMetric + 15}, 100`} strokeWidth="4" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                </svg>
+                                {/* Porcentagem Centralizada */}
+                                <div className="absolute inset-0 flex items-center justify-center pb-0.5">
+                                    <span className="text-[7.5px] font-extrabold text-purple-700 dark:text-purple-300 transition-all" style={{ transitionDuration: '1.5s' }}>{animatedMetric + 15}%</span>
+                                </div>
+                            </div>
                         </div>
-                        <div className="absolute bottom-6 left-4 bg-background rounded-full p-2.5 shadow-lg border animate-bounce" style={{ animationDuration: '3s' }}>
+                        <div className="absolute top-6 left-6 bg-background rounded-full p-2.5 shadow-lg border animate-bounce" style={{ animationDuration: '3s' }}>
                             <TrendingUp className="w-4 h-4 text-success" />
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-success text-white text-[9px] font-bold px-1.5 rounded-sm transition-all duration-700">+{3 * (Math.floor(animatedMetric / 10))}</div>
                         </div>
@@ -365,11 +415,11 @@ export function PrimeirosPassosDialog() {
                         </div>
                         <div className="w-44 h-28 bg-white dark:bg-muted rounded-2xl shadow-md border overflow-hidden flex flex-col mt-6">
                             <div className="flex-1 flex items-end justify-center gap-3 p-4 pb-0">
-                                <div className="w-8 bg-muted-foreground/20 rounded-t transition-all duration-[1500ms]" style={{ height: `${20 + (animatedMetric / 5)}%` }} />
-                                <div className="w-8 bg-rose-400 rounded-t relative shadow-inner transition-all duration-[1500ms]" style={{ height: `${100 - animatedMetric}%` }}>
+                                <div className="w-8 bg-muted-foreground/20 rounded-t transition-all" style={{ height: `${20 + (animatedMetric / 5)}%`, transitionDuration: '1.5s' }} />
+                                <div className="w-8 bg-rose-400 rounded-t relative shadow-inner transition-all" style={{ height: `${100 - animatedMetric}%`, transitionDuration: '1.5s' }}>
                                     <div className="absolute -top-5 w-full text-center text-[10px] font-bold text-rose-500 opacity-90 transition-all duration-300">{100 - animatedMetric}%</div>
                                 </div>
-                                <div className="w-8 bg-muted-foreground/20 rounded-t transition-all duration-[1500ms]" style={{ height: `${30 + (animatedMetric / 4)}%` }} />
+                                <div className="w-8 bg-muted-foreground/20 rounded-t transition-all" style={{ height: `${30 + (animatedMetric / 4)}%`, transitionDuration: '1.5s' }} />
                             </div>
                         </div>
                         <div className="absolute bottom-6 -right-2 bg-background p-2.5 rounded-full shadow-lg border animate-pulse" style={{ animationDuration: '3s' }}>
@@ -383,10 +433,16 @@ export function PrimeirosPassosDialog() {
             title: "Comece agora",
             description: "Ação inicial: crie alguns orçamentos fictícios na plataforma. Mova-os pelas colunas para fixar o funcionamento visualizando seu dashboard gerar gráficos reais.",
             content: (
-                <div className="flex justify-center py-6">
-                    <div className="w-32 h-32 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center relative shadow-inner border border-blue-100 dark:border-blue-900/50">
+                <div className="flex justify-center py-6 overflow-visible">
+                    <div className={cn("w-32 h-32 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center relative shadow-inner border border-blue-100 dark:border-blue-900/50 transition-all duration-700", isLaunching ? "opacity-0 scale-50" : "opacity-100")}>
                         <div className="absolute inset-0 rounded-full bg-blue-100/50 dark:bg-blue-500/5 animate-pulse" />
-                        <Rocket className="w-14 h-14 text-blue-600 dark:text-blue-400 relative z-10 transition-transform hover:-translate-y-2 hover:scale-110" />
+                        <Rocket className={cn("w-14 h-14 text-blue-600 dark:text-blue-400 relative transition-all ease-in-out", isLaunching ? "translate-x-[30vw] -translate-y-[40vh] scale-150 rotate-[45deg] opacity-0" : "hover:-translate-y-2 hover:scale-110 z-10")} style={{ transitionDuration: '1.5s' }} />
+
+                        {isLaunching && (
+                            <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
+                                <div className="w-16 h-16 bg-orange-400 blur-2xl animate-pulse rounded-full opacity-60" />
+                            </div>
+                        )}
 
                         <div className="absolute -top-2 right-2 w-4 h-4 rounded-full bg-amber-400 shadow-sm" />
                         <div className="absolute bottom-4 -left-2 w-3 h-3 rounded-full bg-purple-400 shadow-sm" />
@@ -480,10 +536,16 @@ export function PrimeirosPassosDialog() {
                             </Button>
                         ) : (
                             <Button
-                                onClick={() => setOpen(false)}
-                                className="rounded-full h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-bold transition-transform active:scale-95"
+                                onClick={() => {
+                                    setIsLaunching(true);
+                                    setTimeout(() => {
+                                        setOpen(false);
+                                    }, 1000);
+                                }}
+                                disabled={isLaunching}
+                                className="rounded-full h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg font-bold transition-all active:scale-95 disabled:opacity-80"
                             >
-                                Começar
+                                {isLaunching ? "Decolando..." : "Começar"}
                             </Button>
                         )}
                     </div>
