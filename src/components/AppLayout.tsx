@@ -4,8 +4,9 @@ import { GlobalSearch } from "./GlobalSearch";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect, useState } from "react";
 import { OnboardingTour } from "./OnboardingTour";
-import { Bell, Plus, Moon, Sun, User, Settings, LogOut } from "lucide-react";
+import { Bell, Plus, Moon, Sun, User, Settings, LogOut, Menu, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "./theme-provider";
 import { NovoOrcamentoDialog } from "./NovoOrcamentoDialog";
+import { PrimeirosPassosDialog } from "./PrimeirosPassosDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AppLayout = () => {
@@ -26,6 +28,7 @@ const AppLayout = () => {
   const { logout, usuario } = useAuth();
   const navigate = useNavigate();
   const [novoOrcamentoOpen, setNovoOrcamentoOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (config?.corPrimaria) {
@@ -37,15 +40,48 @@ const AppLayout = () => {
   return (
     <div className="flex min-h-screen bg-background">
       <OnboardingTour />
-      <AppSidebar />
+      {/* Sidebar Desktop */}
+      <aside className="hidden lg:block border-r border-border/50">
+        <AppSidebar />
+      </aside>
+
+      {/* Sidebar Mobile (Drawer) */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="p-0 w-auto border-none">
+          <AppSidebar onItemClick={() => setMobileMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
       <main className="flex-1 overflow-auto flex flex-col">
         {/* Top Header Global */}
-        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border/50 bg-card/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/60 lg:px-8 shrink-0 justify-between shadow-sm">
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border/50 bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/60 lg:px-8 shrink-0 justify-between shadow-sm">
+          {/* Menu Mobile Button */}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden h-9 w-9 text-muted-foreground mr-2"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+
           {/* Espaçador joga tudo para a direita */}
           <div className="flex-1" />
 
           {/* Painel lateral direito (Busca + Utilidades) */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.onOpenPrimeirosPassos?.()}
+              className="hidden lg:flex gap-1.5 border-primary/20 hover:bg-primary/5 text-primary text-xs font-semibold shadow-sm"
+            >
+              <span>Primeiros Passos</span>
+            </Button>
+
+            <div className="hidden lg:block h-6 w-px bg-border mx-1" />
+
             <GlobalSearch />
 
             <div className="hidden md:block h-6 w-px bg-border mx-1" />
@@ -55,7 +91,7 @@ const AppLayout = () => {
               <Plus className="w-4 h-4" />
               <span>Criar orçamento</span>
             </Button>
-            
+
             <Button size="icon" variant="default" onClick={() => setNovoOrcamentoOpen(true)} className="sm:hidden w-8 h-8 rounded-full shadow-sm">
               <Plus className="w-4 h-4" />
             </Button>
@@ -123,6 +159,7 @@ const AppLayout = () => {
         </header>
 
         <NovoOrcamentoDialog open={novoOrcamentoOpen} onOpenChange={setNovoOrcamentoOpen} />
+        <PrimeirosPassosDialog />
 
         <div id="tour-dashboard" className="flex-1 p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
           <Outlet />

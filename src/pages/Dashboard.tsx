@@ -689,9 +689,9 @@ const Dashboard = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/30 bg-muted/20">
-                <th className="text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
+                <th className="hidden md:table-cell text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
                 <th className="text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Cliente</th>
-                <th className="text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
+                <th className="hidden lg:table-cell text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
                 <th className="text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
                 <th className="text-left py-4 px-6 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
               </tr>
@@ -699,9 +699,9 @@ const Dashboard = () => {
             <tbody>
               {recentOrcamentos.map((orc) => (
                 <tr key={orc.id} className="border-b border-border/10 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group">
-                  <td className="py-4 px-6 font-mono text-xs text-muted-foreground/70">{orc.id.substring(0, 8)}...</td>
+                  <td className="hidden md:table-cell py-4 px-6 font-mono text-xs text-muted-foreground/70">{orc.id.substring(0, 8)}...</td>
                   <td className="py-4 px-6 font-medium text-card-foreground">{orc.cliente?.nome || "Cliente não informado"}</td>
-                  <td className="py-4 px-6 text-muted-foreground truncate max-w-[200px]">{orc.descricao}</td>
+                  <td className="hidden lg:table-cell py-4 px-6 text-muted-foreground truncate max-w-[200px]">{orc.descricao}</td>
                   <td className="py-4 px-6 font-medium text-card-foreground">
                     {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </td>

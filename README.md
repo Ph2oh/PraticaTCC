@@ -188,6 +188,7 @@ O roteamento da aplicacao e dividido entre rotas publicas (acessiveis sem autent
 | `/clientes` | Protegida | `Clientes.tsx` | Carteira de clientes com LTV |
 | `/relatorios` | Protegida | `Relatorios.tsx` | Deep Analytics com exportacao |
 | `/configuracoes` | Protegida | `Configuracoes.tsx` | Metas, temas e templates |
+| `Primeiros Passos` | Interna (Modal) | `PrimeirosPassosDialog.tsx` | Guia interativo e didático para novos usuários |
 
 **Fluxo de autenticacao:**
 1. Usuario nao autenticado acessa qualquer URL protegida -> redirecionado para `/`
@@ -544,6 +545,8 @@ npx prisma migrate deploy
 - **Formatação de Extração de Orçamentos:** Ajuste na Expressão Regular (Regex) no Provider que interage com as propostas vindas do WhatsApp, assegurando que o case original fornecido pelo cliente prospect (letras Maiúsculas/Minúsculas) seja preservado integralmente, enquanto a captação heurística foca em ser Case-Insensitive aos gatilhos.
 - **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 orçamentos, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
 - **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.
+- **Otimização Mobile & UI/UX:** Transição completa para interface responsiva. Sidebar transformada em drawer colapsável para telas pequenas, Kanban com scroll horizontal nativo e tabelas inteligentes que priorizam dados essenciais no smartphone.
+- **Guia "Primeiros Passos" (Novo Design):** Implementação de um onboarding interativo acessível via botão dedicado no menu central, inspirada em fluxos de integracao de aplicativos modernos. Telas interativas, ricas visualmente com cenarios de uso ensinam o usuario a gerenciar o funil, interpretar metricas e como a automacao do WhatsApp captura clientes para o painel.
 
 ---
 

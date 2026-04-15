@@ -306,11 +306,11 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
 
     return (
         <>
-        <div className="w-full pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 w-full auto-rows-max">
+        <div className="w-full pb-0 overflow-hidden">
+            <div className="flex flex-row lg:grid lg:grid-cols-4 gap-4 overflow-x-auto lg:overflow-x-visible pb-4 snap-x snap-mandatory lg:snap-none custom-scrollbar px-1">
                 <DragDropContext onDragEnd={onDragEnd}>
                     {STATUS_COLUMNS.map((column) => (
-                        <div key={column.id} className="flex flex-col">
+                        <div key={column.id} className="flex flex-col min-w-[280px] w-[85vw] sm:w-[45vw] lg:w-full snap-center last:pr-4 lg:last:pr-0">
                             <div className={`mb-4 px-4 py-2.5 rounded-[18px] flex items-center justify-between shadow-sm border ${column.colorClass} backdrop-blur-sm bg-opacity-40`}>
                                 <h3 className={`font-semibold text-sm tracking-tight ${column.textColor} truncate`}>{column.label}</h3>
                                 <span className="bg-background/80 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-sm text-foreground ml-2 flex-shrink-0 ring-1 ring-border/50">

@@ -25,7 +25,7 @@ const navItems = [
   { to: "/configuracoes", icon: Settings, label: "Configurações" },
 ];
 
-const AppSidebar = () => {
+const AppSidebar = ({ onItemClick }: { onItemClick?: () => void }) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { logout } = useAuth();
@@ -57,6 +57,7 @@ const AppSidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onItemClick}
               id={item.to === '/orcamentos' ? 'tour-menu-orcamentos' : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
@@ -77,7 +78,7 @@ const AppSidebar = () => {
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full"
+          className="hidden lg:flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full"
         >
           {collapsed ? <ChevronRight className="w-5 h-5 shrink-0" /> : <ChevronLeft className="w-5 h-5 shrink-0" />}
           {!collapsed && <span>Recolher</span>}

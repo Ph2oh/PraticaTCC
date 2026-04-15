@@ -12,12 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useClientes } from "@/hooks/useClientes";
 import { useCreateOrcamento } from "@/hooks/useOrcamentos";
 
+// Schema de validação para criação de orçamento
+// O valor pode ser zero na criação - a obrigatoriedade de valor > 0 é validada apenas
+// na transição para status 'contratado' (lógica em Orcamentos.tsx para melhor UX)
 const formSchema = z.object({
     clienteId: z.string().optional(),
     clienteNome: z.string().optional(),
     telefone: z.string().optional(),
     descricao: z.string().min(5, "Descreva o serviço"),
-    valor: z.coerce.number().min(1, "Informe um valor maior que zero"),
+    valor: z.coerce.number().min(0, "O valor não pode ser negativo"),
 });
 
 type FormValues = z.infer<typeof formSchema>;

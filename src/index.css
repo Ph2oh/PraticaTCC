@@ -136,4 +136,53 @@
   .gradient-card {
     background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--secondary)) 100%);
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 5px;
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+
+  @keyframes bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .animate-bounce-slow {
+    animation: bounce-slow 3s infinite ease-in-out;
+  }
+
+  @keyframes kanban-flow {
+    0% { 
+      transform: translateX(0);
+      filter: hue-rotate(0deg);
+      border-color: hsl(var(--border));
+    }
+    33% { 
+      transform: translateX(180%);
+      filter: hue-rotate(200deg); /* Blue-ish */
+      border-color: hsl(220 70% 50%);
+    }
+    66% { 
+      transform: translateX(360%);
+      filter: hue-rotate(120deg); /* Green-ish */
+      border-color: hsl(140 70% 40%);
+    }
+    100% { 
+      transform: translateX(0);
+      filter: hue-rotate(0deg);
+      border-color: hsl(var(--border));
+    }
+  }
+  .animate-kanban-flow {
+    animation: kanban-flow 6s infinite ease-in-out;
+  }
 }
