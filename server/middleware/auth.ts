@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Alteração estrutural: Remover o fallback inseguro - Asseguramos que o middleware pegue apenas a variável protegida do servidor.
+// Alteração estrutural: Remover o fallback inseguro - o middleware pega apenas a variável protegida do servidor.
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export interface AuthRequest extends Request {

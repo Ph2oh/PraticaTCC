@@ -23,9 +23,7 @@ export function WhatsAppWizardSetup() {
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 text-primary font-semibold">
                             <div className="bg-primary/10 p-2 rounded-lg">
-                                <MessageCircle className="w-6 h-6" />
                             </div>
-                            <span className="tracking-wide">SGO WhatsApp API</span>
                         </div>
                         
                         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
@@ -34,16 +32,10 @@ export function WhatsAppWizardSetup() {
 
                         <ul className="space-y-4 text-muted-foreground w-full">
                             <li className="flex gap-3 items-center">
-                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                                 <span>Gerencie conversas, leads e orçamentos em um único painel</span>
                             </li>
                             <li className="flex gap-3 items-center">
-                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-                                <span>Captura passiva via espelhamento em tempo real</span>
-                            </li>
-                            <li className="flex gap-3 items-center">
-                                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-                                <span>Sem limite de leads puxados do seu celular</span>
+                                <span>Captura via espelhamento em tempo real</span>
                             </li>
                         </ul>
                     </div>
@@ -187,9 +179,6 @@ export function WhatsAppWizardSetup() {
 
                                 {/* Rodapé do Card */}
                                 <div className="pt-4 border-t border-border/50 text-center">
-                                    <span className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3 text-primary" /> API Server Bridge Online
-                                    </span>
                                 </div>
                             </div>
                         )}
