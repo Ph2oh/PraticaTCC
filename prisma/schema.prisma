@@ -91,7 +91,7 @@ model Configuracao {
   
   // Templates de WhatsApp
   templateProposta       String @default("Olá {{cliente}}, tudo bem? \n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
-  templateLembrete       String @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! 😊")
+  templateLembrete       String @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! ")
   templateAgradecimento  String @default("Muito obrigado por fechar conosco, {{cliente}}! Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
   
   atualizadoEm     DateTime @updatedAt

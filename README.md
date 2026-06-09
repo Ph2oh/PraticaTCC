@@ -14,13 +14,13 @@ Profissionais que recebem solicitações de orçamento por vários canais (Whats
 
 ### Público-alvo
 
-Fotógrafos, videomakers, designers e demais profissionais criativos que trabalham com proposta/orçamento personalizado por cliente.
+Fotógrafos, videomakers, designers e demais profissionais da área de evento que trabalham com proposta/orçamento personalizado por cliente.
 
 ---
 
 ## Regras de Negócio do Sistema
 
-Esta seção define as regras que governam o comportamento do sistema e devem ser respeitadas em qualquer alteração futura.
+Esta seção define as regras que controlam o comportamento do sistema e devem ser respeitadas em qualquer alteração futura.
 
 ### Funil Comercial
 
@@ -38,13 +38,13 @@ pendente → enviado → contratado
 | `contratado` | Cliente aceitou e o serviço foi fechado |
 | `recusado` | Cliente recusou ou não respondeu (motivo obrigatório) |
 
-**Regra:** Ao mover para `recusado`, o sistema obrigatoriamente solicita o motivo da recusa. Os motivos são categorizados e rastreados analiticamente.
+**Regra:** Ao mover para `recusado`, o sistema obrigatoriamente solicita o motivo da recusa, para categorização dos motivos, posteriormente.
 
 ---
 
 ### Motivos de Recusa Permitidos
 
-Os motivos são padronizados para possibilitar análise agregada:
+Os motivos são padronizados para possibilitar análise:
 
 | Motivo | Descrição |
 |:---|:---|
@@ -59,7 +59,7 @@ Os motivos são padronizados para possibilitar análise agregada:
 
 ### Regras de Negócio (Lógica e Funcionamento)
 
-O sistema rastreia os valores financeiros e previne "vazamentos" de métricas ou ambiguidades durante as trocas de colunas do Kanban. A lógica se baseia em separar rigidamente as etapas de conquista (contratos), captação (clientes) e perda (rejeições), delegando cada uma a uma coluna temporal fixa no banco de dados, parando de depender unicamente do nome do seu status flutuante.
+O sistema rastreia os valores e previne "vazamentos" de métricas ou ambiguidades durante as trocas de colunas do Kanban. A lógica se baseia em separar rigidamente as etapas de conquista (contratos), captação (clientes) e perda (rejeições), delegando cada uma a uma coluna temporal fixa no banco de dados, parando de depender unicamente do nome do seu status flutuante.
 
 **Exemplos práticos:**
 
@@ -70,7 +70,7 @@ O sistema rastreia os valores financeiros e previne "vazamentos" de métricas ou
 | Cliente cancela contrato após fechamento | O status pode ser revertido; o impacto fica no mês de criação |
 
 
-#### 1. Volume de Captação (O que enche o pipeline?)
+#### 1. Volume de Captação 
 Tudo que entra no escopo tem a métrica contábil gerada pela `dataRecebido`.
 - **Regra Exata:** A data registra o exato instante em que um contato inicial ocorre e um negócio é criado.
 - **Como funciona:** Quando são recebidos 50 contatos comerciais num determinado mês (ex: fevereiro), todos pertencerão estatisticamente ao volume de captação histórico deste próprio mês, tornando estática e imutável a leitura do topo do funil referente àquele período.
@@ -85,7 +85,7 @@ Isso resolve o paradigma: _"Se um orçamento foi emitido em Janeiro, mas a confi
 
 - **Tratamento de Anomalias de Estágio:** Nos casos em que um orçamento é movido para "contratado" de maneira equivocada e revertido logo em seguida (ex: voltar um orçamento de `contratado` para `pendente`), o servidor está arquitetado para purificações automáticas. Ao constatar a regressão do status, o sistema redefine e esvazia automaticamente as marcações da `dataFechamento` e `dataCancelamento` de volta para `null`. Isso expurga subitamente aquele valor de qualquer análise visual de "Receita", corrigindo os números de fechamento sem exigir limpezas do operador.
 
-#### 3. Competência de Rejeições (Isolamento Frio de Perdas)
+#### 3. Competência de Rejeições 
 Semelhante à separação da receita, as perdas são enxergadas sob a métrica inflexível da `dataCancelamento`.
 - **Regra Exata:** Se qualquer negociação for encerrada como `recusado` ou `perdido`, o banco separa e grava imediatamente esta interrupção em seu eixo temporal, removendo os valores circulantes do _pipeline_ de previsão.
 - **Como funciona:** O acionamento trava um painel obrigatório levantando o interrogatório do "por que" foi perdido (ex: MotivoRecusaDialog) e instintivamente assina o atestado dessa perda definindo a restrição de que tais fluxos saiam do escopo de métricas passíveis aos valores ganhos da empresa.
@@ -287,31 +287,33 @@ templateAgradecimento (String — Template pós-fechamento)
 
 ---
 
-## Decisão de Arquitetura: Uso do whatsapp-web.js vs Cloud API Oficial
 
-Apesar deste sistema possuir fortes aspirações para escalabilidade multi-tenant, o núcleo de mensageria foi deliberadamente construído operando a emulação extra-oficial de navegadores (`whatsapp-web.js` instanciando containers Linux/Chromium na raiz da VPS) em detrimento à **API Cloud Oficial da Meta / Graph API**.
+## Decisão de Arquitetura: Uso do whatsapp-web.js
+
+Apesar deste sistema possuir fortes aspirações para escalabilidade multi-tenant, o núcleo de mensageria foi construído operando a emulação extra-oficial de navegadores (`whatsapp-web.js` instanciando containers Linux/Chromium na raiz da VPS) em detrimento à **API Cloud Oficial da Meta / Graph API**.
 
 ### Parecer Técnico:
 1. **Complexidade operacional:** A Cloud API exige que todo sistema integrador (modelo SaaS) que conecte "APIs para outras contas de negócios" passe pela criação de um aplicativo comercial verificado. A Meta cobra contratos societários, CNPJ autêntico para emissão do status Oauth e infindáveis aprovações em código vivo (*App Reviews*) onde dezenas de engenheiros deles bloqueiam qualquer projeto iniciante.
-2. **Simplicidade Absoluta da Experiência do Usuário Central (UX):** Se plugado em Webhooks Cloud, todo novo ideal criativo que pagasse a mensalidade do SGO precisaria dominar autenticações de painéis WABA complexos no menu "*Facebook Login for Business*". Mas, com nossa arquitetura robusta no Web.js, instalamos o majestoso *Wizard* visual que solicita aos clientes a tarefa mais comum que a raça humana já executa há uma década: **Mire o celular e leia o QR Code.**
-3. **Escudo de Faturamentos de Tráfego:** Integradores atrelados à documentação original sofrem tarifários variando da janela das 24h transcorridas além das rígidas aprovações de envios de _Templates Oficiais_. Nossa ponte, sendo um canal invisível "Consumer" baseado nos pacotes de WebSockets via Puppeteer, assegura Custo Operacional ZERO irrestrito.
+2. **Simplicidade da Experiência do Usuário Central (UX):** Se plugado em Webhooks Cloud, todo novo ideal criativo que utlizasse o protótipo precisaria dominar autenticações de painéis WABA complexos no menu "*Facebook Login for Business*". Mas, com a arquitetura do whatsapp-web.js, instalamos um qr code para leitura, o que se torna uma solitação mais fácil.
+ **Mire o celular e leia o QR Code.**
+3. **Faturamento e assinatura Facebook:** Integradores atrelados à documentação original sofrem tarifários variando da janela das 24h transcorridas além das rígidas aprovações de envios de _Templates Oficiais_, gerando um custo operacional alto, que não se comunica com os estágios iniciais do protótipo. Por isso, a biblioteca whatsapp-web.js acaba sendo um canal invisível mais viável, baseado nos pacotes de WebSockets via Puppeteer, assegurando custo operacional ZERO.
 
-### Consequências Acordadas ( Trade-off):
-- **O Fator do Algoritmo Banidor:** A arquitetura rasga claramente as diretrizes restritivas (*ToS / Terms of Service*) impostas unilateralmente pela META para uso empresarial. Para garantir longa vida útil aos chips de celulares plugados ao emulador do servidor, é intrinsecamente dependente contar que a base de clientes do SaaS nunca utilizará o sistema pra panfletagem de *SPAM frio* capaz de acumular denúncias pesadas da bolha.
-- **Impacto do uso da biblioteca `whatsapp-web.js` na Memória RAM:** Se operássemos no modelo de Webhooks permitidos da Meta (Rest API), a nossa instãncia consumiria somente Megabytes de I/O em eventos POST limpos. Usar Chromium virtual aumenta consideravelmente o uso de recursos na máquina onde a instancia do navegador irá rodar. Uma estimativa dura de até ~`200MB de RAM real` por cada fotógrafo logado obriga gastos elevados previstos na escalada do *Virtual Private Server* contratado para manter todo mundo simultaneamente com "navegadores zumbis" armados 24hrs no Linux.
+### Ressalvas:
+- **Biblioteca não oficial:** Por se tratar de uma biblioteca não oficial, a arquitetura não prevê as disposiçoes oficiais impostas unilateralmente pela META para uso empresarial.
+- **Impacto do uso da biblioteca `whatsapp-web.js` na Memória RAM:** Se o protótipo operasse no modelo de Webhooks permitidos da Meta (Rest API), a instãncia consumiria somente Megabytes de I/O em eventos POST limpos. Usar Chromium virtual aumenta consideravelmente o uso de recursos na máquina onde a instancia do navegador irá rodar. Uma estimativa é de que até ~`200MB de RAM real` por cada usuário logado obriga o uso de mais recursos no servidor contratado para manter todos os usuários ativos simultaneamente no Linux.
 
 ---
 
 ## Requisitos Operacionais: WhatsApp Web (Sincronização)
 
-A integração com WhatsApp utiliza a tecnologia de **espelhamento do WhatsApp Web** (whatsapp-web.js). Isso significa que o navegador web (rodando em sua VPS) espelha a sessão do seu aplicativo móvel.
+A integração com WhatsApp utiliza a tecnologia de **espelhamento do WhatsApp Web** (whatsapp-web.js). Isso significa que o navegador web espelha a sessão do seu aplicativo móvel.
 
 ### Comportamento Esperado
 
 Quando você conecta seu WhatsApp ao SGO via QR Code:
 
-1. **App móvel é a "fonte de verdade"** — O telefone conectado é sempre o dispositivo principal. A VPS apenas espelha essa sessão.
-2. **Sincronização pausada em outros dispositivos** — Ao detectar uma nova simulação (seu servidor), o WhatsApp pausa a sincronização com tablets, computadores de mesa e outras conexões Web para proteger dados.
+1. **Dispositivo móvel"** — O telefone conectado é sempre o dispositivo principal. O protótipo apenas espelha essa sessão.
+2. **Sincronização pausada em outros dispositivos** — Ao detectar uma nova simulação, o WhatsApp pausa a sincronização com tablets, computadores de mesa e outras conexões Web para proteger dados.
 3. **Notificação no mobile** — Você verá a mensagem "Mantenha o app aberto nos 2 dispositivos" com um ícone de atualização.
 
 ### O que isso Significa na Prática
@@ -323,19 +325,6 @@ Quando você conecta seu WhatsApp ao SGO via QR Code:
 | Outro dispositivo (tablet) conectado | Ver apenas a última sincronização quando estiver offline |
 | Mudar de WiFi / Dados Móveis | Reconexão automática, sem perda de sessão |
 
-### Requisitos para Funcionamento Óptimo
-
-Mantenha o app WhatsApp aberto no seu celular
-- Se fechar o app, o SGO perderá sincronização em tempo real
-- Mensagens recebidas enquanto offline serão sincronizadas ao reabrir
-
-Use a mesma conta WhatsApp que deseja integrar
-- Não é possível compartilhar uma sessão entre múltiplos usuários
-- Cada usuário do SGO deve conectar sua própria conta WhatsApp
-
-Evite desconectar a sessão no seu telefone
-- A opção "Desconectar todos os dispositivos" na tela de linked devices pode encerrar a integração
-- Se isso ocorrer, faça login novamente escaneando o QR Code
 
 ### Monitoramento de Status
 
@@ -347,7 +336,7 @@ O SGO monitora automaticamente a integridade da sessão WhatsApp:
 
 ### Plano de Melhoria Futuro
 
-No roadmap, está prevista uma migração para a **API Cloud Oficial da Meta** (Graph API), que eliminaria completamente a dependência do app móvel ficar aberto. Isso removeria a limitação de sincronização pausada e ofereceria maior escalabilidade. Porém, essa implementação será considerada apenas quando a base de clientes crescer significativamente.
+No futuro, está prevista uma migração para a **API Cloud Oficial da Meta** (Graph API), que eliminaria completamente a dependência do app móvel ficar aberto. Isso removeria a limitação de sincronização pausada e ofereceria maior escalabilidade. Porém, essa implementação será considerada apenas quando a base de clientes crescer significativamente.
 
 ---
 
@@ -365,7 +354,7 @@ O sistema utiliza um tema baseado em CSS Custom Properties (HSL) com suporte a d
 | `--border` | Cinza sutil | Slate `#21262d` |
 | `--primary` | Violeta 600 `#7C3AED` | Mesmo no dark |
 
-O dark mode é inspirado na paleta do GitHub Dark e no Antigravity, com camadas de profundidade distintas para separar sidebar, fundo, cards e modais visualmente.
+O dark mode é inspirado na paleta do GitHub Dark, com camadas de profundidade distintas para separar sidebar, fundo, cards e modais visualmente.
 
 ---
 
@@ -382,19 +371,15 @@ Para evitar re-renderizações e a proliferação visual de carregamentos longos
 
 ## Integração WhatsApp: Fluxo de Aceitação de orçamentos
 
-Quando uma mensagem chega no número do WhatsApp conectado, o sistema executa o seguinte pipeline:
+Quando uma mensagem chega no número do WhatsApp conectado, o sistema executa os seguinte passos:
 
 ### 1. Detecção e Notificação em Tempo Real
 
 O endpoint `GET /api/whatsapp/status` é consultado pelo frontend a cada 5 segundos (1.5s durante pareamento). Para garantir que intermediários de rede (Nginx, Cloudflare) não atrasem a entrega da notificação, o servidor injeta headers anti-cache:
 
-```
-Cache-Control: no-cache, no-store, must-revalidate
-Pragma: no-cache
-Expires: 0
-```
 
-### 2. Parsing Inteligente da Mensagem
+
+### 2. Analise Heuristica do Body da mensagem
 
 Ao exibir o modal de aceitação, o componente `WhatsAppRequestsProvider.tsx` analisa automaticamente o texto da mensagem usando heurísticas baseadas em Regex para extrair:
 
@@ -420,12 +405,16 @@ Evento: Casamento
 Local: Espaço Villa Real
 
 Mensagem original:
-"Olá, gostaria de um orçamento para fotos do meu casamento dia 12/10 no Espaço Villa Real"
+"Olá quero um orçamento para casamento
+
+nome do casal: Maria e João
+data: 12/10/2026
+local: Espaço Villa Real"
 ```
 
 ### 4. Persistência
 
-Os dados do modal são enviados via `POST /api/whatsapp/requests/:id/accept` com o corpo JSON `{ detalhes: { casal, dataEvento, tipoEvento, local } }`. O backend monta a string formatada e persiste no campo `descricao` do orçamento criado.
+Os dados do modal são enviados via `POST /api/whatsapp/requests/:id/accept` com o corpo JSON `{ detalhes: { casal, dataEvento, tipoEvento, local } }`. O backend monta a string formatada e persiste no campo `descricao` do orçamento criado, através do Prisma ORM, que controla as requisições do back-end ao banco de dados (hospedados online no NEON BD).
 
 ---
 
@@ -536,17 +525,6 @@ Para atualizar a estrutura do banco em produção de forma segura:
 npx prisma generate
 npx prisma migrate deploy
 ```
-
----
-
-## Histórico de Atualizações (Changelog)
-
-- **Estabilidade do WhatsApp Engine:** Unificação da instância do PrismaClient para otimização do banco de dados (prevenção de "Too many connections"); mitigação de concorrência (*Race Condition*) na criação simultânea de clientes; correção no descarte contínuo e recriação de sessões na leitura de QR-Code, e alinhamento rígido na comunicação do fluxo RAM/DB para que nenhuma solicitação cancelada no Frontend fique pendente fantasmalmente.
-- **Formatação de Extração de Orçamentos:** Ajuste na Expressão Regular (Regex) no Provider que interage com as propostas vindas do WhatsApp, assegurando que o case original fornecido pelo cliente prospect (letras Maiúsculas/Minúsculas) seja preservado integralmente, enquanto a captação heurística foca em ser Case-Insensitive aos gatilhos.
-- **Correção nos cálculos de variação (Deltas):** Ajuste matemático nos *cards* de "Dashboard" e "Deep Analytics" (Relatórios). Os números não ficam mais travados em "+100%" ou em inconsistências nos casos onde o período base de comparação (mês anterior ou janela antiga) possui 0 orçamentos, o que gerava infinitos matemáticos falsos. Agora a interface esconde o indicativo de porcentagem dinamicamente e mostra a sinalização "S/ Dados" adequadamente, mantendo a consistência visual.
-- **Deep Analytics:** Agora totalmente integrado no sistema como a página inteligente `/relatorios`, isolando as métricas de ltv, ciclo de vida e projeções ativas da meta de captação atual.
-- **Otimização Mobile & UI/UX:** Transição completa para interface responsiva. Sidebar transformada em drawer colapsável para telas pequenas, Kanban com scroll horizontal nativo e tabelas inteligentes que priorizam dados essenciais no smartphone.
-- **Guia "Primeiros Passos" (Novo Design):** Implementação de um onboarding interativo acessível via botão dedicado no menu central, inspirada em fluxos de integracao de aplicativos modernos. Telas interativas, ricas visualmente com cenarios de uso ensinam o usuario a gerenciar o funil, interpretar metricas e como a automacao do WhatsApp captura clientes para o painel.
 
 ---
 
