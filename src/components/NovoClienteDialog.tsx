@@ -2,10 +2,9 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, ConfirmButton, CancelButton } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useCreateCliente } from "@/hooks/useClientes";
 
@@ -107,24 +106,11 @@ export function NovoClienteDialog({ open, onOpenChange }: NovoClienteDialogProps
                     )}
 
                     <div className="pt-4 flex justify-end gap-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                            className="border-transparent bg-muted/50 hover:bg-muted"
-                            disabled={isSubmitting}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? (
-                                <span className="inline-flex items-center gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" /> Salvando...
-                                </span>
-                            ) : (
-                                "Salvar Cliente"
-                            )}
-                        </Button>
+                        <CancelButton 
+                            onClick={() => onOpenChange(false)} 
+                            disabled={isSubmitting} 
+                        />
+                        <ConfirmButton type="submit" loading={isSubmitting} />
                     </div>
                 </form>
             </DialogContent>

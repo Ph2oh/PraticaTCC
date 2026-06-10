@@ -1,6 +1,6 @@
 import React from 'react';
 import { useWhatsApp } from "@/hooks/useWhatsApp";
-import { Button } from "@/components/ui/button";
+import { Button, CancelButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, QrCode, Loader2, AlertCircle, MessageCircle, ShieldCheck } from 'lucide-react';
 
@@ -137,9 +137,7 @@ export function WhatsAppWizardSetup() {
                                             </div>
                                         )}
                                         
-                                        <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" onClick={disconnect} disabled={loading}>
-                                            Cancelar 
-                                        </Button>
+                                        <CancelButton className="w-full" onClick={disconnect} disabled={loading} />
                                     </div>
                                 )}
 

@@ -8,7 +8,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, CancelButton, ConfirmButton } from "@/components/ui/button";
 
 // Motivos de recusa definidos conforme levantamento do usuario.
 // Novos motivos podem ser adicionados a esta lista no futuro sem alterar a logica do componente.
@@ -107,17 +107,12 @@ export function MotivoRecusaDialog({ open, onConfirm, onCancel }: MotivoRecusaDi
                 )}
 
                 <DialogFooter className="px-6 pb-5 gap-2 sm:gap-2">
-                    <Button variant="ghost" onClick={handleCancel} className="flex-1 sm:flex-none">
-                        Cancelar
-                    </Button>
-                    <Button
-                        variant="destructive"
+                    <CancelButton onClick={handleCancel} className="flex-1 sm:flex-none" />
+                    <ConfirmButton
                         onClick={handleConfirm}
                         disabled={!selecionado}
                         className="flex-1 sm:flex-none"
-                    >
-                        Confirmar Recusa
-                    </Button>
+                    />
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Loader2, Check, X } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -45,3 +46,45 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export { Button, buttonVariants };
+
+export interface ConfirmButtonProps extends ButtonProps {
+  loading?: boolean;
+  text?: string;
+  loadingText?: string;
+}
+
+export const ConfirmButton = React.forwardRef<HTMLButtonElement, ConfirmButtonProps>(
+  ({ loading, text = "Confirmar", loadingText = "Confirmando...", children, ...props }, ref) => {
+    return (
+      <Button ref={ref} variant="default" disabled={loading || props.disabled} {...props}>
+        {loading ? (
+          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {loadingText}</>
+        ) : (
+          <><Check className="w-4 h-4 mr-2" /> {children || text}</>
+        )}
+      </Button>
+    )
+  }
+)
+ConfirmButton.displayName = "ConfirmButton"
+
+export interface CancelButtonProps extends ButtonProps {
+  text?: string;
+}
+
+export const CancelButton = React.forwardRef<HTMLButtonElement, CancelButtonProps>(
+  ({ text = "Cancelar", children, className, ...props }, ref) => {
+    return (
+      <Button
+        ref={ref}
+        variant="outline"
+        type="button"
+        className={cn("hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40", className)}
+        {...props}
+      >
+        <X className="w-4 h-4 mr-2" /> {children || text}
+      </Button>
+    )
+  }
+)
+CancelButton.displayName = "CancelButton"

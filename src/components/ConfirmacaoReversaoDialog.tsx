@@ -7,7 +7,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, CancelButton, ConfirmButton } from "@/components/ui/button";
 
 interface ConfirmacaoReversaoDialogProps {
     open: boolean;
@@ -42,16 +42,11 @@ export function ConfirmacaoReversaoDialog({ open, onConfirm, onCancel }: Confirm
                 </div>
 
                 <DialogFooter className="px-6 pb-5 gap-2 sm:gap-2">
-                    <Button variant="ghost" onClick={onCancel} className="flex-1 sm:flex-none">
-                        Cancelar
-                    </Button>
-                    <Button
-                        variant="default"
-                        className="bg-warning hover:bg-warning/90 text-warning-foreground flex-1 sm:flex-none"
+                    <CancelButton onClick={onCancel} className="flex-1 sm:flex-none" />
+                    <ConfirmButton
+                        className="flex-1 sm:flex-none"
                         onClick={onConfirm}
-                    >
-                        Confirmar Reversão
-                    </Button>
+                    />
                 </DialogFooter>
             </DialogContent>
         </Dialog>

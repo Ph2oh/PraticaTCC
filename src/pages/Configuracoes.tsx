@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MessageSquare, User, Save, Sun, Moon, Palette, Type, Shield, Loader2, MessageCircle, TrendingUp } from "lucide-react";
+import { MessageSquare, User, Sun, Moon, Palette, Type, Shield, MessageCircle, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
-import { Button } from "@/components/ui/button";
+import { Button, ConfirmButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -169,13 +169,11 @@ const Configuracoes = () => {
           <p className="text-sm text-muted-foreground mt-1">Gerencie preferências, aparência e integrações do painel administrativo.</p>
         </div>
         {hasChanges && (
-          <Button onClick={handleSave} disabled={isSaving || updateConfig.isPending} className="min-w-[140px] animate-in fade-in slide-in-from-bottom-4">
-            {(isSaving || updateConfig.isPending) ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</>
-            ) : (
-              <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>
-            )}
-          </Button>
+          <ConfirmButton 
+            onClick={handleSave} 
+            loading={isSaving || updateConfig.isPending} 
+            className="min-w-[140px] animate-in fade-in slide-in-from-bottom-4" 
+          />
         )}
       </div>
 

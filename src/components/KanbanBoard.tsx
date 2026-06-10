@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import type { Orcamento } from "@/types";
 import type { Status } from "@/components/StatusBadge";
 import StatusBadge from "@/components/StatusBadge";
-import { Phone, Calendar, User, DollarSign, Copy, Send, Trash2, Clock, Sparkles, Bot, MonitorDot } from "lucide-react";
+import { Phone, Calendar, User, DollarSign, Copy, Send, Trash2, Clock, Sparkles, Bot, MonitorDot, GripHorizontal, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
     ContextMenu,
@@ -230,14 +230,14 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
     // Confirmacao da reversao de status contratado
     const handleReversaoConfirm = () => {
         if (!reversaoPendente) return;
-        
+
         // Se a reversao for para 'recusado', joga no proximo dialog (MotivoRecusa)
         if (reversaoPendente.destColumn === "recusado") {
             setRecusaPendente(reversaoPendente);
             setReversaoPendente(null);
             return;
         }
-        
+
         aplicarMudancaColuna(
             reversaoPendente.sourceColumn,
             reversaoPendente.destColumn,
@@ -306,196 +306,214 @@ export const KanbanBoard = ({ orcamentos, onOrcamentoClick, onStatusChange, high
 
     return (
         <>
-        <div className="w-full pb-0 overflow-hidden">
-            <div className="flex flex-row lg:grid lg:grid-cols-4 gap-4 overflow-x-auto lg:overflow-x-visible pb-4 snap-x snap-mandatory lg:snap-none custom-scrollbar px-1">
-                <DragDropContext onDragEnd={onDragEnd}>
-                    {STATUS_COLUMNS.map((column) => (
-                        <div key={column.id} className="flex flex-col min-w-[280px] w-[85vw] sm:w-[45vw] lg:w-full snap-center last:pr-4 lg:last:pr-0">
-                            <div className={`mb-4 px-4 py-2.5 rounded-[18px] flex items-center justify-between shadow-sm border ${column.colorClass} backdrop-blur-sm bg-opacity-40`}>
-                                <h3 className={`font-semibold text-sm tracking-tight ${column.textColor} truncate`}>{column.label}</h3>
-                                <span className="bg-background/80 px-2 py-0.5 rounded-full text-[11px] font-bold shadow-sm text-foreground ml-2 flex-shrink-0 ring-1 ring-border/50">
-                                    {columns[column.id].length}
-                                </span>
-                            </div>
+            <div className="w-full pb-0 overflow-hidden">
+                <div className="flex flex-row lg:grid lg:grid-cols-4 gap-4 overflow-x-auto lg:overflow-x-visible pb-4 snap-x snap-mandatory lg:snap-none custom-scrollbar px-1">
+                    <DragDropContext onDragEnd={onDragEnd}>
+                        {STATUS_COLUMNS.map((column) => (
+                            <div key={column.id} className="flex flex-col min-w-[280px] w-[85vw] sm:w-[45vw] lg:w-full snap-center last:pr-4 lg:last:pr-0">
+                                {/* Estilo Trello: Container englobando toda a coluna com cor de fundo suave respectiva ao status */}
+                                <div className="flex flex-col h-full p-1">
+                                    {/* Header integrado da coluna */}
+                                    <div className="mb-3 px-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${column.textColor.replace('text-', 'bg-')}`} />
+                                            <h3 className={`font-semibold text-[14px] tracking-tight text-foreground`}>{column.label}</h3>
+                                            <span className="bg-background px-1.5 py-0.5 rounded text-[11px] font-semibold text-muted-foreground shadow-sm">
+                                                {columns[column.id].length}
+                                            </span>
+                                        </div>
+                                        <button className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted/60 transition-colors" title="Opções">
+                                            <MoreHorizontal className="w-4 h-4" />
+                                        </button>
+                                    </div>
 
-                            <Droppable droppableId={column.id}>
-                                {(provided, snapshot) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className={`flex-1 rounded-2xl p-2 transition-all ${snapshot.isDraggingOver ? "bg-muted/40 shadow-inner" : "bg-transparent"
-                                            }`}
-                                    >
-                                        {columns[column.id].map((orc, index) => (
-                                            <Draggable key={orc.id} draggableId={orc.id} index={index}>
-                                                {(provided, snapshot) => (
-                                                    <ContextMenu>
-                                                        <ContextMenuTrigger asChild>
-                                                            <div
-                                                                id={`orc-${orc.id}`}
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                onClick={() => onOrcamentoClick(orc.id)}
-                                                                style={{
-                                                                    ...provided.draggableProps.style,
-                                                                }}
-                                                                className={`group mb-4 cursor-pointer rounded-[20px] p-4 sm:p-5 transition-all duration-400 ease-out border bg-card/60 backdrop-blur-md ${snapshot.isDragging
-                                                                    ? "shadow-[0_20px_40px_rgba(0,0,0,0.12)] scale-[1.03] rotate-1 ring-2 ring-primary/20 z-50 opacity-95 bg-card/90"
-                                                                    : highlightedId === orc.id
-                                                                    ? "ring-2 ring-primary bg-primary/20 animate-pulse shadow-lg"
-                                                                    : highlightedIds?.has(orc.id)
-                                                                    ? "ring-2 ring-amber-500 bg-amber-500/15 animate-pulse shadow-lg"
-                                                                    : `shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${STATUS_CARD_COLORS[orc.status]}`
-                                                                    }`}
-                                                            >
-                                                                <div className="flex justify-between items-start mb-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className={`w-2 h-2 rounded-full ring-2 ring-background ${orc.status === 'pendente' ? 'bg-warning' : orc.status === 'enviado' ? 'bg-blue-500' : orc.status === 'contratado' ? 'bg-success' : 'bg-destructive'}`} />
-                                                                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase opacity-70">
-                                                                            #{orc.id.split('-')[0]}
-                                                                        </span>
+                                    <Droppable droppableId={column.id}>
+                                        {(provided, snapshot) => (
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.droppableProps}
+                                                className={`flex-1 flex flex-col gap-2.5 transition-colors rounded-xl ${snapshot.isDraggingOver ? "bg-muted/60" : ""}`}
+                                            >
+                                                {columns[column.id].map((orc, index) => (
+                                                    <Draggable key={orc.id} draggableId={orc.id} index={index}>
+                                                        {(provided, snapshot) => (
+                                                            <ContextMenu>
+                                                                <ContextMenuTrigger asChild>
+                                                                    <div
+                                                                        id={`orc-${orc.id}`}
+                                                                        ref={provided.innerRef}
+                                                                        {...provided.draggableProps}
+                                                                        {...provided.dragHandleProps}
+                                                                        onClick={() => onOrcamentoClick(orc.id)}
+                                                                        style={{
+                                                                            ...provided.draggableProps.style,
+                                                                        }}
+                                                                        className={`group !cursor-pointer rounded-[12px] overflow-hidden transition-all duration-300 ease-out border bg-card ${snapshot.isDragging
+                                                                            ? "shadow-[0_20px_40px_rgba(0,0,0,0.12)] scale-[1.03] rotate-1 ring-2 ring-primary/20 z-50 opacity-95 bg-card"
+                                                                            : highlightedId === orc.id
+                                                                                ? "ring-2 ring-primary bg-primary/20 animate-pulse shadow-lg"
+                                                                                : highlightedIds?.has(orc.id)
+                                                                                    ? "ring-2 ring-amber-500 bg-amber-500/15 animate-pulse shadow-lg"
+                                                                                    : `shadow-sm hover:shadow-md ${STATUS_CARD_COLORS[orc.status]}`
+                                                                            }`}
+                                                                    >
+                                                                        {/* Conteúdo clicável do card */}
+                                                                        <div className="p-3 sm:p-4 relative group/inner">
+                                                                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 opacity-80 ${orc.status === 'pendente' ? 'bg-warning' : orc.status === 'enviado' ? 'bg-blue-500' : orc.status === 'contratado' ? 'bg-success' : 'bg-destructive'}`} />
 
-                                                                        {orc.eventos && orc.eventos.length > 0 && (
-                                                                            <div className="flex items-center gap-1 w-max px-1.5 py-0.5 ml-1 rounded shadow-sm bg-background/50 border border-border/40 backdrop-blur-sm">
-                                                                                {orc.eventos.some(e => e.tipo === 'criado' && e.descricao.toLowerCase().includes('whatsapp')) ? (
-                                                                                    <>
-                                                                                        <Bot className="w-[10px] h-[10px] text-primary/80" />
-                                                                                        <span className="text-[9px] font-semibold text-primary/70 uppercase tracking-widest leading-none mt-[1px]">WhatsApp</span>
-                                                                                    </>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <MonitorDot className="w-[10px] h-[10px] text-muted-foreground/60" />
-                                                                                        <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-widest leading-none mt-[1px]">Manual</span>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-
-                                                                <p className="font-medium text-foreground text-sm sm:text-base leading-snug mb-4 line-clamp-2">
-                                                                    {orc.descricao}
-                                                                </p>
-
-                                                                <div className="space-y-3 mt-auto">
-                                                                    <div className="flex flex-col gap-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm ${STATUS_AVATAR_COLORS[orc.status]}`}>
-                                                                                {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
-                                                                            </div>
-                                                                            <span className="truncate text-[13px] font-medium text-foreground/80">{orc.cliente?.nome || "Cliente não informado"}</span>
-                                                                        </div>
-
-                                                                        <div className="flex items-center justify-between pt-3 border-t border-border/40">
-                                                                            <span className="font-semibold text-foreground text-[16px] tracking-tight">
-                                                                                {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                                                            </span>
-                                                                            {/* Datas: criação (Calendar) e última atualização (Clock) exibidas lado a lado */}
-                                                                            <div className="flex items-center gap-2 opacity-60">
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <Calendar className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
-                                                                                    <span className="text-[10px] font-medium text-muted-foreground">
-                                                                                        {new Date(orc.dataRecebido).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                            <div className="flex justify-between items-center mb-3">
+                                                                                <div className="flex items-center gap-2 pl-1">
+                                                                                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase opacity-80">
+                                                                                        #{orc.id.split('-')[0]}
                                                                                     </span>
+
+                                                                                    {orc.eventos && orc.eventos.length > 0 && (
+                                                                                        <div className="flex items-center gap-1 w-max px-2 py-0.5 ml-1 rounded-full bg-muted/40 border border-border/30 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]">
+                                                                                            {orc.eventos.some(e => e.tipo === 'criado' && e.descricao.toLowerCase().includes('whatsapp')) ? (
+                                                                                                <>
+                                                                                                    <Bot className="w-[10px] h-[10px] text-primary/80" />
+                                                                                                    <span className="text-[9px] font-semibold text-foreground/70 uppercase tracking-widest leading-none mt-[1px]">WhatsApp</span>
+                                                                                                </>
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <MonitorDot className="w-[10px] h-[10px] text-muted-foreground/60" />
+                                                                                                    <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase tracking-widest leading-none mt-[1px]">Manual</span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
-                                                                                <span className="text-muted-foreground/40 text-[10px]">•</span>
-                                                                                <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
-                                                                                    <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-                                                                                    <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                                                                                        {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
-                                                                                    </span>
+
+                                                                                {/* Indicador de clique: seta animada e circular, muito mais elegante que um texto solto, agora seguindo a cor do status respectivo do card */}
+                                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0 ring-1 ring-current/20 ${STATUS_AVATAR_COLORS[orc.status]}`}>
+                                                                                    <ChevronRight className="w-3 h-3" />
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
+
+                                                                            <p className="font-medium text-foreground text-sm sm:text-base leading-snug mb-4 line-clamp-2">
+                                                                                {orc.descricao}
+                                                                            </p>
+
+                                                                            <div className="space-y-3 mt-auto">
+                                                                                <div className="flex flex-col gap-3">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm ${STATUS_AVATAR_COLORS[orc.status]}`}>
+                                                                                            {(orc.cliente?.nome || "?").substring(0, 2).toUpperCase()}
+                                                                                        </div>
+                                                                                        <span className="truncate text-[13px] font-medium text-foreground/80">{orc.cliente?.nome || "Cliente não informado"}</span>
+                                                                                    </div>
+
+                                                                                    <div className="flex items-center justify-between pt-3 border-t border-border/40">
+                                                                                        <span className="font-semibold text-foreground text-[16px] tracking-tight">
+                                                                                            {orc.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                                                                        </span>
+                                                                                        {/* Datas: criação (Calendar) e última atualização (Clock) exibidas lado a lado */}
+                                                                                        <div className="flex items-center gap-2 opacity-60">
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <Calendar className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
+                                                                                                <span className="text-[10px] font-medium text-muted-foreground">
+                                                                                                    {new Date(orc.dataRecebido).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <span className="text-muted-foreground/40 text-[10px]">•</span>
+                                                                                            <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
+                                                                                                <Clock className="w-3 h-3 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                                                                                                <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                                                                                                    {new Date(orc.dataAtualizado).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' }).replace(". de", "")}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>{/* fim conteúdo clicável */}
                                                                     </div>
-                                                                </div>
-                                                            </div>
-                                                        </ContextMenuTrigger>
-                                                        <ContextMenuContent className="w-56">
-                                                            <ContextMenuItem onSelect={() => {
-                                                                navigator.clipboard.writeText(orc.id);
-                                                                toast({ title: "ID Copiado" });
-                                                            }}>
-                                                                <Copy className="w-4 h-4 mr-2" /> Copiar ID
-                                                            </ContextMenuItem>
+                                                                </ContextMenuTrigger>
+                                                                <ContextMenuContent className="w-56">
+                                                                    <ContextMenuItem onSelect={() => {
+                                                                        navigator.clipboard.writeText(orc.id);
+                                                                        toast({ title: "ID Copiado" });
+                                                                    }}>
+                                                                        <Copy className="w-4 h-4 mr-2" /> Copiar ID
+                                                                    </ContextMenuItem>
 
-                                                            <ContextMenuItem
-                                                                disabled={!orc.cliente?.telefone}
-                                                                onSelect={() => {
-                                                                    if (orc.cliente?.telefone) {
-                                                                        const number = orc.cliente.telefone.replace(/\D/g, "");
-                                                                        window.open(`https://wa.me/55${number}`, "_blank");
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Send className="w-4 h-4 mr-2" /> Abrir no WhatsApp
-                                                            </ContextMenuItem>
+                                                                    <ContextMenuItem
+                                                                        disabled={!orc.cliente?.telefone}
+                                                                        onSelect={() => {
+                                                                            if (orc.cliente?.telefone) {
+                                                                                const number = orc.cliente.telefone.replace(/\D/g, "");
+                                                                                window.open(`https://wa.me/55${number}`, "_blank");
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Send className="w-4 h-4 mr-2" /> Abrir no WhatsApp
+                                                                    </ContextMenuItem>
 
-                                                            <ContextMenuSeparator />
+                                                                    <ContextMenuSeparator />
 
-                                                            <ContextMenuSub>
-                                                                <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
-                                                                <ContextMenuSubContent className="w-48">
-                                                                    {STATUS_COLUMNS.map(col => (
-                                                                        <ContextMenuItem
-                                                                            key={col.id}
-                                                                            disabled={orc.status === col.id}
-                                                                            // Usa handleContextStatusChange para interceptar mudancas para 'recusado'
-                                                                            onSelect={() => handleContextStatusChange(orc.id, col.id)}
-                                                                        >
-                                                                            {col.label}
-                                                                        </ContextMenuItem>
-                                                                    ))}
-                                                                </ContextMenuSubContent>
-                                                            </ContextMenuSub>
+                                                                    <ContextMenuSub>
+                                                                        <ContextMenuSubTrigger>Mudar Status</ContextMenuSubTrigger>
+                                                                        <ContextMenuSubContent className="w-48">
+                                                                            {STATUS_COLUMNS.map(col => (
+                                                                                <ContextMenuItem
+                                                                                    key={col.id}
+                                                                                    disabled={orc.status === col.id}
+                                                                                    // Usa handleContextStatusChange para interceptar mudancas para 'recusado'
+                                                                                    onSelect={() => handleContextStatusChange(orc.id, col.id)}
+                                                                                >
+                                                                                    {col.label}
+                                                                                </ContextMenuItem>
+                                                                            ))}
+                                                                        </ContextMenuSubContent>
+                                                                    </ContextMenuSub>
 
-                                                            <ContextMenuSeparator />
+                                                                    <ContextMenuSeparator />
 
-                                                            <ContextMenuItem
-                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                                                onSelect={() => {
-                                                                    if (confirm("Tem certeza que deseja excluir este orçamento?")) {
-                                                                        deleteMutation.mutate(orc.id);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                                                            </ContextMenuItem>
-                                                        </ContextMenuContent>
-                                                    </ContextMenu>
+                                                                    <ContextMenuItem
+                                                                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                                        onSelect={() => {
+                                                                            if (confirm("Tem certeza que deseja excluir este orçamento?")) {
+                                                                                deleteMutation.mutate(orc.id);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                                                                    </ContextMenuItem>
+                                                                </ContextMenuContent>
+                                                            </ContextMenu>
+                                                        )}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+
+                                                {columns[column.id].length === 0 && !snapshot.isDraggingOver && (
+                                                    <div className="h-14 flex items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground/50">
+                                                        Arraste para cá
+                                                    </div>
                                                 )}
-                                            </Draggable>
-                                        ))}
-                                        {provided.placeholder}
-
-                                        {columns[column.id].length === 0 && !snapshot.isDraggingOver && (
-                                            <div className="h-16 sm:h-20 flex items-center justify-center rounded-xl border border-dashed border-border/50 text-xs text-muted-foreground/60">
-                                                Arraste para cá
                                             </div>
                                         )}
-                                    </div>
-                                )}
-                            </Droppable>
-                        </div>
-                    ))}
-                </DragDropContext>
+                                    </Droppable>
+                                </div>
+                            </div>
+                        ))}
+                    </DragDropContext>
+                </div>
             </div>
-        </div>
 
-        {/* Dialog de motivo de recusa: fora do grid para evitar conflito de portal com o DragDropContext */}
-        <MotivoRecusaDialog
-            open={recusaPendente !== null}
-            onConfirm={handleRecusaConfirm}
-            onCancel={handleRecusaCancel}
-        />
-        
-        {/* Novo Dialog de confirmacao de reversao de status Contratado */}
-        <ConfirmacaoReversaoDialog
-            open={reversaoPendente !== null}
-            onConfirm={handleReversaoConfirm}
-            onCancel={handleReversaoCancel}
-        />
+            {/* Dialog de motivo de recusa: fora do grid para evitar conflito de portal com o DragDropContext */}
+            <MotivoRecusaDialog
+                open={recusaPendente !== null}
+                onConfirm={handleRecusaConfirm}
+                onCancel={handleRecusaCancel}
+            />
+
+            {/* Novo Dialog de confirmacao de reversao de status Contratado */}
+            <ConfirmacaoReversaoDialog
+                open={reversaoPendente !== null}
+                onConfirm={handleReversaoConfirm}
+                onCancel={handleReversaoCancel}
+            />
         </>
     );
 };

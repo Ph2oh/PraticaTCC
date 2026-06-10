@@ -7,10 +7,10 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Button, ConfirmButton, CancelButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Mail, MapPin, Phone, User, Save, X, Edit2, MessageCircle } from "lucide-react";
+import { Copy, Mail, MapPin, Phone, User, Edit2, MessageCircle } from "lucide-react";
 import { useUpdateCliente } from "@/hooks/useClientes";
 import { useConfig } from "@/hooks/useConfig";
 import { useToast } from "@/hooks/use-toast";
@@ -271,21 +271,16 @@ export function ClienteDetalhesDrawer({ cliente, isOpen, onClose }: ClienteDetal
                 <div className="p-4 border-t bg-muted/20 flex gap-2 shrink-0">
                     {isEditing ? (
                         <>
-                            <Button
-                                variant="outline"
-                                className="flex-1 flex items-center gap-2"
+                            <CancelButton
+                                className="flex-1"
                                 onClick={handleCancelEdits}
                                 disabled={updateMutation.isPending}
-                            >
-                                <X className="w-4 h-4" /> Cancelar
-                            </Button>
-                            <Button
-                                className="flex-1 flex items-center gap-2"
+                            />
+                            <ConfirmButton
+                                className="flex-1"
                                 onClick={handleSaveEdits}
-                                disabled={updateMutation.isPending}
-                            >
-                                <Save className="w-4 h-4" /> Salvar Contato
-                            </Button>
+                                loading={updateMutation.isPending}
+                            />
                         </>
                     ) : (
                         <div className="flex w-full gap-2">

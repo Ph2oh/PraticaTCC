@@ -356,6 +356,10 @@ O sistema utiliza um tema baseado em CSS Custom Properties (HSL) com suporte a d
 
 O dark mode é inspirado na paleta do GitHub Dark, com camadas de profundidade distintas para separar sidebar, fundo, cards e modais visualmente.
 
+### Componentes Principais
+
+- **Kanban Card**: O design dos cards foi aprimorado para maximizar a experiência visual e de uso (estética limpa). Os indicadores de ação, como o ícone de arrastar (*drag handle*) e a indicação de mais detalhes, utilizam micro-interações modernas e discretas. Além disso, os cards possuem uma faixa lateral sutil indicativa de cor para que o usuário identifique o status do orçamento instantaneamente.
+
 ---
 
 ## Gerenciamento de Estado Simplificado (Hooks)

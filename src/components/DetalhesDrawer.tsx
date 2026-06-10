@@ -8,11 +8,11 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { Button, ConfirmButton, CancelButton } from "@/components/ui/button";
 import type { Orcamento } from "@/types";
 import StatusBadge from "./StatusBadge";
 import type { Status } from "./StatusBadge";
-import { Copy, MapPin, MessageSquare, Phone, User, MessageCircle, Save, X, Edit2 } from "lucide-react";
+import { Copy, MapPin, MessageSquare, Phone, User, MessageCircle, Edit2 } from "lucide-react";
 import { useUpdateOrcamento } from "@/hooks/useOrcamentos";
 import { useConfig } from "@/hooks/useConfig";
 import { Textarea } from "@/components/ui/textarea";
@@ -388,21 +388,16 @@ export function DetalhesDrawer({ orcamento, isOpen, onClose }: DetalhesDrawerPro
                     {activeTab === "detalhes" && (
                         isEditing ? (
                             <>
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 flex items-center gap-2"
+                                <CancelButton
+                                    className="flex-1"
                                     onClick={handleCancelEdits}
                                     disabled={updateMutation.isPending}
-                                >
-                                    <X className="w-4 h-4" /> Cancelar
-                                </Button>
-                                <Button
-                                    className="flex-1 flex items-center gap-2"
+                                />
+                                <ConfirmButton
+                                    className="flex-1"
                                     onClick={handleSaveEdits}
-                                    disabled={updateMutation.isPending}
-                                >
-                                    <Save className="w-4 h-4" /> Salvar
-                                </Button>
+                                    loading={updateMutation.isPending}
+                                />
                             </>
                         ) : (
                             <Button

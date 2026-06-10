@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { Button, ConfirmButton, CancelButton } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Check, X, Loader2, Clock } from 'lucide-react';
+import { MessageSquare, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -238,14 +238,8 @@ export function WhatsAppRequestsProvider({ children }: { children: React.ReactNo
                         </div>
 
                         <DialogFooter className="mt-4">
-                            <Button type="button" variant="outline" onClick={handleReject} disabled={isProcessing}>
-                                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <X className="w-4 h-4 mr-2" />}
-                                Ignorar
-                            </Button>
-                            <Button type="submit" disabled={isProcessing} className="bg-success text-success-foreground hover:bg-success/90">
-                                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                                Salvar e importar
-                            </Button>
+                            <CancelButton onClick={handleReject} disabled={isProcessing} />
+                            <ConfirmButton type="submit" loading={isProcessing} />
                         </DialogFooter>
                     </form>
                 </DialogContent>
