@@ -17,7 +17,7 @@ export function WhatsAppWizardSetup() {
     return (
         <div className="w-full max-w-5xl mx-auto py-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
-                
+
                 {/* Coluna Esquerda: Textos e Persuasão */}
                 <div className="space-y-8">
                     <div className="space-y-6">
@@ -25,19 +25,11 @@ export function WhatsAppWizardSetup() {
                             <div className="bg-primary/10 p-2 rounded-lg">
                             </div>
                         </div>
-                        
+
                         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
                             {currentStep === 3 ? "Whatsapp conectado" : "Conecte seu whatsapp"}
                         </h1>
 
-                        <ul className="space-y-4 text-muted-foreground w-full">
-                            <li className="flex gap-3 items-center">
-                                <span>Gerencie conversas, leads e orçamentos em um único painel</span>
-                            </li>
-                            <li className="flex gap-3 items-center">
-                                <span>Captura via espelhamento em tempo real</span>
-                            </li>
-                        </ul>
                     </div>
 
                     {/* Segurança Avançada Card */}
@@ -136,7 +128,7 @@ export function WhatsAppWizardSetup() {
                                                 </div>
                                             </div>
                                         )}
-                                        
+
                                         <CancelButton className="w-full" onClick={disconnect} disabled={loading} />
                                     </div>
                                 )}
@@ -149,7 +141,7 @@ export function WhatsAppWizardSetup() {
                                                 <CheckCircle2 className="w-12 h-12 text-green-500" />
                                             </div>
                                             <span className="font-semibold text-lg text-foreground">Conexão estabelecida</span>
-                                            
+
                                             {status.connectedNumber && (
                                                 <div className="text-center">
                                                     <p className="text-sm text-muted-foreground mb-1">Número conectado:</p>
@@ -159,7 +151,7 @@ export function WhatsAppWizardSetup() {
                                                 </div>
                                             )}
                                         </div>
-                                        
+
                                         <div className="bg-muted/50 rounded-lg p-4 text-xs text-center text-muted-foreground">
                                             Identificador de espelhamento ativo e sincronizado. Você pode fechar esta tela.
                                         </div>

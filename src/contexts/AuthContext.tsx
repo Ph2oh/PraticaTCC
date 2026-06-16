@@ -57,9 +57,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         queryClient.clear(); // Limpa TODO o cache da tela para não vazar pro próximo usuário
     };
 
-    // Sincronização entre abas: O navegador dispara o evento 'storage' em TODAS as abas 
-    // quando o localStorage é alterado por UMA das abas.
+    // Interceptador Global: se qualquer chamada de API retornar 401 ou 403, disparamos logout
     useEffect(() => {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            if (response.status === 401 || response.status === 403) {
+                const url = typeof args[0] === 'string' ? args[0] : (args[0] instanceof Request ? args[0].url : '');
+                if (url.includes('/api/')) {
+                    window.dispatchEvent(new Event('auth:unauthorized'));
+                }
+            }
+            return response;
+        };
+
+        return () => {
+            window.fetch = originalFetch; // Cleanup ao desmontar
+        };
+    }, []);
+
+    // Sincronização entre abas e tratamento de logout forçado
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            logout();
+            window.location.href = "/";
+        };
+        window.addEventListener('auth:unauthorized', handleUnauthorized);
+
         const handleStorageChange = (e: StorageEvent) => {
             if (e.key === 'sgo_token') {
                 const newToken = e.newValue;
@@ -91,7 +115,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('auth:unauthorized', handleUnauthorized);
+        };
     }, [queryClient]);
 
     return (

@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useConfig } from "@/hooks/useConfig";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -16,7 +17,16 @@ import {
   AreaChart, Area, ReferenceLine, LabelList
 } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
+import { cn, getLegacyDateFromEvents } from "@/lib/utils";
+import { usePeriodoGlobal } from "@/contexts/PeriodoGlobalContext";
+
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+// Gerar anos de 2020 ate 5 anos pra frente
+const ANOS = Array.from({ length: new Date().getFullYear() + 5 - 2020 }, (_, i) => (2020 + i).toString());
 
 const STATUS_META: Record<Status, { label: string; fill: string }> = {
   contratado: { label: "Contratado", fill: "#10b981" }, // emerald-500
@@ -60,35 +70,66 @@ const Dashboard = () => {
 
   // ================= METRICAS E CALCULOS =================
 
-  // Filtros de tempo
-  const now = new Date();
-  const currentMonthStart = startOfMonth(now);
-  const currentMonthEnd = endOfMonth(now);
-  const lastMonthStart = startOfMonth(subMonths(now, 1));
-  const lastMonthEnd = endOfMonth(subMonths(now, 1));
+  const { mesAnoGlobal, setMesAnoGlobal } = usePeriodoGlobal();
+
+  // Timestamp primitivo para ser usado como dependência estável nos useMemos
+  // (objetos Date não são comparados por valor no React — usar .getTime() resolve isso)
+  const mesAnoGlobalTs = mesAnoGlobal.getTime();
+  // Alias para uso direto no JSX (selects de mês/ano no cabeçalho)
+  const now = mesAnoGlobal;
 
   // Captações (Entradas de Leads baseadas na dataRecebido)
-  const captacoesMesAtual = useMemo(() =>
-    orcamentos.filter(o => isWithinInterval(new Date(o.dataRecebido), { start: currentMonthStart, end: currentMonthEnd })),
-    [orcamentos, currentMonthStart, currentMonthEnd]);
+  const captacoesMesAtual = useMemo(() => {
+    const start = startOfMonth(new Date(mesAnoGlobalTs));
+    const end = endOfMonth(new Date(mesAnoGlobalTs));
+    return orcamentos.filter(o => isWithinInterval(new Date(o.dataRecebido), { start, end }));
+  }, [orcamentos, mesAnoGlobalTs]);
 
-  // Fechamentos (Receita Real baseada exclusivamente na dataFechamento)
-  const fechamentosMesAtual = useMemo(() =>
-    orcamentos.filter(o => o.dataFechamento && isWithinInterval(new Date(o.dataFechamento), { start: currentMonthStart, end: currentMonthEnd })),
-    [orcamentos, currentMonthStart, currentMonthEnd]);
+  // Fechamentos (Receita Real: apenas orçamentos "contratado")
+  // Fallback para dataRecebido em orçamentos antigos que não possuem dataFechamento
+  const fechamentosMesAtual = useMemo(() => {
+    const start = startOfMonth(new Date(mesAnoGlobalTs));
+    const end = endOfMonth(new Date(mesAnoGlobalTs));
+    return orcamentos.filter(o => {
+      if (o.status !== "contratado") return false;
+      const dataReferencia = o.dataFechamento || getLegacyDateFromEvents(o, "contratado") || o.dataRecebido;
+      return isWithinInterval(new Date(dataReferencia), { start, end });
+    });
+  }, [orcamentos, mesAnoGlobalTs]);
 
-  const fechamentosMesPassado = useMemo(() =>
-    orcamentos.filter(o => o.dataFechamento && isWithinInterval(new Date(o.dataFechamento), { start: lastMonthStart, end: lastMonthEnd })),
-    [orcamentos, lastMonthStart, lastMonthEnd]);
+  const fechamentosMesPassado = useMemo(() => {
+    const refPassado = subMonths(new Date(mesAnoGlobalTs), 1);
+    const start = startOfMonth(refPassado);
+    const end = endOfMonth(refPassado);
+    return orcamentos.filter(o => {
+      if (o.status !== "contratado") return false;
+      const dataReferencia = o.dataFechamento || getLegacyDateFromEvents(o, "contratado") || o.dataRecebido;
+      return isWithinInterval(new Date(dataReferencia), { start, end });
+    });
+  }, [orcamentos, mesAnoGlobalTs]);
 
-  // Recusas (Perdas Reais baseadas exclusivamente na dataCancelamento)
-  const recusasMesAtual = useMemo(() =>
-    orcamentos.filter(o => o.dataCancelamento && isWithinInterval(new Date(o.dataCancelamento), { start: currentMonthStart, end: currentMonthEnd }) && o.status === "recusado"),
-    [orcamentos, currentMonthStart, currentMonthEnd]);
+  // Recusas (Perdas Reais)
+  // Fallback para dataRecebido em orçamentos antigos que não possuem dataCancelamento
+  const recusasMesAtual = useMemo(() => {
+    const start = startOfMonth(new Date(mesAnoGlobalTs));
+    const end = endOfMonth(new Date(mesAnoGlobalTs));
+    return orcamentos.filter(o => {
+      if (o.status !== "recusado") return false;
+      const dataReferencia = o.dataCancelamento || getLegacyDateFromEvents(o, "recusado") || o.dataRecebido;
+      return isWithinInterval(new Date(dataReferencia), { start, end });
+    });
+  }, [orcamentos, mesAnoGlobalTs]);
 
-  const recusasMesPassado = useMemo(() =>
-    orcamentos.filter(o => o.dataCancelamento && isWithinInterval(new Date(o.dataCancelamento), { start: lastMonthStart, end: lastMonthEnd }) && o.status === "recusado"),
-    [orcamentos, lastMonthStart, lastMonthEnd]);
+  const recusasMesPassado = useMemo(() => {
+    const refPassado = subMonths(new Date(mesAnoGlobalTs), 1);
+    const start = startOfMonth(refPassado);
+    const end = endOfMonth(refPassado);
+    return orcamentos.filter(o => {
+      if (o.status !== "recusado") return false;
+      const dataReferencia = o.dataCancelamento || getLegacyDateFromEvents(o, "recusado") || o.dataRecebido;
+      return isWithinInterval(new Date(dataReferencia), { start, end });
+    });
+  }, [orcamentos, mesAnoGlobalTs]);
 
   // CARD 1: Taxa de Conversão (Win Rate Pura do Mês Atual)
   // Baseia-se estritamente nas "Quedas de Braço" que resultaram em fechamento ou perda neste mês específico.
@@ -165,13 +206,20 @@ const Dashboard = () => {
 
   // CHART 1: Eventos do Mês (Semanas Desacopladas)
   const monthSeries = useMemo(() => {
-    const weeksInMonth = Math.ceil(currentMonthEnd.getDate() / 7);
+    const endOfCurrentMonth = endOfMonth(new Date(mesAnoGlobalTs));
+    const weeksInMonth = Math.ceil(endOfCurrentMonth.getDate() / 7);
     return Array.from({ length: weeksInMonth }, (_, i) => {
       const week = i + 1;
 
       const recebidosNaSemana = captacoesMesAtual.filter(o => Math.ceil(new Date(o.dataRecebido).getDate() / 7) === week).length;
-      const fechadosNaSemana = fechamentosMesAtual.filter(o => Math.ceil(new Date(o.dataFechamento!).getDate() / 7) === week).length;
-      const recusadosNaSemana = recusasMesAtual.filter(o => Math.ceil(new Date(o.dataCancelamento!).getDate() / 7) === week).length;
+      const fechadosNaSemana = fechamentosMesAtual.filter(o => {
+        const dFech = o.dataFechamento || getLegacyDateFromEvents(o, "contratado") || o.dataRecebido;
+        return Math.ceil(new Date(dFech).getDate() / 7) === week;
+      }).length;
+      const recusadosNaSemana = recusasMesAtual.filter(o => {
+        const dCanc = o.dataCancelamento || getLegacyDateFromEvents(o, "recusado") || o.dataRecebido;
+        return Math.ceil(new Date(dCanc).getDate() / 7) === week;
+      }).length;
 
       return {
         semana: `Sem ${week}`,
@@ -181,7 +229,7 @@ const Dashboard = () => {
         meta_semanal: META_CONTRATOS_SEMANA
       };
     });
-  }, [captacoesMesAtual, fechamentosMesAtual, recusasMesAtual, currentMonthEnd, META_CONTRATOS_SEMANA]);
+  }, [captacoesMesAtual, fechamentosMesAtual, recusasMesAtual, mesAnoGlobalTs, META_CONTRATOS_SEMANA]);
 
   const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -200,11 +248,11 @@ const Dashboard = () => {
     return "Outros";
   };
 
-  // Receita Potencial e Ticket Médio por Tipo de Serviço (Mês Atual)
+  // Receita Potencial e Ticket Médio por Tipo de Serviço (Mês Atual - Apenas Contratados)
   const servicosData = useMemo(() => {
     const categories: Record<string, { total: number, count: number }> = {};
 
-    captacoesMesAtual.forEach(orc => {
+    fechamentosMesAtual.forEach(orc => {
       const cat = extractCategory(orc.descricao);
       if (!categories[cat]) categories[cat] = { total: 0, count: 0 };
       categories[cat].total += orc.valor;
@@ -224,7 +272,7 @@ const Dashboard = () => {
       }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [captacoesMesAtual]);
+  }, [fechamentosMesAtual]);
 
   const ServicosLegend = (props: { payload?: { color: string; value: string; payload: { count: number; ticket: number } }[] }) => {
     const { payload } = props;
@@ -337,7 +385,43 @@ const Dashboard = () => {
         <h1 className="text-2xl font-bold text-foreground">
           {getGreeting()}, {usuario?.nome?.split(' ')[0] || 'Usuário'}!
         </h1>
-        <p className="text-sm text-muted-foreground mt-1 capitalize">VISÃO GERAL DE {format(now, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase()}</p>
+        <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground uppercase font-medium">
+          <span>VISÃO GERAL DE</span>
+          <Select 
+            value={now.getMonth().toString()} 
+            onValueChange={(val) => {
+              const newDate = new Date(now);
+              newDate.setMonth(parseInt(val));
+              setMesAnoGlobal(newDate);
+            }}
+          >
+            <SelectTrigger className="h-auto py-0 px-1 border-0 bg-transparent shadow-none hover:bg-muted/50 focus:ring-0 w-auto uppercase text-foreground font-semibold">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MESES.map((mes, idx) => (
+                <SelectItem key={idx} value={idx.toString()} className="uppercase text-xs">{mes}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select 
+            value={now.getFullYear().toString()} 
+            onValueChange={(val) => {
+              const newDate = new Date(now);
+              newDate.setFullYear(parseInt(val));
+              setMesAnoGlobal(newDate);
+            }}
+          >
+            <SelectTrigger className="h-auto py-0 px-1 border-0 bg-transparent shadow-none hover:bg-muted/50 focus:ring-0 w-auto uppercase text-foreground font-semibold">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ANOS.map((ano) => (
+                <SelectItem key={ano} value={ano} className="text-xs">{ano}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* KPI Cards */}

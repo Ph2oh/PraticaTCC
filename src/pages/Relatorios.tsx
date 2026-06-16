@@ -7,12 +7,14 @@ import { useClientes } from "@/hooks/useClientes";
 import StatusBadge, { type Status } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { startOfMonth, subMonths, endOfDay, subDays } from "date-fns";
+import { startOfMonth, endOfDay, subDays, subMonths } from "date-fns";
 import { ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, MousePointerClick, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid, PieChart, Pie, Legend } from "recharts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportarExcel, exportarPDF, exportarCSV, DadosExportacao } from "@/lib/exportUtils";
+import { usePeriodoGlobal } from "@/contexts/PeriodoGlobalContext";
+import { cn, getLegacyDateFromEvents } from "@/lib/utils";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -32,6 +34,8 @@ type ClientPerformanceEntry = {
 };
 
 const Relatorios = () => {
+  const { mesAnoGlobal } = usePeriodoGlobal();
+
   const { data: orcamentos = [], isLoading: loadingOrcamentos } = useOrcamentos();
   const { data: clientes = [], isLoading: loadingClientes } = useClientes();
   const isLoading = loadingOrcamentos || loadingClientes;
@@ -57,7 +61,7 @@ const Relatorios = () => {
 
   // Define time bounds based on the global filter
   const { startDate, endDate, pastStartDate, pastEndDate } = useMemo(() => {
-    const hoje = new Date();
+    const hoje = mesAnoGlobal;
     let start = new Date(0);
     let end = new Date(8640000000000000); // Distant future
     let pastStart = new Date(0);
@@ -85,7 +89,7 @@ const Relatorios = () => {
       }
     }
     return { startDate: start, endDate: end, pastStartDate: pastStart, pastEndDate: pastEnd };
-  }, [periodoGlobal, dateFrom, dateTo]);
+  }, [periodoGlobal, dateFrom, dateTo, mesAnoGlobal.getTime()]);
 
   const { filtGlobais, statsAtuais, statsPassadas, alerts, rankingServicos } = useMemo(() => {
     const filtGlobais: typeof orcamentos = [];
@@ -120,22 +124,27 @@ const Relatorios = () => {
       const fecIn = dataFechamento && (dataFechamento >= startDate && dataFechamento <= endDate);
       const canIn = dataCancelamento && (dataCancelamento >= startDate && dataCancelamento <= endDate) && orc.status === "recusado";
 
-      if (recIn || fecIn || canIn) {
-        filtGlobais.push(orc);
-      }
+      const isActiveInCurrent = recIn || fecIn || canIn;
 
-      if (recIn) {
+      if (isActiveInCurrent) {
+        filtGlobais.push(orc);
         statsA.volume++;
-        // Alimenta Ranking Heuristico: conta todo orcamento recebido no periodo (independente de status)
+
+        // Alimenta Ranking Heurístico (Receita potencial: tudo que teve atividade no período)
         const cat = extractCategory(orc.descricao);
         if (!servicosCount[cat]) servicosCount[cat] = { qtd: 0, receita: 0 };
-        servicosCount[cat].qtd++;
         servicosCount[cat].receita += orc.valor;
       }
+
       if (fecIn && orc.status === "contratado") {
         statsA.contratos++;
         statsA.receita += orc.valor;
         statsA.somaCiclos += Math.max(differenceInDays(dataFechamento!, dataOrc), 0);
+
+        // Alimenta Ranking Heurístico (Quantidade: apenas contratos fechados)
+        const cat = extractCategory(orc.descricao);
+        if (!servicosCount[cat]) servicosCount[cat] = { qtd: 0, receita: 0 };
+        servicosCount[cat].qtd++;
       }
       if (canIn) statsA.recusas++;
 
@@ -144,7 +153,10 @@ const Relatorios = () => {
       const fecPast = dataFechamento && (dataFechamento >= pastStartDate && dataFechamento <= pastEndDate);
       const canPast = dataCancelamento && (dataCancelamento >= pastStartDate && dataCancelamento <= pastEndDate) && orc.status === "recusado";
 
-      if (recPast) statsP.volume++;
+      const isActiveInPast = recPast || fecPast || canPast;
+
+      if (isActiveInPast) statsP.volume++;
+
       if (fecPast && orc.status === "contratado") {
         statsP.contratos++;
         statsP.receita += orc.valor;
@@ -334,19 +346,23 @@ const Relatorios = () => {
       const dRecebido = new Date(orc.dataRecebido);
       const belongsRecebido = dRecebido >= startDate && dRecebido <= endDate;
 
-      // Fechamentos e Perdas do periodo selecionado
-      const dFechamento = orc.dataFechamento ? new Date(orc.dataFechamento) : null;
-      const belongsFechado = dFechamento && dFechamento >= startDate && dFechamento <= endDate;
+      // Fechamentos e Perdas do periodo selecionado (com fallback detalhado para contratos antigos)
+      const dataRefFechamento = orc.dataFechamento || getLegacyDateFromEvents(orc, "contratado") || orc.dataRecebido;
+      const dFechamento = new Date(dataRefFechamento);
+      const belongsFechado = dFechamento >= startDate && dFechamento <= endDate;
 
-      const dCancelamento = orc.dataCancelamento ? new Date(orc.dataCancelamento) : null;
-      const belongsCancelado = dCancelamento && dCancelamento >= startDate && dCancelamento <= endDate;
+      const dataRefCancelamento = orc.dataCancelamento || getLegacyDateFromEvents(orc, "recusado") || orc.dataRecebido;
+      const dCancelamento = new Date(dataRefCancelamento);
+      const belongsCancelado = dCancelamento >= startDate && dCancelamento <= endDate;
+
+      if ((orc.status === "enviado" && belongsRecebido) || (orc.status === "contratado" && belongsFechado)) {
+        funil.pipelineTotal += orc.valor;
+      }
 
       if (orc.status === "pendente" && belongsRecebido) {
         funil.pendentes.qtd++; funil.pendentes.valor += orc.valor;
-        funil.pipelineTotal += orc.valor;
       } else if (orc.status === "enviado" && belongsRecebido) {
         funil.emNegociacao.qtd++; funil.emNegociacao.valor += orc.valor;
-        funil.pipelineTotal += orc.valor;
       }
 
       // Checagem de Estagnação (Aging)
@@ -428,8 +444,8 @@ const Relatorios = () => {
     <div className="space-y-6 max-w-[1400px]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Deep Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Análise, previsão de faturamento e LTV</p>
+          <h1 className="text-2xl font-bold text-foreground">Análise dos dados</h1>
+          <p className="text-sm text-muted-foreground mt-1">Métricas e previsão de faturamento</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
 
@@ -472,9 +488,9 @@ const Relatorios = () => {
 
       <Tabs defaultValue="geral" className="w-full">
         <TabsList className="grid grid-cols-1 md:grid-cols-3 w-full max-w-[700px] mb-6 border bg-card">
-          <TabsTrigger value="geral" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><BarChart3 className="w-4 h-4" /> Base de Orçamentos</TabsTrigger>
-          <TabsTrigger value="ltv" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><Users className="w-4 h-4" /> Desempenho de clientes</TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><TrendingUp className="w-4 h-4" /> Funil de vendas</TabsTrigger>
+          <TabsTrigger value="geral" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><BarChart3 className="w-4 h-4" /> Dos orçamentos</TabsTrigger>
+          <TabsTrigger value="ltv" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><Users className="w-4 h-4" /> Dos clientes</TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary"><TrendingUp className="w-4 h-4" /> Dos valores</TabsTrigger>
         </TabsList>
 
         {/* ======================= ABA 1: BASE GERAL ======================= */}
@@ -724,7 +740,7 @@ const Relatorios = () => {
           <div className="bg-card p-6 rounded-xl border border-border/50 mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-sm">
             <div>
               <h3 className="text-lg font-semibold text-foreground mb-1">Melhores clientes</h3>
-              <p className="text-sm text-muted-foreground">O <i>Customer Lifetime Value</i> mostra quais clientes investiram na sua empresa ao longo do tempo.</p>
+              <p className="text-sm text-muted-foreground">Nesta tela você pode ver quais clientes mais investiram na sua empresa ao longo do tempo.</p>
             </div>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -829,10 +845,9 @@ const Relatorios = () => {
           <div className="bg-muted/20 p-6 rounded-xl border border-border/50 mb-6 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
-                <Banknote className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
                 Receitas
               </h3>
-              <p className="text-sm text-muted-foreground">A soma de tudo que está nas suas mãos aguardando negociação.</p>
+              <p className="text-sm text-muted-foreground">A soma de todos os valores de orçamentos recebidos.</p>
             </div>
             <div className="text-center sm:text-right shrink-0">
               <p className="text-4xl font-black text-foreground drop-shadow-sm">{currencyFormatter.format(pipelineStats.pipelineTotal)}</p>

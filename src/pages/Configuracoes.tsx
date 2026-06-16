@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MessageSquare, User, Sun, Moon, Palette, Type, Shield, MessageCircle, TrendingUp } from "lucide-react";
+import { MessageSquare, User, Sun, Moon, Palette, Type, Shield, MessageCircle, TrendingUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
 import { Button, ConfirmButton } from "@/components/ui/button";

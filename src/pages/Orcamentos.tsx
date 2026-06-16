@@ -35,14 +35,17 @@ import type { Status } from "@/components/StatusBadge";
 // Importa o dialog de motivo de recusa para interceptar mudancas para 'recusado' na tabela e no kanban
 import { MotivoRecusaDialog, type MotivoRecusaValue } from "@/components/MotivoRecusaDialog";
 import { ConfirmacaoReversaoDialog } from "@/components/ConfirmacaoReversaoDialog";
+import { usePeriodoGlobal } from "@/contexts/PeriodoGlobalContext";
 
 const Orcamentos = () => {
+  const { mesAnoGlobal } = usePeriodoGlobal();
+
   const [searchTerm, setSearchTerm] = useState("");
   // Preset de período selecionado (default: este mês)
   const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>("mes_atual");
   // Range de datas efetivo calculado a partir do preset (ou customizado pelo usuário)
   const [periodoRange, setPeriodoRange] = useState<PeriodoRange | null>(
-    calcularRangeParaPreset("mes_atual")
+    calcularRangeParaPreset("mes_atual", mesAnoGlobal)
   );
   const [filterStatus, setFilterStatus] = useState<Status | "todos">("todos");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");

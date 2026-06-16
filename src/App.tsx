@@ -21,6 +21,8 @@ import VerifyEmail from "./pages/VerifyEmail";
 // ponto de entrada publico da aplicacao para usuarios nao autenticados.
 import LandingPage from "./pages/LadingPage";
 
+import { PeriodoGlobalProvider } from "./contexts/PeriodoGlobalContext";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -31,26 +33,28 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <WhatsAppRequestsProvider>
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <Routes>
-                {/* Rotas publicas - acessiveis sem autenticacao */}
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
+            <PeriodoGlobalProvider>
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Routes>
+                  {/* Rotas publicas - acessiveis sem autenticacao */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/verify-email" element={<VerifyEmail />} />
 
-                {/* Rotas protegidas - requerem autenticacao */}
-                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/orcamentos" element={<Orcamentos />} />
-                  <Route path="/clientes" element={<Clientes />} />
-                  <Route path="/relatorios" element={<Relatorios />} />
-                  <Route path="/configuracoes" element={<Configuracoes />} />
-                </Route>
+                  {/* Rotas protegidas - requerem autenticacao */}
+                  <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/orcamentos" element={<Orcamentos />} />
+                    <Route path="/clientes" element={<Clientes />} />
+                    <Route path="/relatorios" element={<Relatorios />} />
+                    <Route path="/configuracoes" element={<Configuracoes />} />
+                  </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </PeriodoGlobalProvider>
           </WhatsAppRequestsProvider>
         </AuthProvider>
       </TooltipProvider>

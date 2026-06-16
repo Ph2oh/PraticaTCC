@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { usePeriodoGlobal } from "@/contexts/PeriodoGlobalContext";
 
 export type PeriodoPreset =
   | "mes_atual"
@@ -58,8 +59,8 @@ interface PeriodoPickerProps {
 }
 
 /** Retorna o range de datas para um preset predefinido, ou null para "todos". */
-export function calcularRangeParaPreset(preset: PeriodoPreset): PeriodoRange | null {
-  const now = new Date();
+export function calcularRangeParaPreset(preset: PeriodoPreset, referenceDate: Date = new Date()): PeriodoRange | null {
+  const now = referenceDate;
   switch (preset) {
     case "mes_atual":
       return { start: startOfMonth(now), end: endOfMonth(now) };
@@ -100,6 +101,8 @@ export function PeriodoPicker({
   onValueChange,
   onRangeChange,
 }: PeriodoPickerProps) {
+  const { mesAnoGlobal } = usePeriodoGlobal();
+
   // Estado interno do calendário de range personalizado
   const [date, setDate] = useState<DateRange | undefined>(() => {
     if (value === "personalizado" && customRange) {
@@ -111,9 +114,9 @@ export function PeriodoPicker({
   // Sempre que o preset mudar para algo predefinido, emite o range calculado
   useEffect(() => {
     if (value !== "personalizado") {
-      onRangeChange(calcularRangeParaPreset(value));
+      onRangeChange(calcularRangeParaPreset(value, mesAnoGlobal));
     }
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value, mesAnoGlobal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sincroniza caso venha via props (ex: inicialização)
   useEffect(() => {
