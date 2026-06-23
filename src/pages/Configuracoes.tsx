@@ -195,9 +195,6 @@ const Configuracoes = () => {
               <TabsTrigger value="whatsapp" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <MessageSquare className="w-4 h-4 mr-3" /> Integrações
               </TabsTrigger>
-              <TabsTrigger value="templates" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
-                <Type className="w-4 h-4 mr-3" /> Mensagens
-              </TabsTrigger>
               <TabsTrigger value="seguranca" className="justify-start px-4 py-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none">
                 <Shield className="w-4 h-4 mr-3" /> Segurança
               </TabsTrigger>
@@ -212,7 +209,6 @@ const Configuracoes = () => {
               <TabsTrigger value="aparencia">Aparência</TabsTrigger>
               <TabsTrigger value="metas">Metas</TabsTrigger>
               <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
             </TabsList>
           </Tabs>
         </aside>
@@ -432,57 +428,6 @@ const Configuracoes = () => {
             </div>
           )}
 
-          {/* Aba: Templates */}
-          {activeTab === "templates" && (
-            <div className="space-y-6 animate-in fade-in-50">
-              <div>
-                <h3 className="text-lg font-medium">Templates de mensagem pronta</h3>
-                <p className="text-sm text-muted-foreground">Estas mensagens ficam disponíveis nas mensagens prontas de clientes e orçamentos como atalhos para abrir no seu WhatsApp Web.</p>
-              </div>
-              <Separator />
-
-              <div className="space-y-6 max-w-3xl">
-                <div className="grid gap-2">
-                  <Label className="text-base font-semibold">1. Template de Envio de Proposta</Label>
-                  <p className="text-sm text-muted-foreground">Usado logo após finalizar e precificar um orçamento pendente.</p>
-                  <Textarea
-                    value={templateProposta}
-                    onChange={(e) => setTemplateProposta(e.target.value)}
-                    className="min-h-[120px] font-mono text-sm leading-relaxed"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Variáveis Suportadas: <code className="bg-muted px-1 py-0.5 rounded">{"{{cliente}}"}</code> <code className="bg-muted px-1 py-0.5 rounded">{"{{valor}}"}</code> <code className="bg-muted px-1 py-0.5 rounded">{"{{descricao}}"}</code>
-                  </p>
-                </div>
-
-                <div className="grid gap-2 pt-4 border-t border-border/40">
-                  <Label className="text-base font-semibold">2. Lembrete / Follow-up</Label>
-                  <p className="text-sm text-muted-foreground">Enviado para clientes que ficaram parados na coluna 'Enviado'</p>
-                  <Textarea
-                    value={templateLembrete}
-                    onChange={(e) => setTemplateLembrete(e.target.value)}
-                    className="min-h-[100px] font-mono text-sm leading-relaxed"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Variáveis Suportadas: <code className="bg-muted px-1 py-0.5 rounded">{"{{cliente}}"}</code>
-                  </p>
-                </div>
-
-                <div className="grid gap-2 pt-4 border-t border-border/40">
-                  <Label className="text-base font-semibold">3. Agradecimento por Contratação</Label>
-                  <p className="text-sm text-muted-foreground">O texto padrão ideal quando você move o card para Ganho/Contratado.</p>
-                  <Textarea
-                    value={templateAgradecimento}
-                    onChange={(e) => setTemplateAgradecimento(e.target.value)}
-                    className="min-h-[100px] font-mono text-sm leading-relaxed"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Variáveis Suportadas: <code className="bg-muted px-1 py-0.5 rounded">{"{{cliente}}"}</code>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
