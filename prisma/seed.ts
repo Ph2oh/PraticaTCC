@@ -26,6 +26,7 @@ async function main() {
         empresa: "Agência Padrão",
         telefone: "(11) 90000-0000",
         isAdmin: true,
+        emailVerificado: true,
         configuracao: {
           create: {
             corPrimaria: "224.3 76.3% 48%",
@@ -36,10 +37,13 @@ async function main() {
     });
     console.log(`Admin user created: ${adminEmail} / ${adminPassword}`);
   } else {
-    // Garante que se o admin já existia antes da migração de segurança, ele receba a flag true
+    // Garante que se o admin já existia antes da migração de segurança, ele receba a flag true e email verificado
     admin = await prisma.usuario.update({
       where: { email: adminEmail },
-      data: { isAdmin: true }
+      data: { 
+        isAdmin: true,
+        emailVerificado: true 
+      }
     });
     console.log(`Admin user updated to ensure isAdmin is true: ${adminEmail}`);
   }

@@ -64,7 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const response = await originalFetch(...args);
             if (response.status === 401 || response.status === 403) {
                 const url = typeof args[0] === 'string' ? args[0] : (args[0] instanceof Request ? args[0].url : '');
-                if (url.includes('/api/')) {
+                
+                // Evita que o interceptor atue em rotas públicas de autenticação.
+                // Isso permite que o componente de Login lide com senhas incorretas (401)
+                // ou contas não verificadas (403) sem forçar um refresh para a landing page.
+                const isPublicAuthRoute = url.includes('/api/auth/login') || 
+                                          url.includes('/api/auth/register') ||
+                                          url.includes('/api/auth/verify-email') ||
+                                          url.includes('/api/auth/resend-verification');
+
+                if (url.includes('/api/') && !isPublicAuthRoute) {
                     window.dispatchEvent(new Event('auth:unauthorized'));
                 }
             }

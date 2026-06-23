@@ -17,6 +17,28 @@ import { startWhatsAppClient, getWhatsAppStatus, disconnectWhatsAppClient, accep
 
 const app = express();
 
+// Proteção global contra travamentos do Puppeteer (whatsapp-web.js)
+// Quando o usuário desconecta pelo celular, o Puppeteer pode disparar um TargetCloseError
+// e o Node fecharia a aplicação inteira por padrão. Isso blinda o servidor.
+process.on('unhandledRejection', (reason: any, promise) => {
+    const errorStr = String(reason);
+    if (errorStr.includes('TargetCloseError') || errorStr.includes('ProtocolError') || errorStr.includes('Session closed')) {
+        console.warn('[Puppeteer] Erro de fechamento do navegador ignorado para evitar queda do servidor:', reason?.message || errorStr);
+    } else {
+        console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    }
+});
+
+process.on('uncaughtException', (error: any) => {
+    const errorStr = String(error);
+    if (errorStr.includes('TargetCloseError') || errorStr.includes('ProtocolError') || errorStr.includes('Session closed')) {
+        console.warn(' [Puppeteer] Erro interno ignorado para evitar queda do servidor:', error?.message || errorStr);
+    } else {
+        console.error('Uncaught Exception:', error);
+        process.exit(1);
+    }
+});
+
 const PORT = process.env.PORT || 3001;
 // Mudança estrutural: Garante que as credenciais críticas de segurança (.env) foram carregadas para o backend inicializar, caso contrário trava o server com erro claro
 if (!process.env.JWT_SECRET) {
@@ -794,7 +816,7 @@ app.post('/api/whatsapp/disconnect', async (req: AuthRequest, res) => {
 if (process.env.NODE_ENV === 'production') {
     const distPath = path.join(process.cwd(), 'dist');
     const indexPath = path.join(distPath, 'index.html');
-    
+
     app.use(express.static(distPath));
     app.use((req, res) => {
         if (fs.existsSync(indexPath)) {
