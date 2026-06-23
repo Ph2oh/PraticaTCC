@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,107 +8,90 @@ datasource db {
 }
 
 model Cliente {
-  id              String   @id @default(uuid())
-  nome            String
-  email           String
-  telefone        String
-  ultimoContato   DateTime @default(now())
-  totalOrcamentos Int      @default(0)
-  
-  // Relations
-  usuarioId       String
-  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  orcamentos      Orcamento[]
+  id                   String                @id @default(uuid())
+  nome                 String
+  email                String
+  telefone             String
+  ultimoContato        DateTime              @default(now())
+  totalOrcamentos      Int                   @default(0)
+  usuarioId            String
+  usuario              Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  orcamentos           Orcamento[]
   solicitacoesWhatsApp SolicitacaoWhatsApp[]
 }
 
 model Orcamento {
-  id             String   @id @default(uuid())
-  descricao      String
-  valor          Float
-  status         String   @default("pendente")
-  // Campo adicionado para registrar o motivo de recusa ao mover para status 'recusado'
-  motivoRecusa   String?
-  dataRecebido   DateTime @default(now())
-  dataAtualizado DateTime @updatedAt
-  dataFechamento DateTime?
+  id               String            @id @default(uuid())
+  descricao        String
+  valor            Float
+  status           String            @default("pendente")
+  motivoRecusa     String?
+  dataRecebido     DateTime          @default(now())
+  dataAtualizado   DateTime          @updatedAt
+  clienteId        String
+  usuarioId        String
   dataCancelamento DateTime?
-
-  // Foreign key relation
-  clienteId      String
-  cliente        Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  usuarioId      String
-  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  
-  // Relations
-  eventos        OrcamentoEvento[]
+  dataFechamento   DateTime?
+  cliente          Cliente           @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario          Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  eventos          OrcamentoEvento[]
 }
 
 model OrcamentoEvento {
-  id             String   @id @default(uuid())
-  orcamentoId    String
-  orcamento      Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
-  
-  tipo           String   // "criado", "status_alterado", "atualizado"
-  descricao      String
-  statusAntigo   String?  // Anterior status para mudanças
-  statusNovo     String?  // Novo status para mudanças
-  
-  criadoEm       DateTime @default(now())
-  
+  id           String    @id @default(uuid())
+  orcamentoId  String
+  tipo         String
+  descricao    String
+  statusAntigo String?
+  statusNovo   String?
+  criadoEm     DateTime  @default(now())
+  orcamento    Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+
   @@index([orcamentoId])
 }
 
 model SolicitacaoWhatsApp {
   id               String   @id @default(uuid())
   usuarioId        String
-  usuario          Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   clienteId        String
-  cliente          Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   whatsappFrom     String
   mensagemOriginal String
   clienteNome      String
   criadoEm         DateTime @default(now())
-  
+  cliente          Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario          Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
   @@index([usuarioId])
 }
 
 model Configuracao {
-  id               String   @id @default(uuid())
-  usuarioId        String   @unique
-  usuario          Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  
-  corPrimaria      String   @default("224.3 76.3% 48%") // hsl string padrão
-  tema             String   @default("system")
-  
-  // Metas do Dashboard
-  metaReceita          Float    @default(20000)
-  metaConversao        Float    @default(45)
-  metaContratosSemana  Int      @default(3)
-  
-  // Templates de WhatsApp
-  templateProposta       String @default("Olá {{cliente}}, tudo bem? \n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
-  templateLembrete       String @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! ")
-  templateAgradecimento  String @default("Muito obrigado por fechar conosco, {{cliente}}! Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
-  
-  atualizadoEm     DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  usuarioId             String   @unique
+  corPrimaria           String   @default("224.3 76.3% 48%")
+  tema                  String   @default("system")
+  templateProposta      String   @default("Olá {{cliente}}, tudo bem? \n\nConforme conversamos, o valor estimado para o serviço fica em *{{valor}}*.\n\nO escopo inclui:\n{{descricao}}\n\nPodemos dar andamento? Qualquer dúvida estou à disposição!")
+  templateLembrete      String   @default("Oi {{cliente}}, passando para saber se você conseguiu dar uma olhadinha na nossa proposta ou se ficou com alguma dúvida! 😊")
+  templateAgradecimento String   @default("Muito obrigado por fechar conosco, {{cliente}}! Vamos fazer um trabalho incrível. Em breve envio os próximos passos.")
+  atualizadoEm          DateTime @updatedAt
+  metaConversao         Float    @default(45)
+  metaReceita           Float    @default(20000)
+  metaContratosSemana   Int      @default(3)
+  usuario               Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
 model Usuario {
-  id               String   @id @default(uuid())
-  nome             String
-  email            String   @unique
-  senha            String   // Senha hasheada com bcrypt
-  empresa          String?  // Nome da Empresa/Agência
-  telefone         String?  // Telefone da Empresa
-  isAdmin          Boolean  @default(false)
-  emailVerificado  Boolean  @default(false)
-  tokenVerificacaoEmail String? @unique
-  createdAt        DateTime @default(now())
-  
-  // Relations
-  clientes         Cliente[]
-  orcamentos       Orcamento[]
-  configuracao     Configuracao?
-  solicitacoesWhatsApp SolicitacaoWhatsApp[]
+  id                    String                @id @default(uuid())
+  nome                  String
+  email                 String                @unique
+  senha                 String
+  empresa               String?
+  telefone              String?
+  isAdmin               Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  emailVerificado       Boolean               @default(false)
+  tokenVerificacaoEmail String?               @unique
+  clientes              Cliente[]
+  configuracao          Configuracao?
+  orcamentos            Orcamento[]
+  solicitacoesWhatsApp  SolicitacaoWhatsApp[]
 }
